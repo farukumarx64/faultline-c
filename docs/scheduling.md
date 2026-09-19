@@ -166,9 +166,12 @@ protects this capacity relationship. Requeue publishes the changed job only afte
 its queue insertion succeeds. The scheduler refreshes its clock snapshot after
 connection cleanup so a newly timestamped retry cannot be assigned at an older time.
 
-This is the minimum retry/cleanup integration needed to retain submitted work
-through scheduling failures. It does not implement execution leases independent
-of heartbeats, durable recovery, deduplication, or exactly-once execution.
+This implements an assignment lease tied to worker connection/heartbeat liveness
+and bounded at-least-once retries while the coordinator remains alive. The
+[recovery contract](recovery.md#assignment-lease) explains revocation, overlapping
+executions, and the conditions for progress. Independent execution deadlines,
+durable recovery, submission deduplication, and exactly-once execution remain
+outside the current implementation.
 
 ## Transport and the worker loop
 

@@ -14,6 +14,8 @@ Use `make test-unit` or `make test-integration` to run one layer separately.
 Use `make test-recovery` for SIGKILL, SIGSTOP/heartbeat recovery, resumed-worker
 old-attempt protection, and retry exhaustion, or `make SANITIZE=1 test-recovery`
 for instrumented binaries.
+The [phase review](../docs/recovery.md#phase-review) records the recovery outcomes,
+supporting test coverage, and the limits of those checks.
 Use `make test-execution` for built-in results, heartbeats during computation,
 worker reuse, and cancellation, or `make SANITIZE=1 test-execution` for instrumented binaries.
 Use `make test-scheduling` for CLI submission and scheduling, or

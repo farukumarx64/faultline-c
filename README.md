@@ -157,6 +157,15 @@ Retry-exhaustion checks kill successive owners until the allowance runs out,
 verify FAILED without another assignment, and confirm a healthy worker can still
 complete a new job. Two retries allow three attempts; zero retries allow one.
 
+Assignments are revocable leases tied to worker connection/heartbeat liveness.
+An expired worker can still be computing while another starts the retry.
+Job/worker/attempt validation protects accepted coordinator state, while tasks
+must be safe to repeat under the bounded at-least-once retry policy. Heartbeats
+do not prove task progress, and submission ACKs currently confirm in-memory
+acceptance only. See [the lease and execution guarantees](docs/recovery.md#assignment-lease).
+The [fault-tolerance phase review](docs/recovery.md#phase-review) records the
+verified recovery cases and the boundary before persistence.
+
 ## Tests
 
 ```sh

@@ -2,13 +2,111 @@
 
 Six fault-tolerance acceptance checks exercise recovery and retry limits with
 real busy workers. SIGKILL exercises connection-loss recovery; SIGSTOP exercises
-heartbeat expiry while the worker
-process remains paused and keeps its socket open until the coordinator closes it.
+heartbeat expiry while the worker process remains paused and keeps its socket
+open until the coordinator closes it.
 Two scenarios resume that expired worker while its retry is running or
 after its retry has completed, checking that the current job remains unchanged.
 Two more interrupt every allowed attempt, checking that the job becomes FAILED
 and stays out of the queue even when another worker is available. The coordinator,
 workers, and submission CLI are the actual executables.
+
+## Assignment lease
+
+A lease is revocable permission to run a particular attempt of a job. In this
+implementation, the coordinator owns that permission and ties it to the worker's
+registered connection and heartbeat liveness. There is no separate lease message,
+per-job lease timer, or expiry timestamp sent to the worker.
+
+| Part of the lease | Current behavior |
+| --- | --- |
+| Grant | The coordinator changes QUEUED to ASSIGNED, records the worker ID, increments the attempt, and reserves the worker before sending JOB_ASSIGN. |
+| Identity | Every assignment and job report carries `(job_id, worker_id, attempt)`. Worker identity is also checked against the sending connection. |
+| Liveness | Registration initializes the last-heartbeat time. Each accepted HEARTBEAT refreshes it using the coordinator's monotonic clock. Assignment, PING, and job reports do not refresh it. |
+| Default timing | Workers send a heartbeat every 2000 ms; the coordinator expires them after 6000 ms without an accepted heartbeat. Both values are configurable independently. |
+| Expiry | A live worker expires when `now_ms - last_heartbeat_ms >= heartbeat_timeout_ms`. The event loop checks expiry before reading that connection, so late bytes cannot renew an already-expired registration. |
+| Early revocation | Disconnects and connection/protocol failures also revoke ownership, including failure while sending an assignment. |
+| End of attempt | An accepted completion stores DONE and the result. Task failure or worker loss requeues the job if retries remain; otherwise it stores FAILED. |
+
+The configuration flags are `--heartbeat-interval-ms` on the worker and
+`--heartbeat-timeout-ms` on the coordinator. They are not negotiated. Allow
+headroom between the interval and timeout for delivery and scheduling delays.
+Expiry is observed when the event loop runs, not at a guaranteed real-time instant.
+An assignment inherits the worker's current heartbeat freshness; it does not
+start a new six-second job timer.
+
+Revocation removes the old connection from scheduling and report handling. A
+retry returns to the FIFO tail with the same job ID and no current owner. Its
+next assignment uses a higher attempt number. `max_retries=N` allows at most
+`N+1` assignments, including the original; the default zero allows one. An
+assignment can consume this allowance even if its worker never receives it or
+reports STARTED. No eligible worker means the queued retry waits.
+
+Within one coordinator lifetime, each job has at most one authoritative active
+assignment. The scheduler validates the connection's worker ID, the current job
+owner and attempt, and the permitted state transition before accepting a report.
+DONE and FAILED are terminal. A successful job has one accepted completion; an
+old report cannot replace that result or claim ownership of a newer attempt.
+Job/worker IDs and attempt counters currently live only in memory, so this is
+not a durable identity guarantee across coordinator restarts.
+
+A rejected scheduler report leaves its state unchanged. At the TCP handler,
+an invalid report also closes the offending connection; if that connection owns
+active work, separate worker-loss cleanup applies to that work. This distinction
+matters for invalid reports on a still-current connection. An expired worker's
+old connection has already been removed and cannot report into a newer attempt.
+
+A timeout means the coordinator stopped hearing from a worker. It does not prove
+the process stopped computing. A paused or partitioned worker may continue or
+resume its old computation after another worker starts the retry. The worker
+cancels its task when it detects a lost connection, but the coordinator cannot
+remotely force that detection or undo effects already performed.
+
+Heartbeats also do not prove task progress. A hung task can remain RUNNING while
+the worker's networking thread continues heartbeating. A separate execution
+deadline, task-progress watchdog, and enforced expiry at external resources are
+not implemented. The current lease protects coordinator ownership and accepted
+results; it does not prevent overlapping physical executions or external effects.
+
+## At-least-once execution and its limits
+
+Faultline uses bounded at-least-once retry semantics: work whose successful
+completion is unconfirmed may be executed again, from the beginning. For example:
+
+1. Worker A runs job J on attempt 1 and finishes its computation.
+2. Its connection fails before the coordinator accepts the completion report.
+3. The coordinator still sees unfinished work, so it requeues J if a retry remains.
+4. Worker B runs J on attempt 2 and reports a result that the coordinator accepts.
+
+The task executed twice even though the coordinator stores only one accepted
+result. A worker's `job_completed_sent` log establishes a successful local send,
+not remote acceptance. The protocol has no completion acknowledgment to the worker.
+
+Task implementations should be idempotent: repeating the same logical job should
+have the same intended external effect as performing it once. Setting a value to
+the same value can satisfy that property; incrementing a counter again does not.
+The current built-in tasks return computed results without application-level
+external writes. Future tasks with effects need their own idempotency/deduplication
+mechanism at the destination. Attempt validation inside the coordinator cannot
+undo or deduplicate those effects.
+
+The current guarantee is conditional and in memory:
+
+- While the coordinator remains running, detected worker loss preserves the job
+  as either a queued retry or a terminal FAILED record. It does not silently drop
+  the job from its store. Completed/failed records remain within the 256-job limit.
+- A retry can progress only when an eligible worker is available and the
+  coordinator, task, and network can make progress before the allowance runs out.
+- Finite retries can end in FAILED without any successful execution. A job may
+  never begin computing if every assignment fails before execution or no worker
+  becomes available. At-least-once describes the retry/duplicate-execution policy
+  here; it is not an unconditional promise of delivery or eventual success.
+- A submission ACK confirms in-memory storage and enqueueing. Coordinator exit
+  loses this state. WAL-backed acceptance and restart recovery are future work.
+- A lost submission ACK leaves acceptance uncertain. Manually resubmitting can
+  create a second job ID; there is no client submission deduplication key yet.
+
+These are guarantees of a single live coordinator. Exactly-once execution,
+coordinator failover, and durable recovery are outside this completed phase.
 
 ## Run the checks
 
@@ -25,6 +123,54 @@ a fresh coordinator. Signals target only the test's own worker child processes.
 All six checks are also included in `make test-integration`, `make test`, and
 `make test-sanitize`. The existing `INTEGRATION_ARGS='--port 9000'` option works
 when that port is available.
+
+## Phase review
+
+Reviewed on 2026-09-19 on macOS arm64, using runtime and tests at commit
+`0ea8118`. This review changes documentation only. The fault-tolerance phase's
+exit criterion is met: killing a worker during a job allows another connected
+worker to complete that job when a retry remains. The broader recovery checks
+also pass in normal and AddressSanitizer/UBSan builds:
+
+| Full regression command | Review result |
+| --- | --- |
+| `make test` | 67 C test groups and 75 integration checks passed; 2 default-endpoint checks skipped. |
+| `make test-sanitize` | The same 67 C groups and 75 integration checks passed with AddressSanitizer/UBSan; the same 2 checks skipped. No sanitizer diagnostics were reported. |
+
+Each run discovered 77 integration scenarios, including all six recovery checks.
+Available loopback ports were selected automatically, so the CLI and worker
+default-port-9000 checks were skipped. Those endpoint defaults were not reverified
+in this review. No runtime or test-code changes were needed.
+
+| Acceptance check | Observed result in both builds |
+| --- | --- |
+| SIGKILL during attempt 1 | Connected worker completes the same job on attempt 2, then completes a follow-up job. |
+| SIGSTOP with the connection still open | Six-second heartbeat expiry requeues the job; the connected survivor completes attempt 2 while the original worker remains paused. |
+| Resume old worker during attempt 2 | Old process exits on its closed connection; the current running attempt and eventual result are preserved. |
+| Resume old worker after attempt 2 completes | The accepted DONE result is preserved. |
+| Repeated crashes with two retries | Three interrupted attempts end in FAILED; the spare completes unrelated work, with no fourth assignment. |
+| Crash with zero retries | The first interrupted attempt ends in FAILED; the spare remains usable. |
+
+The C scheduler tests independently reject 24 old STARTED/COMPLETED/FAILED
+reports across queued, assigned, running, and completed states, on the same or a
+different worker ID. Every rejection preserves the scheduler snapshot. Job-model
+tests cover all state transitions, terminal states, attempt validation, and retry
+boundaries. Registry and heartbeat tests cover renewal, the exact expiry boundary,
+and late buffered heartbeats. Execution and scheduling tests cover task errors,
+graceful disconnect, retry FIFO ordering, and continued worker reuse.
+
+The six recovery scenarios are deterministic local failure experiments. Resuming
+an old process does not guarantee that an outdated completion reaches the report
+handler; the direct scheduler matrix covers validation separately. These runs
+do not exercise real multi-host partitions, repeated heartbeat-expiry exhaustion,
+external side-effect deduplication, or coordinator restart. Test timing bounds
+allow local scheduling slack and are not production latency guarantees.
+
+The next project-plan phase is persistence: define the WAL record format,
+append/flush and acknowledgment contract, replay rules, and recovery of jobs
+that were active when the coordinator stopped. Durable identities and retry
+budgets must survive replay. That work is still required before claiming the
+full MVP's coordinator-restart recovery guarantee.
 
 ## Hard-crash scenario
 

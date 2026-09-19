@@ -12,7 +12,7 @@ now orchestrates storage, enqueue, assignment, reports, and worker-loss transiti
 | Field | Purpose |
 | --- | --- |
 | `id` | Nonzero 64-bit job ID, supplied by the caller. The coordinator scheduler now allocates unique IDs within its lifetime. |
-| `task_type` | SLEEP, PRIME_COUNT, FIBONACCI, or HASH. These identify planned executors; none is implemented yet. |
+| `task_type` | SLEEP, PRIME_COUNT, FIBONACCI, or HASH. All four have [worker executors](tasks.md). |
 | `arguments`, `argument_size` | An owned copy of the task's opaque argument bytes and their length. |
 | `state` | QUEUED, ASSIGNED, RUNNING, DONE, or FAILED. |
 | `worker_id` | Assigned worker ID while active; zero while queued. Terminal jobs retain the last worker ID for inspection. |
@@ -150,9 +150,11 @@ Their coordinator handlers validate the sending connection before calling these 
 These are record transitions only. Calling fail does not insert anything into
 a FIFO, send another assignment, or run another task. An explicit successful
 queue push adds the retried ID to the back. The scheduler now performs that
-insertion for task failure and worker loss. Execution leases and persistence
-recovery remain later work. The model preserves
-only the current/latest attempt's metadata, not a full attempt history.
+insertion for task failure and worker loss. The coordinator ties the active
+assignment's lease to worker connection/heartbeat liveness; see the
+[lease contract](recovery.md#assignment-lease). Separate execution deadlines and
+persistent recovery remain later work. The model preserves only the current/latest
+attempt's metadata, not a full attempt history.
 
 ## Timestamp rules
 
