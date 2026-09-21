@@ -23,17 +23,18 @@ REGISTRY_OBJECT := $(BUILD_DIR)/coordinator/worker_registry.o
 JOB_OBJECT := $(BUILD_DIR)/coordinator/job.o
 QUEUE_OBJECT := $(BUILD_DIR)/coordinator/job_queue.o
 SCHEDULER_OBJECT := $(BUILD_DIR)/coordinator/scheduler.o
+WAL_FORMAT_OBJECT := $(BUILD_DIR)/coordinator/wal_format.o
 TASK_OBJECT := $(BUILD_DIR)/worker/task.o
 MAIN_OBJECTS := $(BUILD_DIR)/coordinator/main.o \
 	$(BUILD_DIR)/worker/main.o $(BUILD_DIR)/cli/main.o
-TEST_NAMES := test_protocol test_messages test_net test_worker_registry test_jobs test_job_queue test_job_messages test_scheduler test_tasks
+TEST_NAMES := test_protocol test_messages test_net test_worker_registry test_jobs test_job_queue test_job_messages test_scheduler test_tasks test_wal
 TEST_OBJECTS := $(addprefix $(BUILD_DIR)/tests/,$(addsuffix .o,$(TEST_NAMES)))
-OBJECTS := $(COMMON_OBJECTS) $(MAIN_OBJECTS) $(TEST_OBJECTS) $(REGISTRY_OBJECT) $(JOB_OBJECT) $(QUEUE_OBJECT) $(SCHEDULER_OBJECT) $(TASK_OBJECT)
+OBJECTS := $(COMMON_OBJECTS) $(MAIN_OBJECTS) $(TEST_OBJECTS) $(REGISTRY_OBJECT) $(JOB_OBJECT) $(QUEUE_OBJECT) $(SCHEDULER_OBJECT) $(TASK_OBJECT) $(WAL_FORMAT_OBJECT)
 PROGRAMS := $(BUILD_DIR)/faultline-coordinator \
 	$(BUILD_DIR)/faultline-worker $(BUILD_DIR)/faultline
 TEST_PROGRAMS := $(addprefix $(BUILD_DIR)/tests/,$(TEST_NAMES))
 
-.PHONY: all sanitize test test-unit test-integration test-failures test-scheduling test-execution test-recovery test-sanitize clean
+.PHONY: all sanitize test test-unit test-integration test-failures test-scheduling test-execution test-recovery test-wal test-sanitize clean
 
 all: $(PROGRAMS)
 
@@ -52,6 +53,10 @@ test-unit: $(TEST_PROGRAMS)
 	./$(BUILD_DIR)/tests/test_job_messages
 	./$(BUILD_DIR)/tests/test_scheduler
 	./$(BUILD_DIR)/tests/test_tasks
+	./$(BUILD_DIR)/tests/test_wal
+
+test-wal: $(BUILD_DIR)/tests/test_wal
+	./$(BUILD_DIR)/tests/test_wal
 
 test-integration: all
 	$(PYTHON) tests/integration/test_recovery.py --bin-dir $(BUILD_DIR) $(INTEGRATION_ARGS)
@@ -98,6 +103,8 @@ $(BUILD_DIR)/tests/test_job_queue: $(JOB_OBJECT) $(QUEUE_OBJECT)
 $(BUILD_DIR)/tests/test_scheduler: $(JOB_OBJECT) $(QUEUE_OBJECT) $(SCHEDULER_OBJECT)
 
 $(BUILD_DIR)/tests/test_tasks: $(TASK_OBJECT)
+
+$(BUILD_DIR)/tests/test_wal: $(JOB_OBJECT) $(WAL_FORMAT_OBJECT)
 
 $(BUILD_DIR)/worker/main.o $(BUILD_DIR)/tests/test_tasks.o: PROJECT_CFLAGS += -pthread
 $(BUILD_DIR)/faultline-worker $(BUILD_DIR)/tests/test_tasks: LDLIBS += -pthread
