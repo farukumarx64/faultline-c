@@ -172,6 +172,11 @@ that were active when the coordinator stopped. Durable identities and retry
 budgets must survive replay. That work is still required before claiming the
 full MVP's coordinator-restart recovery guarantee.
 
+Follow-up design, 2026-09-21: the [durability contract](durability.md) now defines
+what survives, sync-before-ACK ordering, and retry accounting during startup.
+It is a specification for the next implementation steps, not additional recovery
+test evidence or an implemented WAL.
+
 ## Hard-crash scenario
 
 1. Start two workers with 100 ms heartbeat intervals. Wait for both registrations

@@ -71,9 +71,12 @@ lease does not prove the old worker stopped executing. The
 
 The future WAL will record job creation and meaningful transitions. Restart
 replay must reconstruct state, preserve terminal outcomes, and make queued work
-available again. Previously active jobs have uncertain outcomes that the durable
-recovery policy must handle. This is a requirement for the persistence phase;
-the current coordinator loses its job store when it exits.
+available again. The [durability contract](durability.md) now specifies that
+recovered ASSIGNED/RUNNING attempts use the worker-loss retry policy, with each
+recovery outcome synced before dispatch resumes. Already-queued jobs do not
+consume another retry just because startup runs again. This is defined behavior
+for the upcoming persistence implementation; the current coordinator still loses
+its job store when it exits.
 
 ## Guarantees and limits
 
@@ -86,9 +89,10 @@ the current coordinator loses its job store when it exits.
   failure, even before any computation begins. Eventual execution or success
   requires available workers and continued coordinator/task/network progress.
 - Submission ACKs currently confirm in-memory acceptance only. For the future
-  persistence phase, durable job state must survive coordinator restart. The point
-  at which submission is acknowledged as durable must be defined with the WAL
-  write and flush policy before this guarantee is claimed by the implementation.
+  persistence phase, the contract requires a complete creation record and
+  successful WAL sync before an ACK. Job identity, input, counters, queue order,
+  and terminal outcomes must survive coordinator process restart using that WAL.
+  This guarantee is specified but not yet implemented.
 - There is one coordinator and no automatic failover. Scheduling is unavailable
   while it is down. Existing worker computations may continue,
   and restart recovery must account for their uncertain outcomes.
@@ -120,9 +124,10 @@ buffering while keeping heartbeats active.
 
 Workers use one task pthread while the main thread owns the socket and heartbeats.
 Atomic completion/cancellation flags coordinate the two threads; shutdown joins
-active work. Before persistence, resolve how job/attempt IDs and retry
-counters are preserved across restarts, and how WAL writes,
-acknowledgments, and incomplete trailing records are handled.
+active work. The [durability contract](durability.md) defines persisted IDs and
+counters, append/sync/publication ordering, logical job time across restarts,
+and treatment of incomplete trailing records. Next, the WAL record format must
+encode those decisions before append/flush, replay, and runtime integration.
 
 ## Evidence required for v0.1
 

@@ -91,6 +91,12 @@ yet: after 256 successful submissions, further submissions are rejected until a
 restart, even if some jobs have completed. Restart also loses these in-memory jobs;
 there is no persistence guarantee in this milestone.
 
+The [durability contract](durability.md#submission-acknowledgment-boundary)
+defines the upcoming change: prepare a submission, append and sync its complete
+creation record, then publish it and queue its ACK. Once implemented, restart
+will retain terminal records too and will no longer free store capacity. The
+current scheduler behavior below remains in-memory only.
+
 `faultline_scheduler_submit()` prepares a validated QUEUED record, pushes its ID
 to the FIFO, stores the owned record, and advances the ID counter. No failing
 operations occur after enqueue. Invalid/full/exhausted submissions leave the

@@ -14,7 +14,9 @@ It checks incoming heartbeat IDs against their connections and marks workers
 dead on disconnect or heartbeat expiry. The worker executable connects, registers,
 prints its assigned ID, and sends a heartbeat every two seconds. The coordinator
 expires a worker after six seconds without a valid heartbeat. Both durations are
-configurable. Built-in task execution is implemented; persistence remains future work.
+configurable. Built-in task execution is implemented. The
+[durability contract](docs/durability.md) defines the next persistence phase;
+the WAL and coordinator restart recovery are not implemented yet.
 
 Dedicated failure tests distinguish worker exit and TCP reset from missed
 heartbeats on an open connection. A healthy worker and the CLI must remain usable
@@ -206,7 +208,10 @@ faultline/
 │   ├── workers.md
 │   ├── jobs.md
 │   ├── queue.md
-│   └── scheduling.md
+│   ├── scheduling.md
+│   ├── tasks.md
+│   ├── recovery.md
+│   └── durability.md
 ├── include/             Shared C headers
 ├── src/
 │   ├── common/          Shared protocol, networking, and logging code
@@ -227,5 +232,8 @@ defines the record, state transitions, attempt identity, and retry limits.
 The [queue guide](docs/queue.md) explains FIFO ordering, capacity, and job ownership.
 The [job message specification](docs/job-protocol.md) defines payload offsets,
 message semantics, and validation. The [scheduling guide](docs/scheduling.md)
-connects those pieces to CLI submission and live FIFO dispatch. Next come built-in
-executors and actual worker start/result reporting.
+connects those pieces to CLI submission and live FIFO dispatch. The
+[task guide](docs/tasks.md) covers built-in execution and result reporting; the
+[recovery guide](docs/recovery.md) records worker-failure guarantees and checks.
+The [durability contract](docs/durability.md) defines the upcoming WAL acceptance,
+restart, and retry rules. Its first implementation step is the WAL record format.

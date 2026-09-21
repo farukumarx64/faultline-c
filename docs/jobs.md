@@ -168,9 +168,12 @@ Zero is a valid time, so it cannot be the unset marker. A failure before STARTED
 leaves `started_at_ms` unset. Requeue clears the attempt's timestamps; terminal
 states keep their available timestamps for inspection.
 
-These values belong to one coordinator clock lifetime. Persisting/replaying job
-state across restart will require a separate policy rather than comparing old
-monotonic values with a new machine or clock origin.
+These current values belong to one coordinator clock lifetime. The upcoming
+[durability contract](durability.md#time-across-restarts) preserves job timestamps
+on a logical timeline: a new session continues from the recovered maximum plus
+fresh monotonic elapsed time. Socket and heartbeat deadlines still use a fresh
+raw monotonic clock. This policy is defined but not implemented; it excludes
+downtime from cross-session job timestamp differences.
 
 ## Example and tests
 
