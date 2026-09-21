@@ -7,10 +7,12 @@ make test
 make test-sanitize
 ```
 
-These run 67 protocol, registry, job, queue, scheduler, task, and socket C test groups plus process integration
+These run 77 protocol, registry, job, queue, scheduler, task, socket, and WAL C test groups plus process integration
 tests using Python 3's standard library. A loopback-capable environment is
 required. You can select the Python interpreter with `PYTHON=/path/to/python3`.
 Use `make test-unit` or `make test-integration` to run one layer separately.
+Use `make test-wal` for the WAL format suite, or `make SANITIZE=1 test-wal`
+for the same checks with AddressSanitizer/UBSan.
 Use `make test-recovery` for SIGKILL, SIGSTOP/heartbeat recovery, resumed-worker
 old-attempt protection, and retry exhaustion, or `make SANITIZE=1 test-recovery`
 for instrumented binaries.
@@ -80,6 +82,33 @@ Rejected codec calls preserve all output bytes and written/consumed counts.
 These are buffer/model tests; separate process tests cover live execution. The
 binary also links the job model for the final identity check.
 
+`test_wal.c` adds ten [WAL format](../docs/wal-format.md) groups:
+
+- Literal file header and all seven record types, independently generated with
+  Python `struct.pack` and `zlib.crc32`; unaligned buffers and trailing bytes.
+- Every incomplete input prefix and insufficient output capacity, including the
+  maximum 2164-byte record. Exact input allocations expose overreads to ASan.
+- Every single-bit flip across the file header and seven record fixtures: 6216
+  corruptions. Corrupted lengths fail from the fixed header alone.
+- Bad magic, version, flags, type, sequence, and outer lengths with repaired
+  header CRCs, proving field validation independently of checksum rejection.
+- Invalid job IDs, enums, counters, times, reserved bytes, inner lengths, and
+  state/record combinations with valid recalculated header/payload CRCs.
+- Invalid encoder inputs, preserving all output bytes and the written count.
+- Empty/maximum binary payloads; integer, retry/attempt, and timestamp boundaries,
+  including the unset marker, equal times, and `INT64_MAX`.
+- Consecutive records and expected-sequence checks for gaps, duplicates, ordering,
+  zero, and maximum sequence values. This is not cross-record state replay.
+- Snapshots from the existing model across all four tasks, budgets 0–2, failure
+  before/after STARTED, both failure reasons, retries, success, and exhaustion.
+- Null arguments, owned decoded payloads after input reuse, and exclusion of
+  unused C array capacity from the serialized bytes.
+
+Rejected calls preserve outputs and byte counts. The test-only reference CRC
+uses an MSB-first calculation distinct from production's reflected calculation;
+fixed valid fixtures do not depend on either C implementation. These tests do
+not open a WAL file, sync storage, replay a history, or restart the coordinator.
+
 `test_net.c` has six socket test groups and two parsing groups. Socket
 tests use local stream socket pairs and child processes to verify fragmented
 receives, clean EOF versus truncation,
@@ -127,7 +156,7 @@ Stale IDs cannot update or kill its replacement worker. Churn exceeds the
 
 These tests need no sockets or sleeps. They verify model-level transitions only;
 runtime submission and retries are now covered by the scheduler tests below.
-The job model links into the coordinator and the job/queue/job-message/scheduler test
+The job model links into the coordinator and the job/queue/job-message/scheduler/WAL test
 binaries; the CLI and worker do not link its transition implementation.
 
 `test_job_queue.c` adds seven FIFO test groups:

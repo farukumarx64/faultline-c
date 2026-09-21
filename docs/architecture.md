@@ -126,8 +126,10 @@ Workers use one task pthread while the main thread owns the socket and heartbeat
 Atomic completion/cancellation flags coordinate the two threads; shutdown joins
 active work. The [durability contract](durability.md) defines persisted IDs and
 counters, append/sync/publication ordering, logical job time across restarts,
-and treatment of incomplete trailing records. Next, the WAL record format must
-encode those decisions before append/flush, replay, and runtime integration.
+and treatment of incomplete trailing records. The [WAL format](wal-format.md)
+now encodes those decisions with versioned headers, full job snapshots, sequence
+numbers, and header/payload checksums. Its pure byte codecs are tested; append/sync,
+replay, and runtime integration are still future steps.
 
 ## Evidence required for v0.1
 

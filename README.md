@@ -15,8 +15,10 @@ dead on disconnect or heartbeat expiry. The worker executable connects, register
 prints its assigned ID, and sends a heartbeat every two seconds. The coordinator
 expires a worker after six seconds without a valid heartbeat. Both durations are
 configurable. Built-in task execution is implemented. The
-[durability contract](docs/durability.md) defines the next persistence phase;
-the WAL and coordinator restart recovery are not implemented yet.
+[durability contract](docs/durability.md) defines the persistence phase. The
+[WAL format](docs/wal-format.md) now has versioned headers, explicit job payloads,
+checksums, and tested byte codecs. WAL file I/O and coordinator restart recovery
+are not implemented yet.
 
 Dedicated failure tests distinguish worker exit and TCP reset from missed
 heartbeats on an open connection. A healthy worker and the CLI must remain usable
@@ -178,6 +180,8 @@ make test-sanitize
 Both commands build and run C unit tests and Python integration tests against
 the real executables. `test-sanitize` instruments all C programs under test.
 Use `make test-unit` or `make test-integration` to run either layer separately.
+Use `make test-wal` for WAL format checks, or `make SANITIZE=1 test-wal`
+for the same checks with AddressSanitizer/UBSan.
 Use `make test-scheduling` for CLI submission and scheduling scenarios.
 Use `make test-execution` for task results, concurrent workers, and cancellation.
 Use `make test-recovery` for crash/heartbeat recovery, resumed-worker protection,
@@ -211,14 +215,15 @@ faultline/
 │   ├── scheduling.md
 │   ├── tasks.md
 │   ├── recovery.md
-│   └── durability.md
+│   ├── durability.md
+│   └── wal-format.md
 ├── include/             Shared C headers
 ├── src/
 │   ├── common/          Shared protocol, networking, and logging code
-│   ├── coordinator/     Event loop, worker registry, job store, and scheduler
+│   ├── coordinator/     Event loop, registry, job store, scheduler, and WAL codec
 │   ├── worker/          Registration, heartbeats, and assignment reception
 │   └── cli/             PING and job submission
-└── tests/               Protocol/registry/job/queue/socket tests and TCP integration tests
+└── tests/               C unit tests (including WAL format) and TCP integration tests
 ```
 
 Read [the architecture note](docs/architecture.md) for component responsibilities,
@@ -236,4 +241,5 @@ connects those pieces to CLI submission and live FIFO dispatch. The
 [task guide](docs/tasks.md) covers built-in execution and result reporting; the
 [recovery guide](docs/recovery.md) records worker-failure guarantees and checks.
 The [durability contract](docs/durability.md) defines the upcoming WAL acceptance,
-restart, and retry rules. Its first implementation step is the WAL record format.
+restart, and retry rules. The [WAL format specification](docs/wal-format.md)
+defines exact file/record bytes and validation. Append/sync and replay are next.

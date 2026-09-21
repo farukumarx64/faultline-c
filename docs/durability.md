@@ -4,6 +4,8 @@ Defined 2026-09-21. This is the contract for the upcoming persistence
 implementation, not a description of persistence already shipped. The current
 coordinator still holds jobs in memory and loses them on exit. This step adds
 no WAL reader/writer, startup recovery, or new CLI option.
+The following [format step](wal-format.md) implements byte codecs and validation;
+it does not yet implement this durability promise.
 
 The promise to implement is: **after the client receives a valid submission ACK,
 the job can be recovered from the same WAL after a coordinator process crash.**
@@ -59,8 +61,8 @@ measurements must include flush latency and its effect on heartbeat processing.
 One logical record must represent a complete transition, including its job,
 counter, and queue consequences. For example, recovering a requeue without its
 retry increment, or a created job without reserving its ID, is forbidden. The
-next step specifies the record types and exact serialized bytes; raw C structs
-are never the persistent format.
+[WAL format](wal-format.md) specifies the record types and exact serialized
+bytes; raw C structs are never the persistent format.
 
 The existing 256-job store limit includes retained DONE and FAILED records.
 Persistence means a restart will no longer free those slots. Replay must reject
@@ -240,8 +242,9 @@ be mistaken for permission to discard an acknowledged record.
 A complete record with a bad checksum, unknown version/type, impossible size,
 invalid sequence, or invalid state transition must stop startup with an error,
 even if it is the last record. Do not skip damaged records, scan forward for a
-new magic number, or silently reset the store. The format step will define exact
-framing/checksum rules; corruption detection does not provide corruption repair.
+new magic number, or silently reset the store. The [WAL format](wal-format.md)
+defines exact framing/checksum rules; corruption detection does not provide
+corruption repair.
 
 Handle short writes by continuing from the unwritten offset and interrupted
 system calls according to their API rules. If a required append, sync, truncation,
@@ -287,9 +290,9 @@ they are not tests claimed to pass in this documentation-only step:
 11. Replay timestamps greater than the new raw clock and force equal timestamps;
     verify valid future job transitions and fresh heartbeat timing. Check overflow.
 
-The next implementation step is the WAL record format: header/version, record
-types, lengths, byte order, sequence, checksum, payloads, and validation rules
-that encode this contract. Then come append/flush, replay, runtime integration,
-and coordinator-crash experiments. The existing
+The [WAL record format and codecs](wal-format.md) now define headers/versions,
+record types, lengths, byte order, sequence, checksums, payloads, and validation
+rules that encode this contract. Next come append/flush, replay, runtime
+integration, and coordinator-crash experiments. The existing
 [worker-recovery guarantees](recovery.md) continue to apply; persistence does
 not make execution exactly once or replenish finite retry budgets.
