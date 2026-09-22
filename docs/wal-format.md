@@ -2,14 +2,16 @@
 
 Defined 2026-09-21. The byte format, in-memory encoders/decoders, and format tests
 are implemented. The [WAL writer](wal-writer.md) now implements new-file creation,
-locking, and append/sync. Replay and coordinator integration are later steps.
+locking, and append/sync. [Replay](wal-replay.md) implements reading, historical
+validation, reconstruction, and incomplete-tail repair. Coordinator integration
+and startup reconciliation remain later steps.
 The coordinator still loses its in-memory state
 on exit. See the [durability contract](durability.md) for the behavior this
 format must eventually support.
 
 A WAL is an ordered history of durable state changes. The writer appends and
-syncs one complete record before a caller may publish its effects. A future
-reader will validate records in order and reconstruct jobs, queue order, and ID
+syncs one complete record before a caller may publish its effects. The replay
+reader validates records in order and reconstructs jobs, queue order, and ID
 allocation. The codec only converts between C values and bytes; successful
 encoding is not a disk write or a durability guarantee.
 
@@ -80,7 +82,7 @@ These IDs belong to the disk format; they are independent of TCP message IDs.
 A network request asks for a change. A WAL record describes the accepted change
 after coordinator validation.
 
-| ID | Type | Payload | Meaning for future replay |
+| ID | Type | Payload | Meaning for replay |
 | --- | --- | --- | --- |
 | 1 | `WORKER_ID_ALLOCATED` | 4-byte worker ID | Advance the durable worker-ID allocation high-water mark. |
 | 2 | `JOB_CREATED` | Job snapshot | Create a QUEUED job, reserve its job ID, and append it to the FIFO tail. |
@@ -171,7 +173,7 @@ For every active or terminal job, assignment is at/after creation and update is
 at/after assignment. Non-DONE records have no result. Equal event times are valid.
 The largest valid active attempt is `UINT32_MAX + 1`, which fits the 64-bit field.
 
-These checks describe one record. **History validation belongs to future replay**:
+These checks describe one record. [Replay](wal-replay.md) adds history validation:
 
 - Enforce sequences from 1 with no gaps, duplicates, or wraparound. The decoder
   compares each record against an expected sequence supplied by its caller.
@@ -179,14 +181,16 @@ These checks describe one record. **History validation belongs to future replay*
   marks, reject duplicate creation, and enforce the 256 retained-job limit.
 - Preserve each existing job's ID, task, exact arguments, retry limit, and creation
   time. Require a valid previous state, matching owner/attempt, correct counter
-  changes, and nondecreasing transition times.
+  changes, and nondecreasing transition times across the logical job timeline.
 - Validate assigned workers against prior allocations and historical active
   ownership. A worker must not own two simultaneous active attempts. This does
   not recreate a live registry on startup.
 - Apply CREATED/REQUEUED enqueue and ASSIGNED dequeue in sequence order, checking
   the FIFO head and preventing duplicate entries. Sorting jobs by ID is insufficient.
-- Preserve DONE/FAILED terminal records. Reconcile recovered active jobs using
-  the durability contract before admitting new work.
+- Preserve DONE/FAILED terminal records and exact active-job snapshots.
+
+Startup integration must then reconcile recovered active jobs using the
+durability contract before admitting new work; that step is not implemented yet.
 
 For example, a perfectly checksummed COMPLETED snapshot with no preceding
 creation/assignment/start records must fail replay even though its bytes decode.
@@ -220,12 +224,12 @@ detect removal of an otherwise valid final suffix. Sequence checks detect gaps,
 duplicates, and reordering among observed records, not missing records after EOF.
 The retained-storage assumptions in the durability contract still apply.
 
-## Incomplete input and future file-reader policy
+## Incomplete input and file-reader policy
 
 The codec returns `INCOMPLETE` when it needs more bytes. That is a buffer result,
 not proof of EOF and not permission to truncate a file.
 
-| File-reader observation | Required action when file reading is implemented |
+| File-reader observation | Replay action |
 | --- | --- |
 | Fewer than 24 file-header bytes | Refuse startup. |
 | EOF exactly at a validated record boundary | Valid end of history. |
@@ -238,8 +242,10 @@ Never scan forward for another magic value or skip a complete bad record.
 An incomplete tail may be removed only after validating the file header and
 every preceding record, observing actual EOF, and applying the durability
 contract. Complete valid surviving records are replayed even if the previous
-process never confirmed sync or delivered an ACK. Replay must sync the recovered
-prefix before serving work. None of these file operations is implemented here.
+process never confirmed sync or delivered an ACK. The separate replay module
+syncs the recovered prefix and parent directory before publishing state and
+enabling storage appends. Serving work additionally requires startup reconciliation.
+After sequence exhaustion, any trailing bytes are an error: no next record exists.
 
 ## How a retry is represented
 
@@ -280,11 +286,11 @@ record types, result codes, and five codec functions. Their implementation is
 All pointers are required and must describe valid non-overlapping storage.
 Invalid arguments, insufficient encoder capacity, incomplete decoder input,
 checksum errors, and invalid fields leave every output unchanged. Decoders accept
-unaligned input and ignore following bytes; the consumed count lets a future
+unaligned input and ignore following bytes; the consumed count lets a
 reader advance to the next record. Decoded jobs own their argument/result bytes.
 Encoders never write unused array capacity or native struct padding.
 
-The implementation allocates no heap memory and performs no file/socket I/O,
+The codec implementation allocates no heap memory and performs no file/socket I/O,
 `fsync()`, scheduler mutation, or replay. It currently links into the WAL tests,
 not the coordinator executable. Runtime ACK and retry behavior are unchanged.
 
@@ -302,8 +308,10 @@ prefix and insufficient capacity, the maximum-size record, 6216 individual
 single-bit corruptions across the fixtures, semantic errors with recomputed
 valid CRCs, sequence mismatches, integer/time boundaries, ownership, unaligned
 buffers, and snapshots produced by the existing job model. These are format
-checks, not claims that disk recovery already works.
+checks; file-based replay is tested separately.
 
 The [WAL file writer](wal-writer.md) now provides new-log initialization and
 locking, complete append handling, and the required sync/error boundary.
-Existing-log replay and coordinator integration follow as separate steps.
+The [WAL replay module](wal-replay.md) provides existing-log reconstruction,
+incomplete-tail repair, and locked append resumption. Coordinator integration
+and startup reconciliation remain separate steps.

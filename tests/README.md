@@ -7,7 +7,7 @@ make test
 make test-sanitize
 ```
 
-These run 88 protocol, registry, job, queue, scheduler, task, socket, and WAL C test groups plus process integration
+These run 100 protocol, registry, job, queue, scheduler, task, socket, and WAL C test groups plus process integration
 tests using Python 3's standard library. A loopback-capable environment is
 required. You can select the Python interpreter with `PYTHON=/path/to/python3`.
 Use `make test-unit` or `make test-integration` to run one layer separately.
@@ -15,6 +15,8 @@ Use `make test-wal` for the WAL format suite, or `make SANITIZE=1 test-wal`
 for the same checks with AddressSanitizer/UBSan.
 Use `make test-wal-writer` for the file writer suite, or
 `make SANITIZE=1 test-wal-writer` for instrumented binaries.
+Use `make test-wal-replay` for existing-file recovery, or
+`make SANITIZE=1 test-wal-replay` for instrumented binaries.
 Use `make test-recovery` for SIGKILL, SIGSTOP/heartbeat recovery, resumed-worker
 old-attempt protection, and retry exhaustion, or `make SANITIZE=1 test-recovery`
 for instrumented binaries.
@@ -139,6 +141,40 @@ Successful injected operations use real syscalls on private temporary files;
 selected calls instead return controlled short counts or errors. No actual disk
 is filled or disrupted. These tests exercise storage ordering and process-crash
 survival, not power loss, existing-log replay, or coordinator restart recovery.
+
+`test_wal_replay.c` adds twelve [WAL replay](../docs/wal-replay.md) groups:
+
+- Empty histories, worker allocations, resumed appends, and replaying again.
+- Mixed DONE/FAILED/QUEUED/ASSIGNED/RUNNING jobs, binary inputs/results, retries,
+  exact timestamps, FIFO ordering, restored allocators, and an empty live worker
+  registry. Repeated replay never increments counters or restores connections.
+- Every incomplete prefix of a maximum 2164-byte record, repair to the exact
+  preceding boundary, complete-record recovery, and appends after repair.
+- Every incomplete file-header prefix plus complete invalid headers; no repair
+  or implicit initialization is allowed.
+- Complete bad record checksums, fields, lengths, versions, and sequences,
+  including corruption before later valid records and a trailing partial record.
+- Twenty-five checksummed but impossible histories: duplicate/decreasing IDs,
+  uncreated jobs, wrong owners/attempts/counters/times, changed immutable fields,
+  invalid transitions, unallocated workers, busy workers, and FIFO violations.
+- Sparse historical worker allocations beyond registry capacity, range growth,
+  old worker membership, maximum job/worker IDs and times, and exhaustion.
+- A store filled with 256 terminal jobs; a 257th creation fails without repair
+  even when followed by an incomplete tail.
+- One-byte reads, EINTR, interrupted truncation, and publication only after file
+  and directory sync. Appends are refused throughout RECOVERING.
+- Read errors at nine offsets and truncate/file-sync/directory-sync failures.
+  Caller state stays byte-for-byte unchanged; read errors never cause truncation;
+  a completed truncate is not undone when later synchronization fails.
+- Invalid arguments, missing files, symlinks, directories, FIFOs, competing
+  handles, and unchanged output/file bytes on validation failure.
+- SIGKILL after one synced record and seven bytes of the next append; recover,
+  remove only those seven bytes, append again, and verify a second replay.
+
+These checks use real private temporary files with controlled I/O faults where
+needed. They verify standalone recovery and preserve active-job snapshots.
+Startup reconciliation, coordinator restart/ACK ordering, and power-loss
+survival are not established by these tests.
 
 `test_net.c` has six socket test groups and two parsing groups. Socket
 tests use local stream socket pairs and child processes to verify fragmented

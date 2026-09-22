@@ -5,10 +5,11 @@ complete records, and synchronizes them before reporting success. It implements
 the storage boundary from the [durability contract](durability.md), using the
 existing [version 1 format](wal-format.md).
 
-This module is currently exercised through its C tests. Coordinator integration,
-opening/replaying an existing WAL, incomplete-tail repair, and restart recovery
-are later steps. The coordinator still keeps jobs only in memory, and its
-submission ACK still confirms in-memory acceptance.
+This module is currently exercised through its C tests. The separate
+[replay module](wal-replay.md) opens existing logs, reconstructs state, repairs
+incomplete tails, and resumes this writer. Coordinator integration and startup
+reconciliation remain later steps. The coordinator still keeps jobs only in
+memory, and its submission ACK still confirms in-memory acceptance.
 
 ## Successful append means successful sync
 
@@ -31,7 +32,7 @@ append includes its required flush. Future coordinator integration must wait for
 this success before publishing a transition or exposing its ACK/assignment/result.
 The writer does not itself mutate jobs, manage retry counters, or send messages.
 It validates each record's fields and sequence, but the caller must validate the
-job transition against live state before appending. Future replay will check
+job transition against live state before appending. Replay checks
 those relationships when reading an existing history.
 
 A successful `write()` only reports bytes transferred; storage errors can appear
@@ -83,9 +84,13 @@ the close-on-exec flags; otherwise an inherited descriptor can retain the lock.
 The local WAL path must remain stable during use; live rename/unlink/replacement
 and uncooperative writers are outside this storage policy.
 
-Existing-file append is unavailable until replay can establish the valid
-history, final sequence, queue/counter state, and any repairable trailing
-fragment. There is no caller-supplied offset or sequence to bypass validation.
+Existing-file append is available through `faultline_wal_replay_open()` only
+after replay establishes the valid history, final sequence, queue/counter state,
+and any repairable trailing fragment, then syncs the file and parent directory.
+Shared opening code now verifies a regular file and enters RECOVERING; appends
+remain disabled until initialization or replay succeeds. The descriptor stays
+locked throughout this handoff. There is no caller-supplied offset or sequence
+to bypass validation. See the [replay guide](wal-replay.md).
 
 ## Partial writes and interruptions
 
@@ -134,7 +139,7 @@ The saved error survives later cleanup calls changing the process's `errno`.
 If sequence 8 fails after sequence 7 succeeded, `synced_sequence` stays 7.
 Sequence 8 may be absent, partial, or complete. The writer does not report
 acceptance, rewind/delete the record, retry the logical append, or permit
-sequence 9. Future replay must inspect what survived; a failed sync is not proof
+sequence 9. Replay inspects what survived; a failed sync is not proof
 that a complete record disappeared.
 
 After I/O failure, future coordinator integration must stop admission and
@@ -142,8 +147,8 @@ scheduling, close connections without logging further job-loss transitions,
 and exit unsuccessfully. A failed handle cannot be reopened with `create()`,
 including after close. There is no automatic fresh-log fallback.
 
-Always close the handle after a create attempt that may have opened descriptors,
-including failed creation. Initialization can leave an empty, partial, or complete
+Always close the handle after a create or replay attempt that may have opened
+descriptors, including failed attempts. Initialization can leave an empty, partial, or complete
 file. The writer leaves it in place and never silently resets or removes it.
 Recovery/operator handling must distinguish those cases.
 
@@ -191,7 +196,8 @@ surviving file header and allocation record and acquires the released lock.
 This demonstrates retained bytes after a writer process crash. It does not
 simulate power loss or reconstruct coordinator job state.
 
-The eleven groups bring the C unit total to 88. Next is reading/replaying an
-existing WAL: validate its history, reconstruct state, handle only permissible
-incomplete tails, sync the recovered prefix, and safely resume appending.
-Coordinator integration then applies this boundary to live job transitions.
+The eleven writer groups are joined by twelve [replay groups](wal-replay.md#verification),
+bringing the C unit total to 100. Replay validates history, reconstructs state,
+handles only permissible incomplete tails, syncs the recovered prefix, and safely
+resumes appending. Coordinator integration will apply this boundary to live job
+transitions and startup reconciliation.

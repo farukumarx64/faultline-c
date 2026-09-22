@@ -5,8 +5,9 @@ implementation, not a description of persistence already shipped. The current
 coordinator still holds jobs in memory and loses them on exit. The
 [format step](wal-format.md) implements byte codecs and validation, and the
 [writer step](wal-writer.md) implements new-file creation, locking, complete
-appends, and synchronization. Existing-log replay, coordinator integration,
-startup recovery, and WAL CLI options remain pending.
+appends, and synchronization. [Replay](wal-replay.md) implements existing-log
+validation, state reconstruction, incomplete-tail repair, and append resumption.
+Coordinator integration, startup reconciliation, and WAL CLI options remain pending.
 
 The promise to implement is: **after the client receives a valid submission ACK,
 the job can be recovered from the same WAL after a coordinator process crash.**
@@ -219,6 +220,9 @@ The persistence implementation will use a **logical job timeline** for job field
   recovered prefix, or zero for an empty store.
 - For new transitions, use `base + elapsed_monotonic_ms_since_session_start`.
   Equal timestamps remain valid. Detect overflow and stop instead of wrapping.
+- Job event times are nondecreasing across the log, not only within each job.
+  Replay enforces this ordering and returns the recovered base; live clock
+  integration is still pending.
 - Use this job clock for all job creation/transitions, including reconciliation.
   Continue using fresh raw monotonic time for sockets, heartbeat deadlines, and
   worker execution; old heartbeat times are never restored.
@@ -264,9 +268,10 @@ still reconciles any active attempts because their coordinator connections ended
 
 ## Acceptance checks for later implementation
 
-These are required coordinator-level checks to add as replay and runtime
-integration are built. The [writer tests](wal-writer.md#files-and-verification)
-cover storage operations independently; they do not establish these full checks:
+These are required coordinator-level checks to add with runtime integration.
+The [writer tests](wal-writer.md#files-and-verification) and
+[replay tests](wal-replay.md#verification) cover storage and reconstruction
+independently; they do not establish these full checks:
 
 1. Kill after submission ACK; recover the exact job, arguments, budget, and ID.
 2. Kill before sync/ACK and after sync but before ACK; recover valid surviving
@@ -295,7 +300,9 @@ cover storage operations independently; they do not establish these full checks:
 The [WAL record format and codecs](wal-format.md) now define headers/versions,
 record types, lengths, byte order, sequence, checksums, payloads, and validation
 rules that encode this contract. The [WAL writer](wal-writer.md) now implements
-new-log initialization and reliable append/sync. Next come replay, runtime
-integration, and coordinator-crash experiments. The existing
+new-log initialization and reliable append/sync. [Replay](wal-replay.md) now
+restores the complete valid history and repairs permitted incomplete tails.
+Next come startup reconciliation, runtime integration, and coordinator-crash
+experiments. The existing
 [worker-recovery guarantees](recovery.md) continue to apply; persistence does
 not make execution exactly once or replenish finite retry budgets.

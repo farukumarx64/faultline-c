@@ -130,8 +130,11 @@ and treatment of incomplete trailing records. The [WAL format](wal-format.md)
 now encodes those decisions with versioned headers, full job snapshots, sequence
 numbers, and header/payload checksums. The [WAL writer](wal-writer.md) creates and
 locks new logs, fully writes each encoded record, and syncs before reporting
-success. Storage failures permanently disable its handle. Replay and runtime
-integration are still future steps; the running coordinator does not use it yet.
+success. Storage failures permanently disable its handle. [WAL replay](wal-replay.md)
+validates complete histories, rebuilds jobs/results/retries/FIFO and ID counters,
+repairs incomplete final records, and resumes the same locked writer after sync.
+Startup reconciliation and runtime integration remain future steps; the running
+coordinator does not use these modules yet.
 
 ## Evidence required for v0.1
 

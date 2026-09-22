@@ -19,8 +19,10 @@ configurable. Built-in task execution is implemented. The
 [WAL format](docs/wal-format.md) now has versioned headers, explicit job payloads,
 checksums, and tested byte codecs. The [WAL writer](docs/wal-writer.md) now creates
 and locks new logs, handles partial writes, and syncs each complete record before
-success. Replay and coordinator integration are still pending; live coordinator
-state remains in memory.
+success. [WAL replay](docs/wal-replay.md) now reconstructs saved jobs, results,
+retry counts, FIFO order, and ID counters, repairs incomplete tails, and resumes
+the locked writer. Coordinator integration and startup reconciliation remain
+pending; live coordinator state remains in memory.
 
 Dedicated failure tests distinguish worker exit and TCP reset from missed
 heartbeats on an open connection. A healthy worker and the CLI must remain usable
@@ -186,6 +188,8 @@ Use `make test-wal` for WAL format checks, or `make SANITIZE=1 test-wal`
 for the same checks with AddressSanitizer/UBSan.
 Use `make test-wal-writer` for real-file appends, sync ordering, storage-error
 injection, locking, and writer-crash checks; add `SANITIZE=1` for instrumentation.
+Use `make test-wal-replay` for history validation, reconstructed state, tail
+repair, and append resumption; add `SANITIZE=1` for instrumentation.
 Use `make test-scheduling` for CLI submission and scheduling scenarios.
 Use `make test-execution` for task results, concurrent workers, and cancellation.
 Use `make test-recovery` for crash/heartbeat recovery, resumed-worker protection,
@@ -221,14 +225,15 @@ faultline/
 │   ├── recovery.md
 │   ├── durability.md
 │   ├── wal-format.md
-│   └── wal-writer.md
+│   ├── wal-writer.md
+│   └── wal-replay.md
 ├── include/             Shared C headers
 ├── src/
 │   ├── common/          Shared protocol, networking, and logging code
 │   ├── coordinator/     Event loop, registry, job store, scheduler, and WAL modules
 │   ├── worker/          Registration, heartbeats, and assignment reception
 │   └── cli/             PING and job submission
-└── tests/               C unit tests (including WAL format) and TCP integration tests
+└── tests/               C unit/storage tests and TCP integration tests
 ```
 
 Read [the architecture note](docs/architecture.md) for component responsibilities,
@@ -248,4 +253,6 @@ connects those pieces to CLI submission and live FIFO dispatch. The
 The [durability contract](docs/durability.md) defines the upcoming WAL acceptance,
 restart, and retry rules. The [WAL format specification](docs/wal-format.md)
 defines exact file/record bytes and validation. The [WAL writer guide](docs/wal-writer.md)
-explains complete appends, sync boundaries, and storage failures. Replay is next.
+explains complete appends, sync boundaries, and storage failures. The
+[WAL replay guide](docs/wal-replay.md) explains historical validation, state
+reconstruction, incomplete-tail repair, and safely resuming appends.
