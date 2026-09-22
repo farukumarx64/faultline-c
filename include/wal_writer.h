@@ -6,7 +6,8 @@
 enum faultline_wal_writer_state {
     FAULTLINE_WAL_WRITER_CLOSED = 0,
     FAULTLINE_WAL_WRITER_READY,
-    FAULTLINE_WAL_WRITER_FAILED
+    FAULTLINE_WAL_WRITER_FAILED,
+    FAULTLINE_WAL_WRITER_RECOVERING /* Internal open/validation; appends are refused. */
 };
 
 enum faultline_wal_writer_result {
@@ -30,7 +31,14 @@ enum faultline_wal_writer_operation {
     FAULTLINE_WAL_IO_WRITE_RECORD,
     FAULTLINE_WAL_IO_SYNC_RECORD,
     FAULTLINE_WAL_IO_CLOSE_FILE,
-    FAULTLINE_WAL_IO_CLOSE_DIRECTORY
+    FAULTLINE_WAL_IO_CLOSE_DIRECTORY,
+    FAULTLINE_WAL_IO_OPEN_EXISTING,
+    FAULTLINE_WAL_IO_STAT_FILE,
+    FAULTLINE_WAL_IO_READ_FILE,
+    FAULTLINE_WAL_IO_ALLOCATE_REPLAY,
+    FAULTLINE_WAL_IO_VALIDATE_REPLAY,
+    FAULTLINE_WAL_IO_TRUNCATE_TAIL,
+    FAULTLINE_WAL_IO_SYNC_RECOVERY
 };
 
 struct faultline_wal_writer_io;
@@ -58,7 +66,7 @@ struct faultline_wal_writer {
  * Explicitly initialize a NEW file in an existing directory (mode 0600, subject
  * to umask). Existing final paths, including symlinks, are never overwritten/followed.
  * Hold an exclusive advisory lock; write/sync the header, then sync its parent
- * directory before READY. Existing-WAL reopening requires future replay support.
+ * directory before READY. Use faultline_wal_replay_open to recover an existing WAL.
  * On any I/O failure, close this handle even if create failed. Failed creation
  * may leave a partial/complete file, which is deliberately not deleted/reset.
  */

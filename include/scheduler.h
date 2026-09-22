@@ -56,7 +56,8 @@ enum faultline_scheduler_result faultline_scheduler_worker_lost(
     struct faultline_scheduler *scheduler, uint32_t worker_id, int64_t now_ms);
 
 /*
- * Initialize once; fields and returned records are read-only outside this API.
+ * Initialize once; fields and returned records are read-only outside scheduler
+ * operations and the WAL replay module, which builds an isolated recovery store.
  * Required pointers must reference valid, non-overlapping storage. Rejected
  * operations preserve the scheduler and outputs. now_ms is monotonic and >= 0.
  * Retained records keep their addresses until reinitialization. IDs never wrap.
