@@ -7,12 +7,14 @@ make test
 make test-sanitize
 ```
 
-These run 77 protocol, registry, job, queue, scheduler, task, socket, and WAL C test groups plus process integration
+These run 88 protocol, registry, job, queue, scheduler, task, socket, and WAL C test groups plus process integration
 tests using Python 3's standard library. A loopback-capable environment is
 required. You can select the Python interpreter with `PYTHON=/path/to/python3`.
 Use `make test-unit` or `make test-integration` to run one layer separately.
 Use `make test-wal` for the WAL format suite, or `make SANITIZE=1 test-wal`
 for the same checks with AddressSanitizer/UBSan.
+Use `make test-wal-writer` for the file writer suite, or
+`make SANITIZE=1 test-wal-writer` for instrumented binaries.
 Use `make test-recovery` for SIGKILL, SIGSTOP/heartbeat recovery, resumed-worker
 old-attempt protection, and retry exhaustion, or `make SANITIZE=1 test-recovery`
 for instrumented binaries.
@@ -108,6 +110,35 @@ Rejected calls preserve outputs and byte counts. The test-only reference CRC
 uses an MSB-first calculation distinct from production's reflected calculation;
 fixed valid fixtures do not depend on either C implementation. These tests do
 not open a WAL file, sync storage, replay a history, or restart the coordinator.
+
+`test_wal_writer.c` adds eleven [WAL writer](../docs/wal-writer.md) groups:
+
+- Real files containing all seven record types, exact encoded bytes, maximum
+  binary payloads, 17-byte partial writes, and record decoding. Verify the full
+  file length at each sync and that sequence publication follows synchronization.
+- Relative paths, existing-file preservation, symlinks/directories/FIFOs,
+  missing parent directories, owner-only permissions, append and close-on-exec flags.
+- Exclusive locking across separate opens and child processes; release on close.
+- Every split of a 36-byte record with EINTR at the split, interrupted locks and
+  syncs, and a header written one byte at a time. No bytes are skipped/duplicated.
+- ENOSPC, EIO, EDQUOT, EFBIG, and zero progress at five append offsets. Preserve
+  prior records and exact partial bytes; refuse further I/O after failure.
+- A failed record sync with its complete bytes still present. Confirmed sequence
+  stays unchanged; a failed sync is not proof that the record is absent.
+- Lock, partial-header write, header-sync, and parent-directory-sync failures.
+  No READY state, retained file prefix, and cleanup preserving the first error.
+- Invalid arguments, malformed records, duplicate/out-of-order sequences, and
+  invalid handle states without writes or syncs.
+- Final sequence exhaustion without wrapping or additional I/O.
+- File/directory close errors and an immediately reused descriptor, ensuring
+  close is not retried and the original storage error is not overwritten.
+- SIGKILL after a child successfully syncs an allocation record, before close.
+  The parent validates surviving bytes and verifies the kernel released the lock.
+
+Successful injected operations use real syscalls on private temporary files;
+selected calls instead return controlled short counts or errors. No actual disk
+is filled or disrupted. These tests exercise storage ordering and process-crash
+survival, not power loss, existing-log replay, or coordinator restart recovery.
 
 `test_net.c` has six socket test groups and two parsing groups. Socket
 tests use local stream socket pairs and child processes to verify fragmented
@@ -430,4 +461,4 @@ When 9000 is selected, the harness starts the coordinator without `--port` and
 also invokes `faultline ping` and `faultline-worker` without `--coordinator`
 to test all defaults. Processes started by the harness are stopped afterward.
 With automatic port selection, the suite discovers 77 scenarios: 75 run and two
-default-port checks are skipped. Persistent recovery is not implemented or tested yet.
+default-port checks are skipped. Coordinator restart recovery is not implemented or tested yet.

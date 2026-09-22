@@ -2,10 +2,11 @@
 
 Defined 2026-09-21. This is the contract for the upcoming persistence
 implementation, not a description of persistence already shipped. The current
-coordinator still holds jobs in memory and loses them on exit. This step adds
-no WAL reader/writer, startup recovery, or new CLI option.
-The following [format step](wal-format.md) implements byte codecs and validation;
-it does not yet implement this durability promise.
+coordinator still holds jobs in memory and loses them on exit. The
+[format step](wal-format.md) implements byte codecs and validation, and the
+[writer step](wal-writer.md) implements new-file creation, locking, complete
+appends, and synchronization. Existing-log replay, coordinator integration,
+startup recovery, and WAL CLI options remain pending.
 
 The promise to implement is: **after the client receives a valid submission ACK,
 the job can be recovered from the same WAL after a coordinator process crash.**
@@ -263,8 +264,9 @@ still reconciles any active attempts because their coordinator connections ended
 
 ## Acceptance checks for later implementation
 
-These are required checks to add as the WAL and runtime integration are built;
-they are not tests claimed to pass in this documentation-only step:
+These are required coordinator-level checks to add as replay and runtime
+integration are built. The [writer tests](wal-writer.md#files-and-verification)
+cover storage operations independently; they do not establish these full checks:
 
 1. Kill after submission ACK; recover the exact job, arguments, budget, and ID.
 2. Kill before sync/ACK and after sync but before ACK; recover valid surviving
@@ -292,7 +294,8 @@ they are not tests claimed to pass in this documentation-only step:
 
 The [WAL record format and codecs](wal-format.md) now define headers/versions,
 record types, lengths, byte order, sequence, checksums, payloads, and validation
-rules that encode this contract. Next come append/flush, replay, runtime
+rules that encode this contract. The [WAL writer](wal-writer.md) now implements
+new-log initialization and reliable append/sync. Next come replay, runtime
 integration, and coordinator-crash experiments. The existing
 [worker-recovery guarantees](recovery.md) continue to apply; persistence does
 not make execution exactly once or replenish finite retry budgets.

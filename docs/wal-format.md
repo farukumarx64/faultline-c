@@ -1,13 +1,14 @@
 # WAL format, version 1
 
 Defined 2026-09-21. The byte format, in-memory encoders/decoders, and format tests
-are implemented. File creation, locking, append/sync, replay, and coordinator
-integration are later steps. The coordinator still loses its in-memory state
+are implemented. The [WAL writer](wal-writer.md) now implements new-file creation,
+locking, and append/sync. Replay and coordinator integration are later steps.
+The coordinator still loses its in-memory state
 on exit. See the [durability contract](durability.md) for the behavior this
 format must eventually support.
 
-A WAL is an ordered history of durable state changes. A future writer will
-append one complete record and sync it before publishing its effects. A future
+A WAL is an ordered history of durable state changes. The writer appends and
+syncs one complete record before a caller may publish its effects. A future
 reader will validate records in order and reconstruct jobs, queue order, and ID
 allocation. The codec only converts between C values and bytes; successful
 encoding is not a disk write or a durability guarantee.
@@ -52,7 +53,7 @@ The exact version 1 header is:
 
 The reader validates all 24 bytes before processing any record. Missing,
 incomplete, incompatible, or corrupt file headers are startup errors, never
-permission to initialize an empty store. Future initialization must sync this
+permission to initialize an empty store. The writer's initialization syncs the
 header/file and its parent directory as required by the durability contract.
 
 ## Record header: 32 bytes
@@ -303,6 +304,6 @@ valid CRCs, sequence mismatches, integer/time boundaries, ownership, unaligned
 buffers, and snapshots produced by the existing job model. These are format
 checks, not claims that disk recovery already works.
 
-The next step is a WAL file writer: explicit initialization/opening and locking,
-complete append handling, and the required sync/error boundary. Replay and
-coordinator integration follow as separate steps.
+The [WAL file writer](wal-writer.md) now provides new-log initialization and
+locking, complete append handling, and the required sync/error boundary.
+Existing-log replay and coordinator integration follow as separate steps.

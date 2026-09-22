@@ -128,8 +128,10 @@ active work. The [durability contract](durability.md) defines persisted IDs and
 counters, append/sync/publication ordering, logical job time across restarts,
 and treatment of incomplete trailing records. The [WAL format](wal-format.md)
 now encodes those decisions with versioned headers, full job snapshots, sequence
-numbers, and header/payload checksums. Its pure byte codecs are tested; append/sync,
-replay, and runtime integration are still future steps.
+numbers, and header/payload checksums. The [WAL writer](wal-writer.md) creates and
+locks new logs, fully writes each encoded record, and syncs before reporting
+success. Storage failures permanently disable its handle. Replay and runtime
+integration are still future steps; the running coordinator does not use it yet.
 
 ## Evidence required for v0.1
 
