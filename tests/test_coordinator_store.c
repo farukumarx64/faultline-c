@@ -27,7 +27,30 @@ struct fixture {
     unsigned writes, syncs, observed;
     unsigned fail_sync;
     int armed, partial_error, partial_written, bad_observation;
+    int startup_guard;
+    unsigned guarded_syncs;
 };
+
+static void observe_startup(struct fixture *f)
+{
+    if (!f->startup_guard) { return; }
+    ++f->guarded_syncs;
+    if (f->store.opened) { f->bad_observation = 1; return; }
+    struct outputs out, before;
+    memset(&out, 0xa5, sizeof(out));
+    memcpy(&before, &out, sizeof(before));
+    const struct faultline_job_submit_payload submit = {.task_type = FAULTLINE_TASK_HASH};
+    const struct faultline_message started = {.message_type = FAULTLINE_MSG_JOB_STARTED,
+                                              .payload.job_started = {1, 1, 1}};
+    if (faultline_store_register(&f->store, 99, 5000, &out.worker) != FAULTLINE_STORE_FATAL ||
+        faultline_store_submit(&f->store, &submit, 5000, &out.job) != FAULTLINE_STORE_FATAL ||
+        faultline_store_assign(&f->store, 1, 5000, &out.assignment) != FAULTLINE_STORE_FATAL ||
+        faultline_store_report(&f->store, 1, &started, 5000) != FAULTLINE_STORE_FATAL ||
+        faultline_store_worker_lost(&f->store, 1, 5000) != FAULTLINE_STORE_FATAL ||
+        memcmp(&out, &before, sizeof(out)) != 0 || f->store.failure != FAULTLINE_STORE_FAILURE_NONE) {
+        f->bad_observation = 1;
+    }
+}
 
 static void observe(struct fixture *f)
 {
@@ -58,6 +81,7 @@ static int injected_sync(void *context, int fd)
     struct fixture *f = context;
     ++f->syncs;
     observe(f);
+    observe_startup(f);
     if (f->syncs == f->fail_sync) { errno = EIO; return -1; }
     return fsync(fd);
 }
@@ -266,12 +290,16 @@ static int test_restart_and_clock(void)
     CHECK(f != NULL && seed_interrupted(f) == EXIT_SUCCESS);
     uint64_t sequence = f->store.wal.synced_sequence;
     faultline_store_init(&f->store);
-    CHECK(faultline_store_open(&f->store, f->path, 0, 10) == FAULTLINE_STORE_OK);
+    f->startup_guard = 1;
+    CHECK(faultline_store_open_with_io(&f->store, f->path, 0, 10, &f->io, f) == FAULTLINE_STORE_OK);
+    CHECK(f->store.opened && f->guarded_syncs == 4 && !f->bad_observation);
     CHECK(f->store.interrupted_jobs == 2 && f->store.wal.synced_sequence == sequence + 2);
     CHECK(check_reconciled(f) == EXIT_SUCCESS);
     CHECK(faultline_store_close(&f->store) == FAULTLINE_STORE_OK);
     faultline_store_init(&f->store);
-    CHECK(faultline_store_open(&f->store, f->path, 0, 0) == FAULTLINE_STORE_OK);
+    CHECK(faultline_store_open_with_io(&f->store, f->path, 0, 0, &f->io, f) == FAULTLINE_STORE_OK);
+    CHECK(f->store.opened && f->guarded_syncs == 6 && !f->bad_observation);
+    f->startup_guard = 0;
     CHECK(f->store.interrupted_jobs == 0 && f->store.wal.synced_sequence == sequence + 2);
     CHECK(check_reconciled(f) == EXIT_SUCCESS);
     CHECK(faultline_store_register(&f->store, 10, 1, &f->out.worker) == FAULTLINE_STORE_OK && f->out.worker == 3);
@@ -289,14 +317,109 @@ static int test_interrupted_reconciliation(void)
         struct fixture *f = setup();
         CHECK(f != NULL && seed_interrupted(f) == EXIT_SUCCESS);
         faultline_store_init(&f->store);
-        f->syncs = 0; f->fail_sync = fail_at;
+        f->syncs = 0; f->fail_sync = fail_at; f->startup_guard = 1;
         CHECK(faultline_store_open_with_io(&f->store, f->path, 0, 0, &f->io, f) == FAULTLINE_STORE_FATAL);
+        CHECK(!f->store.opened && !f->bad_observation && f->guarded_syncs == fail_at);
         CHECK(f->store.interrupted_jobs == fail_at - 3);
         CHECK(faultline_store_close(&f->store) == FAULTLINE_STORE_FATAL);
         faultline_store_init(&f->store); f->fail_sync = 0;
         CHECK(faultline_store_open(&f->store, f->path, 0, 0) == FAULTLINE_STORE_OK);
         CHECK(f->store.interrupted_jobs == 4 - fail_at && check_reconciled(f) == EXIT_SUCCESS);
         CHECK(cleanup(f) == EXIT_SUCCESS);
+    }
+    return EXIT_SUCCESS;
+}
+
+/* Compare persisted fields without depending on C structure padding. */
+static int same_job(const struct faultline_job *actual, const struct faultline_job *expected)
+{
+    enum faultline_wal_record_type type = expected->state == FAULTLINE_JOB_DONE ? FAULTLINE_WAL_JOB_COMPLETED :
+        expected->state == FAULTLINE_JOB_FAILED ? FAULTLINE_WAL_JOB_FAILED :
+        expected->attempt == 0 ? FAULTLINE_WAL_JOB_CREATED : FAULTLINE_WAL_JOB_REQUEUED;
+    struct faultline_wal_record record = {.type = type, .sequence = 1, .payload.job = *expected};
+    uint8_t left[FAULTLINE_WAL_MAX_RECORD_SIZE], right[FAULTLINE_WAL_MAX_RECORD_SIZE];
+    size_t left_size, right_size;
+    CHECK(faultline_wal_record_encode(left, sizeof(left), &record, &left_size) == FAULTLINE_WAL_OK);
+    record.payload.job = *actual;
+    CHECK(faultline_wal_record_encode(right, sizeof(right), &record, &right_size) == FAULTLINE_WAL_OK);
+    CHECK(left_size == right_size && memcmp(left, right, left_size) == 0);
+    return EXIT_SUCCESS;
+}
+
+static int test_startup_state_matrix(void)
+{
+    const enum faultline_job_state states[] = {
+        FAULTLINE_JOB_QUEUED, FAULTLINE_JOB_ASSIGNED, FAULTLINE_JOB_RUNNING, FAULTLINE_JOB_DONE, FAULTLINE_JOB_FAILED
+    };
+    for (size_t s = 0; s < sizeof(states) / sizeof(states[0]); ++s) {
+        for (uint32_t budget = 0; budget <= 2; ++budget) {
+            for (uint32_t used = 0; used <= budget; ++used) {
+                if (states[s] == FAULTLINE_JOB_FAILED && used != budget) { continue; }
+                struct fixture *f = setup();
+                CHECK(f != NULL);
+                uint32_t worker;
+                uint64_t id;
+                int64_t now = 100;
+                struct faultline_job_submit_payload submit = sample; submit.max_retries = budget;
+                CHECK(faultline_store_register(&f->store, 10, now++, &worker) == FAULTLINE_STORE_OK);
+                CHECK(faultline_store_submit(&f->store, &submit, now++, &id) == FAULTLINE_STORE_OK);
+                struct faultline_message assignment;
+                for (uint32_t retry = 0; retry < used; ++retry) {
+                    CHECK(faultline_store_assign(&f->store, worker, now++, &assignment) == FAULTLINE_STORE_OK);
+                    struct faultline_message failed = {.message_type = FAULTLINE_MSG_JOB_FAILED,
+                        .payload.job_failed = {.identity = assignment.payload.job_assign.identity, .failure = FAULTLINE_JOB_FAILURE_TASK}};
+                    CHECK(faultline_store_report(&f->store, worker, &failed, now++) == FAULTLINE_STORE_OK);
+                }
+                if (states[s] != FAULTLINE_JOB_QUEUED) {
+                    CHECK(faultline_store_assign(&f->store, worker, now++, &assignment) == FAULTLINE_STORE_OK);
+                    if (states[s] == FAULTLINE_JOB_RUNNING || states[s] == FAULTLINE_JOB_DONE) {
+                        struct faultline_message started = {.message_type = FAULTLINE_MSG_JOB_STARTED,
+                            .payload.job_started = assignment.payload.job_assign.identity};
+                        CHECK(faultline_store_report(&f->store, worker, &started, now++) == FAULTLINE_STORE_OK);
+                    }
+                    if (states[s] == FAULTLINE_JOB_DONE) {
+                        struct faultline_message done = {.message_type = FAULTLINE_MSG_JOB_COMPLETED,
+                            .payload.job_completed = {.identity = assignment.payload.job_assign.identity,
+                                .result_size = 4, .result = {0, 255, 'a', 0}}};
+                        CHECK(faultline_store_report(&f->store, worker, &done, now++) == FAULTLINE_STORE_OK);
+                    } else if (states[s] == FAULTLINE_JOB_FAILED) {
+                        struct faultline_message failed = {.message_type = FAULTLINE_MSG_JOB_FAILED,
+                            .payload.job_failed = {.identity = assignment.payload.job_assign.identity, .failure = FAULTLINE_JOB_FAILURE_TASK}};
+                        CHECK(faultline_store_report(&f->store, worker, &failed, now++) == FAULTLINE_STORE_OK);
+                    }
+                }
+                struct faultline_job expected = *faultline_scheduler_find(&f->store.jobs, id);
+                CHECK(expected.state == states[s] && expected.retry_count == used);
+                int active = states[s] == FAULTLINE_JOB_ASSIGNED || states[s] == FAULTLINE_JOB_RUNNING;
+                uint64_t sequence = f->store.wal.synced_sequence;
+                if (active) {
+                    CHECK(faultline_job_fail(&expected, worker, expected.attempt, FAULTLINE_JOB_FAILURE_WORKER_LOST,
+                                             f->store.last_job_time_ms) == FAULTLINE_JOB_OK);
+                }
+                CHECK(faultline_store_close(&f->store) == FAULTLINE_STORE_OK);
+                for (int restart = 0; restart < 2; ++restart) {
+                    faultline_store_init(&f->store);
+                    CHECK(faultline_store_open(&f->store, f->path, 0, 0) == FAULTLINE_STORE_OK);
+                    CHECK(f->store.opened && f->store.jobs.count == 1 && f->store.jobs.next_job_id == 2);
+                    CHECK(f->store.interrupted_jobs == (size_t)(restart == 0 ? active : 0));
+                    CHECK(f->store.wal.synced_sequence == sequence + (uint64_t)active);
+                    CHECK(same_job(faultline_scheduler_find(&f->store.jobs, id), &expected) == EXIT_SUCCESS);
+                    CHECK(f->store.jobs.pending.count == (size_t)(expected.state == FAULTLINE_JOB_QUEUED));
+                    CHECK(f->store.workers.next_worker_id == 2);
+                    for (size_t i = 0; i < FAULTLINE_MAX_WORKERS; ++i) {
+                        const struct faultline_worker *old = &f->store.workers.workers[i];
+                        CHECK(old->state == FAULTLINE_WORKER_UNUSED && old->id == 0 && old->fd == -1 && old->last_heartbeat_ms == 0);
+                    }
+                    if (restart == 0) { CHECK(faultline_store_close(&f->store) == FAULTLINE_STORE_OK); }
+                }
+                CHECK(faultline_store_register(&f->store, 10, 0, &worker) == FAULTLINE_STORE_OK && worker == 2);
+                enum faultline_store_result assigned = faultline_store_assign(&f->store, worker, 0, &assignment);
+                if (expected.state == FAULTLINE_JOB_QUEUED) {
+                    CHECK(assigned == FAULTLINE_STORE_OK && assignment.payload.job_assign.identity.attempt == expected.attempt + 1);
+                } else { CHECK(assigned == FAULTLINE_STORE_EMPTY); }
+                CHECK(cleanup(f) == EXIT_SUCCESS);
+            }
+        }
     }
     return EXIT_SUCCESS;
 }
@@ -327,6 +450,7 @@ int main(void)
         {"invalid requests and stale reports perform no storage I/O", test_rejections},
         {"startup reconciliation, FIFO, retry budgets, identities, and logical time", test_restart_and_clock},
         {"failed reconciliation sync does not charge an interrupted attempt twice", test_interrupted_reconciliation},
+        {"startup restores every state and retry boundary without restoring connections", test_startup_state_matrix},
         {"clock overflow/regression and sequence exhaustion fail closed", test_clock_and_sequence_failures}
     };
     for (size_t i = 0; i < sizeof(tests) / sizeof(tests[0]); ++i) {

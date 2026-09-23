@@ -146,11 +146,12 @@ enum faultline_store_result faultline_store_report(
     return commit_job(store, active->id, type);
 }
 
-enum faultline_store_result faultline_store_worker_lost(
+/* Shared durable outcome for a live disconnect or a recovered historical owner.
+ * Startup has no live worker registry and must not enable the public operations
+ * merely to commit these interrupted-attempt records. */
+static enum faultline_store_result commit_worker_loss(
     struct faultline_coordinator_store *store, uint32_t worker_id, int64_t now_ms)
 {
-    if (store == NULL) { return FAULTLINE_STORE_REJECTED; }
-    if (!usable(store)) { return FAULTLINE_STORE_FATAL; }
     const struct faultline_job *active = faultline_scheduler_active(&store->jobs, worker_id);
     if (active == NULL) { return FAULTLINE_STORE_EMPTY; }
     int64_t time;
@@ -162,6 +163,33 @@ enum faultline_store_result faultline_store_worker_lost(
     const struct faultline_job *candidate = faultline_scheduler_find(&store->scratch, active->id);
     return commit_job(store, active->id, candidate->state == FAULTLINE_JOB_QUEUED ?
                       FAULTLINE_WAL_JOB_REQUEUED : FAULTLINE_WAL_JOB_FAILED);
+}
+
+enum faultline_store_result faultline_store_worker_lost(
+    struct faultline_coordinator_store *store, uint32_t worker_id, int64_t now_ms)
+{
+    if (store == NULL) { return FAULTLINE_STORE_REJECTED; }
+    if (!usable(store)) { return FAULTLINE_STORE_FATAL; }
+    return commit_worker_loss(store, worker_id, now_ms);
+}
+
+static enum faultline_store_result recover_interrupted_jobs(
+    struct faultline_coordinator_store *store, int64_t now_ms)
+{
+    /* Replay stores jobs in increasing creation-ID order. Leave QUEUED, DONE,
+     * and FAILED untouched. Existing pending work stays ahead of these retries.
+     * Every outcome is synced before publication; a later restart sees a durable
+     * QUEUED/FAILED outcome and cannot charge that same interruption again. */
+    for (size_t i = 0; i < store->jobs.count; ++i) {
+        const struct faultline_job *job = &store->jobs.jobs[i];
+        if (job->state == FAULTLINE_JOB_ASSIGNED || job->state == FAULTLINE_JOB_RUNNING) {
+            if (commit_worker_loss(store, job->worker_id, now_ms) != FAULTLINE_STORE_OK) {
+                return FAULTLINE_STORE_FATAL;
+            }
+            ++store->interrupted_jobs;
+        }
+    }
+    return FAULTLINE_STORE_OK;
 }
 
 enum faultline_store_result faultline_store_open_with_io(
@@ -192,18 +220,9 @@ enum faultline_store_result faultline_store_open_with_io(
     }
     store->session_start_ms = now_ms;
     store->last_job_time_ms = store->time_base_ms;
+    if (recover_interrupted_jobs(store, now_ms) != FAULTLINE_STORE_OK) { return FAULTLINE_STORE_FATAL; }
+    /* A ready WAL alone does not authorize registration, submission or dispatch. */
     store->opened = 1;
-    /* Replay stores jobs in increasing creation-ID order. Existing pending work
-     * stays ahead of interrupted jobs; each durable requeue charges once. */
-    for (size_t i = 0; i < store->jobs.count; ++i) {
-        const struct faultline_job *job = &store->jobs.jobs[i];
-        if (job->state == FAULTLINE_JOB_ASSIGNED || job->state == FAULTLINE_JOB_RUNNING) {
-            if (faultline_store_worker_lost(store, job->worker_id, now_ms) != FAULTLINE_STORE_OK) {
-                return FAULTLINE_STORE_FATAL;
-            }
-            ++store->interrupted_jobs;
-        }
-    }
     return FAULTLINE_STORE_OK;
 }
 

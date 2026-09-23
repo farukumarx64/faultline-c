@@ -30,7 +30,7 @@ struct faultline_coordinator_store {
     enum faultline_wal_replay_result replay_result;
     enum faultline_wal_writer_result write_result;
     enum faultline_store_failure failure;
-    int opened;
+    int opened; /* Live operations enabled only after all startup recovery succeeds. */
     int64_t time_base_ms;
     int64_t session_start_ms;
     int64_t last_job_time_ms;
@@ -43,7 +43,9 @@ void faultline_store_init(struct faultline_coordinator_store *store);
 /* Explicit create or existing-file recovery; never fall back to an empty log.
  * Reconcile recovered active jobs in ascending ID order before success. now_ms
  * is a fresh raw monotonic clock reading; job timestamps use a separate logical
- * timeline. On failure close the handle, even if opening did not finish. */
+ * timeline. Public mutations remain disabled throughout recovery. QUEUED and
+ * terminal records are preserved; ASSIGNED/RUNNING consume a retry or fail.
+ * On failure close the handle, even if opening did not finish. */
 enum faultline_store_result faultline_store_open(
     struct faultline_coordinator_store *store, const char *path, int initialize, int64_t now_ms);
 enum faultline_store_result faultline_store_close(struct faultline_coordinator_store *store);

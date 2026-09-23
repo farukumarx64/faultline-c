@@ -37,7 +37,7 @@ PROGRAMS := $(BUILD_DIR)/faultline-coordinator \
 	$(BUILD_DIR)/faultline-worker $(BUILD_DIR)/faultline
 TEST_PROGRAMS := $(addprefix $(BUILD_DIR)/tests/,$(TEST_NAMES))
 
-.PHONY: all sanitize test test-unit test-integration test-failures test-scheduling test-execution test-recovery test-wal test-wal-writer test-wal-replay test-persistence test-sanitize clean
+.PHONY: all sanitize test test-unit test-integration test-failures test-scheduling test-execution test-recovery test-wal test-wal-writer test-wal-replay test-persistence test-startup-recovery test-sanitize clean
 
 all: $(PROGRAMS)
 
@@ -73,9 +73,15 @@ test-wal-replay: $(BUILD_DIR)/tests/test_wal_replay
 test-persistence: all $(BUILD_DIR)/tests/test_coordinator_store
 	./$(BUILD_DIR)/tests/test_coordinator_store
 	$(PYTHON) tests/integration/test_persistence.py --bin-dir $(BUILD_DIR)
+	$(PYTHON) tests/integration/test_startup_recovery.py --bin-dir $(BUILD_DIR)
+
+test-startup-recovery: all $(BUILD_DIR)/tests/test_coordinator_store
+	./$(BUILD_DIR)/tests/test_coordinator_store
+	$(PYTHON) tests/integration/test_startup_recovery.py --bin-dir $(BUILD_DIR)
 
 test-integration: all
 	$(PYTHON) tests/integration/test_persistence.py --bin-dir $(BUILD_DIR)
+	$(PYTHON) tests/integration/test_startup_recovery.py --bin-dir $(BUILD_DIR)
 	$(PYTHON) tests/integration/test_recovery.py --bin-dir $(BUILD_DIR) $(INTEGRATION_ARGS)
 	$(PYTHON) tests/integration/test_execution.py --bin-dir $(BUILD_DIR) $(INTEGRATION_ARGS)
 	$(PYTHON) tests/integration/test_failure_detection.py --bin-dir $(BUILD_DIR) $(INTEGRATION_ARGS)

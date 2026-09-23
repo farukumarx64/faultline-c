@@ -57,10 +57,12 @@ def read_wal(path, allow_tail=False):
 
 
 class Server:
-    def __init__(self, executable, directory, path, initialize=True, limit=None, default_path=False, extra=()):
-        with socket.socket() as reservation:
-            reservation.bind(('127.0.0.1', 0))
-            self.port = reservation.getsockname()[1]
+    def __init__(self, executable, directory, path, initialize=True, limit=None, default_path=False, extra=(), port=None):
+        if port is None:
+            with socket.socket() as reservation:
+                reservation.bind(('127.0.0.1', 0))
+                port = reservation.getsockname()[1]
+        self.port = port
         command = [str(executable), '--port', str(self.port)]
         if not default_path:
             command += ['--wal', str(path)]
@@ -131,7 +133,7 @@ class Server:
         raise AssertionError(f'Missing {text}: {self.output}')
 
 
-class PersistenceTests(unittest.TestCase):
+class PersistenceTestCase(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory(prefix='faultline-persistence-')
         self.addCleanup(self.temporary.cleanup)
@@ -179,6 +181,8 @@ class PersistenceTests(unittest.TestCase):
     def latest(self):
         return {record['job']: record for record in read_wal(self.path)[0] if record['kind'] != 1}
 
+
+class PersistenceTests(PersistenceTestCase):
     def test_ack_assignment_and_binary_result_survive_sigkill(self):
         server = self.server().ready()
         arguments = b'a\0b'
