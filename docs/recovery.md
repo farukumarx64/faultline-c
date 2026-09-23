@@ -46,8 +46,8 @@ assignment. The scheduler validates the connection's worker ID, the current job
 owner and attempt, and the permitted state transition before accepting a report.
 DONE and FAILED are terminal. A successful job has one accepted completion; an
 old report cannot replace that result or claim ownership of a newer attempt.
-Job/worker IDs and attempt counters currently live only in memory, so this is
-not a durable identity guarantee across coordinator restarts.
+Job/worker IDs and attempt counters now survive coordinator restart through
+the [WAL](persistence.md); identity continuity applies to the same retained history.
 
 A rejected scheduler report leaves its state unchanged. At the TCP handler,
 an invalid report also closes the offending connection; if that connection owns
@@ -89,7 +89,7 @@ external writes. Future tasks with effects need their own idempotency/deduplicat
 mechanism at the destination. Attempt validation inside the coordinator cannot
 undo or deduplicate those effects.
 
-The current guarantee is conditional and in memory:
+The execution guarantee is conditional:
 
 - While the coordinator remains running, detected worker loss preserves the job
   as either a queued retry or a terminal FAILED record. It does not silently drop
@@ -100,13 +100,14 @@ The current guarantee is conditional and in memory:
   never begin computing if every assignment fails before execution or no worker
   becomes available. At-least-once describes the retry/duplicate-execution policy
   here; it is not an unconditional promise of delivery or eventual success.
-- A submission ACK confirms in-memory storage and enqueueing. Coordinator exit
-  loses this state. WAL-backed acceptance and restart recovery are future work.
+- A submission ACK follows durable creation and in-memory publication. The
+  [persistence contract](durability.md) defines retained-WAL restart recovery.
 - A lost submission ACK leaves acceptance uncertain. Manually resubmitting can
   create a second job ID; there is no client submission deduplication key yet.
 
-These are guarantees of a single live coordinator. Exactly-once execution,
-coordinator failover, and durable recovery are outside this completed phase.
+These are guarantees of a single coordinator. Exactly-once execution
+and coordinator failover remain outside the implementation. Durable recovery
+is covered separately by the [persistence tests](persistence.md#files-and-verification).
 
 ## Run the checks
 
@@ -166,16 +167,11 @@ do not exercise real multi-host partitions, repeated heartbeat-expiry exhaustion
 external side-effect deduplication, or coordinator restart. Test timing bounds
 allow local scheduling slack and are not production latency guarantees.
 
-The next project-plan phase is persistence: define the WAL record format,
-append/flush and acknowledgment contract, replay rules, and recovery of jobs
-that were active when the coordinator stopped. Durable identities and retry
-budgets must survive replay. That work is still required before claiming the
-full MVP's coordinator-restart recovery guarantee.
-
-Follow-up design, 2026-09-21: the [durability contract](durability.md) now defines
-what survives, sync-before-ACK ordering, and retry accounting during startup.
-It is a specification for the next implementation steps, not additional recovery
-test evidence or an implemented WAL.
+This phase review established worker-failure behavior before persistence. The
+subsequent [durability contract](durability.md) and [coordinator implementation](persistence.md)
+now add WAL-backed identities, sync-before-ACK ordering, replay, and interrupted
+attempt accounting at startup. Separate persistence tests provide that evidence;
+the six worker-recovery scenarios above still have their original scope.
 
 ## Hard-crash scenario
 
@@ -444,8 +440,8 @@ suite checks exhaustion after task errors. The new exhaustion scenarios use
 SIGKILL; repeated heartbeat-expiry exhaustion is not a separate scenario here.
 Both detection paths use the same worker-loss operation.
 
-Jobs and results are still in memory; coordinator restart recovery needs the
-future WAL. The CLI reports submission acceptance, not the eventual result or
+Jobs and accepted results now survive coordinator restart through the
+[WAL](persistence.md); these worker-recovery checks still focus on a running coordinator. The CLI reports submission acceptance, not the eventual result or
 terminal failure; these checks observe coordinator logs. At-least-once retry
 semantics permit repeated task execution, and a finite retry allowance can end
 in FAILED without a successful result. None of these checks guarantees that a

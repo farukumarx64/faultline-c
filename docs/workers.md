@@ -1,5 +1,8 @@
 # Workers and the coordinator registry
 
+For a first coordinator launch, explicitly create its WAL with `--init-wal`.
+Later launches recover the same file; see [persistence startup](persistence.md#starting-and-restarting).
+
 The coordinator accepts WORKER_REGISTER, assigns a worker ID, returns
 WORKER_REGISTER_ACK, and records HEARTBEAT messages from that connection.
 Its registry is in `src/coordinator/worker_registry.c`, with the public interface
@@ -283,14 +286,16 @@ must not be retained as identities because those slots may later hold new worker
 
 The registry is owned by the coordinator's single event loop. It allocates no
 heap memory, opens/closes no sockets, and needs no locking in this usage. Only the
-coordinator and registry test binary link its implementation. Registry memory
-and the ID counter reset on coordinator restart; IDs are not durable identities
-across coordinator runs. Old connections must register again after reconnecting.
+coordinator and registry/persistence test binaries link its implementation.
+Registry connections reset on coordinator restart, while the ID allocator is
+restored from the WAL. Old connections must register again after reconnecting;
+IDs are never reused within the same retained WAL history.
 
 ## Lifecycle and timestamps
 
 An empty client connection has worker ID zero and no registry entry. Receiving a
-complete WORKER_REGISTER creates an ALIVE entry before queuing its ACK. If sending
+complete WORKER_REGISTER prepares an ALIVE entry, appends/syncs the new ID
+allocation, then publishes the entry before queuing its ACK. If sending
 that ACK fails, normal connection cleanup marks the new entry dead.
 
 A complete heartbeat must contain the ID assigned to the sending connection.

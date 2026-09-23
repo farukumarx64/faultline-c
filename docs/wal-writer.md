@@ -5,11 +5,10 @@ complete records, and synchronizes them before reporting success. It implements
 the storage boundary from the [durability contract](durability.md), using the
 existing [version 1 format](wal-format.md).
 
-This module is currently exercised through its C tests. The separate
+The coordinator now uses this module through its [transaction layer](persistence.md),
+which publishes live changes only after successful append/sync. The separate
 [replay module](wal-replay.md) opens existing logs, reconstructs state, repairs
-incomplete tails, and resumes this writer. Coordinator integration and startup
-reconciliation remain later steps. The coordinator still keeps jobs only in
-memory, and its submission ACK still confirms in-memory acceptance.
+incomplete tails, and resumes this writer before startup reconciliation.
 
 ## Successful append means successful sync
 
@@ -28,7 +27,7 @@ return FAULTLINE_WAL_WRITE_OK
 ```
 
 There is no public append-without-sync operation or batch flush. Every successful
-append includes its required flush. Future coordinator integration must wait for
+append includes its required flush. Coordinator integration waits for
 this success before publishing a transition or exposing its ACK/assignment/result.
 The writer does not itself mutate jobs, manage retry counters, or send messages.
 It validates each record's fields and sequence, but the caller must validate the
@@ -142,9 +141,9 @@ acceptance, rewind/delete the record, retry the logical append, or permit
 sequence 9. Replay inspects what survived; a failed sync is not proof
 that a complete record disappeared.
 
-After I/O failure, future coordinator integration must stop admission and
-scheduling, close connections without logging further job-loss transitions,
-and exit unsuccessfully. A failed handle cannot be reopened with `create()`,
+After I/O failure, coordinator integration stops admission and
+scheduling, closes connections without logging further job-loss transitions,
+and exits unsuccessfully. A failed handle cannot be reopened with `create()`,
 including after close. There is no automatic fresh-log fallback.
 
 Always close the handle after a create or replay attempt that may have opened
@@ -197,7 +196,8 @@ This demonstrates retained bytes after a writer process crash. It does not
 simulate power loss or reconstruct coordinator job state.
 
 The eleven writer groups are joined by twelve [replay groups](wal-replay.md#verification),
-bringing the C unit total to 100. Replay validates history, reconstructs state,
+plus six coordinator-store groups, bringing the C unit total to 106. Replay
+validates history, reconstructs state,
 handles only permissible incomplete tails, syncs the recovered prefix, and safely
-resumes appending. Coordinator integration will apply this boundary to live job
-transitions and startup reconciliation.
+resumes appending. [Coordinator integration](persistence.md) applies this boundary
+to live job transitions and startup reconciliation.

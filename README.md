@@ -21,8 +21,9 @@ checksums, and tested byte codecs. The [WAL writer](docs/wal-writer.md) now crea
 and locks new logs, handles partial writes, and syncs each complete record before
 success. [WAL replay](docs/wal-replay.md) now reconstructs saved jobs, results,
 retry counts, FIFO order, and ID counters, repairs incomplete tails, and resumes
-the locked writer. Coordinator integration and startup reconciliation remain
-pending; live coordinator state remains in memory.
+the locked writer. [Coordinator persistence](docs/persistence.md) now connects
+these modules to live operations: sync before ACK/dispatch/result publication,
+and reconcile interrupted attempts before listening after restart.
 
 Dedicated failure tests distinguish worker exit and TCP reset from missed
 heartbeats on an open connection. A healthy worker and the CLI must remain usable
@@ -52,11 +53,21 @@ and UndefinedBehaviorSanitizer runtimes. The integration tests require Python 3
 make
 ```
 
-Start the coordinator in one terminal:
+Initialize a new coordinator log on the first launch:
 
 ```sh
-./build/debug/faultline-coordinator --port 9000
+./build/debug/faultline-coordinator --port 9000 --wal faultline.wal --init-wal
 ```
+
+On subsequent launches, omit `--init-wal` to recover the same file:
+
+```sh
+./build/debug/faultline-coordinator --port 9000 --wal faultline.wal
+```
+
+The default path is `faultline.wal`. Initialization refuses to overwrite an
+existing log, and ordinary startup refuses a missing log. See
+[persistence startup and guarantees](docs/persistence.md).
 
 Then send a PING from a second terminal:
 
@@ -67,7 +78,8 @@ Then send a PING from a second terminal:
 
 All three programs default to `127.0.0.1:9000`, so `faultline-coordinator`,
 `faultline ping`, and `faultline-worker` work without address options. Use the executable paths
-above unless you have added their directory to PATH. Stop the coordinator with
+above unless you have added their directory to PATH. The coordinator also requires
+its existing WAL unless `--init-wal` is supplied. Stop the coordinator with
 Ctrl+C. It closes active connections and its listening socket before exiting.
 
 With the coordinator running, start a worker in each of two additional terminals:
@@ -151,8 +163,8 @@ See [task arguments, algorithms, and execution](docs/tasks.md).
 
 Arguments are passed through as text or hex-decoded bytes, up to 1024 bytes.
 Retry allowance defaults to zero. The store retains 256 total jobs, including
-terminal records; full stores reject further submissions, and restarting loses
-all in-memory jobs. See [the scheduling guide](docs/scheduling.md) for CLI options,
+terminal records; full stores reject further submissions, and restarting preserves
+these records and the capacity limit. See [the scheduling guide](docs/scheduling.md) for CLI options,
 acceptance guarantees, worker eligibility, retries, and the current limits.
 
 [Worker recovery checks](docs/recovery.md) kill a busy worker with SIGKILL or
@@ -169,8 +181,8 @@ Assignments are revocable leases tied to worker connection/heartbeat liveness.
 An expired worker can still be computing while another starts the retry.
 Job/worker/attempt validation protects accepted coordinator state, while tasks
 must be safe to repeat under the bounded at-least-once retry policy. Heartbeats
-do not prove task progress, and submission ACKs currently confirm in-memory
-acceptance only. See [the lease and execution guarantees](docs/recovery.md#assignment-lease).
+do not prove task progress. Submission ACKs now follow a successful WAL sync;
+missing an ACK still leaves an uncertain client outcome. See [the lease and execution guarantees](docs/recovery.md#assignment-lease).
 The [fault-tolerance phase review](docs/recovery.md#phase-review) records the
 verified recovery cases and the boundary before persistence.
 
@@ -190,6 +202,8 @@ Use `make test-wal-writer` for real-file appends, sync ordering, storage-error
 injection, locking, and writer-crash checks; add `SANITIZE=1` for instrumentation.
 Use `make test-wal-replay` for history validation, reconstructed state, tail
 repair, and append resumption; add `SANITIZE=1` for instrumentation.
+Use `make test-persistence` for coordinator commit ordering and restart checks;
+add `SANITIZE=1` for instrumentation.
 Use `make test-scheduling` for CLI submission and scheduling scenarios.
 Use `make test-execution` for task results, concurrent workers, and cancellation.
 Use `make test-recovery` for crash/heartbeat recovery, resumed-worker protection,
@@ -226,7 +240,8 @@ faultline/
 │   ├── durability.md
 │   ├── wal-format.md
 │   ├── wal-writer.md
-│   └── wal-replay.md
+│   ├── wal-replay.md
+│   └── persistence.md
 ├── include/             Shared C headers
 ├── src/
 │   ├── common/          Shared protocol, networking, and logging code
@@ -250,9 +265,11 @@ message semantics, and validation. The [scheduling guide](docs/scheduling.md)
 connects those pieces to CLI submission and live FIFO dispatch. The
 [task guide](docs/tasks.md) covers built-in execution and result reporting; the
 [recovery guide](docs/recovery.md) records worker-failure guarantees and checks.
-The [durability contract](docs/durability.md) defines the upcoming WAL acceptance,
+The [durability contract](docs/durability.md) defines WAL acceptance,
 restart, and retry rules. The [WAL format specification](docs/wal-format.md)
 defines exact file/record bytes and validation. The [WAL writer guide](docs/wal-writer.md)
 explains complete appends, sync boundaries, and storage failures. The
 [WAL replay guide](docs/wal-replay.md) explains historical validation, state
-reconstruction, incomplete-tail repair, and safely resuming appends.
+reconstruction, incomplete-tail repair, and safely resuming appends. The
+[coordinator persistence guide](docs/persistence.md) connects these operations
+to durable live transitions, startup, retry accounting, and failure shutdown.

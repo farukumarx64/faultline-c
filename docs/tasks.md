@@ -1,10 +1,14 @@
 # Built-in task execution
 
+For a first coordinator launch, explicitly create its WAL with `--init-wal`.
+Later launches recover the same file; see [persistence startup](persistence.md#starting-and-restarting).
+
 Workers now execute `sleep`, `prime_count`, `fibonacci`, and `hash`, send real
 STARTED/COMPLETED/FAILED reports, and accept another assignment after reporting
 the current outcome. The coordinator validates the report, stores the result,
 and prints it in its `job_completed` log. The CLI still prints an acceptance ID
-and exits; result/status queries and persistent recovery remain later work.
+and exits; result/status queries remain later work. [Persistence](persistence.md)
+now retains accepted results and reconciles active jobs after coordinator restart.
 
 ## Start with sleep
 
@@ -182,7 +186,8 @@ The coordinator sees unfinished disconnected work as WORKER_LOST and retries or
 fails it. A partitioned/paused worker can overlap a retry until it detects the
 lost connection, so attempt identity and repeatable tasks still matter. There is
 no exactly-once guarantee, completion acknowledgment, lease deadline independent
-of heartbeats, automatic reconnect, or durable state yet.
+of heartbeats, or automatic reconnect. Accepted state is now durable through
+the [coordinator WAL](persistence.md).
 
 ## Result visibility and verification
 

@@ -2,10 +2,9 @@
 
 The standalone replay module now reads an existing WAL, validates its entire
 surviving history, reconstructs state, repairs a permissible incomplete tail,
-and returns a locked writer ready for further storage appends. The coordinator
-does not use this module yet: live submissions still have in-memory ACKs and
-coordinator exit still loses live state. Startup reconciliation and runtime
-integration are subsequent steps in the [durability contract](durability.md).
+and returns a locked writer ready for further storage appends. The
+[coordinator store](persistence.md) now uses this module at startup, then durably
+reconciles interrupted attempts before the listening socket opens.
 
 ## What replay reconstructs
 
@@ -25,8 +24,8 @@ integration are subsequent steps in the [durability contract](durability.md).
 DONE and FAILED jobs remain terminal and count toward the existing 256-job
 store limit. ASSIGNED and RUNNING jobs retain their exact recorded snapshots;
 replay does not charge another retry, invent a worker connection, or execute work.
-The next startup step must reconcile those interrupted attempts durably before
-the coordinator serves requests. A writer becoming READY means that storage
+The coordinator store's startup step reconciles those interrupted attempts durably
+before serving requests. A writer becoming READY means that storage
 appends are permitted, including reconciliation records; it is not coordinator
 readiness.
 
@@ -56,7 +55,8 @@ they start at 1 and have no gaps; sequence exhaustion also prohibits further app
 Job event times must be nondecreasing across the log, matching the contract's
 single logical job timeline. Equal times are valid. Individual unset timestamps
 remain `-1`; an empty store has time base zero. Replay returns the recovered base
-but does not implement the future live clock or add coordinator downtime.
+but does not itself implement the live clock or add coordinator downtime. The
+coordinator store uses that base for subsequent job transitions.
 
 ## Opening, validation, and publication
 
@@ -183,7 +183,7 @@ make SANITIZE=1 test-unit all
 ```
 
 The twelve new groups in [`tests/test_wal_replay.c`](../tests/test_wal_replay.c)
-bring the C unit total to 100. All 100 pass in normal and ASan/UBSan builds.
+join the existing suites; with six coordinator-store groups the C total is 106.
 Coverage includes mixed terminal/queued/active jobs, binary inputs/results,
 retries, FIFO, sparse and exhausted identities, timestamps, and store capacity.
 Repeated replay preserves the same state and consumes no extra retries.
@@ -199,5 +199,5 @@ A process test syncs one record, begins the next append, pauses after seven
 bytes, and receives SIGKILL. The parent recovers the first record, removes the
 seven-byte tail, appends the next record, and replays again. This demonstrates
 the standalone storage recovery path. It does not establish coordinator restart
-recovery, client ACK ordering, or power-loss survival. Those runtime checks remain
-part of the next integration work.
+recovery, client ACK ordering, or power-loss survival. Separate [coordinator tests](persistence.md#files-and-verification) now cover
+ACK/dispatch/result ordering and restart behavior.

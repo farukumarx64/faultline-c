@@ -10,11 +10,14 @@ Real workers execute one assignment at a time while continuing heartbeats. They
 send STARTED, then COMPLETED with a result or FAILED with the TASK reason. The
 coordinator stores and logs completed results and schedules the next queued job.
 See [built-in task execution](tasks.md) for algorithms, inputs, and thread ownership.
-CLI result/status queries and persistence remain later work.
+CLI result/status queries remain later work. [Persistence](persistence.md) now
+wraps scheduler operations with durable commit ordering.
 
 ## Try it
 
-Build with `make`. Start the coordinator, then submit two jobs before starting
+Build with `make`. Initialize the WAL once with `--init-wal`, as described in
+[persistence startup](persistence.md#starting-and-restarting). Start the coordinator
+using that existing log, then submit two jobs before starting
 workers to see that acceptance does not require an available worker:
 
 ```sh
@@ -87,23 +90,23 @@ message in this protocol version. A lost ACK is an uncertain outcome.
 The coordinator allocates one scheduler/store at startup and frees it on shutdown.
 It retains up to 256 full job records, including QUEUED, active, and terminal jobs.
 The FIFO stores pending IDs separately. No terminal records are evicted or reused
-yet: after 256 successful submissions, further submissions are rejected until a
-restart, even if some jobs have completed. Restart also loses these in-memory jobs;
-there is no persistence guarantee in this milestone.
+yet: after 256 successful submissions, further submissions are rejected even
+if jobs have completed. Restart preserves those records and does not free capacity.
 
 The [durability contract](durability.md#submission-acknowledgment-boundary)
-defines the upcoming change: prepare a submission, append and sync its complete
-creation record, then publish it and queue its ACK. Once implemented, restart
-will retain terminal records too and will no longer free store capacity. The
-current scheduler behavior below remains in-memory only.
+is now implemented by `coordinator_store`: prepare a submission on a scratch
+scheduler, append and sync its complete creation record, then publish it and
+queue its ACK. The scheduler functions below remain pure in-memory operations,
+but the coordinator invokes them on scratch before committing their results.
 
 `faultline_scheduler_submit()` prepares a validated QUEUED record, pushes its ID
 to the FIFO, stores the owned record, and advances the ID counter. No failing
 operations occur after enqueue. Invalid/full/exhausted submissions leave the
 store, queue, and output ID unchanged. IDs start at 1 and never repeat within this
-coordinator lifetime; after UINT64_MAX, allocation fails instead of wrapping.
+retained WAL history; after UINT64_MAX, allocation fails instead of wrapping.
 
-The coordinator queues a success ACK only after storage and enqueue succeed.
+The coordinator queues a success ACK only after WAL sync and publication of
+the prepared job and enqueue succeed.
 Full-store or invalid submissions close the connection without a success ACK.
 Closing a submitter connection after acceptance does not cancel its job or remove
 it from the queue. A submitter may send subsequent submissions, with serialized
@@ -176,8 +179,9 @@ This implements an assignment lease tied to worker connection/heartbeat liveness
 and bounded at-least-once retries while the coordinator remains alive. The
 [recovery contract](recovery.md#assignment-lease) explains revocation, overlapping
 executions, and the conditions for progress. Independent execution deadlines,
-durable recovery, submission deduplication, and exactly-once execution remain
-outside the current implementation.
+submission deduplication and exactly-once execution remain outside the current
+implementation. [Durable recovery](persistence.md) now extends job and retry
+state across coordinator restart using the same retained WAL.
 
 ## Transport and the worker loop
 

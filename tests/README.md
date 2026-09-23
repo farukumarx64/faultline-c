@@ -7,7 +7,7 @@ make test
 make test-sanitize
 ```
 
-These run 100 protocol, registry, job, queue, scheduler, task, socket, and WAL C test groups plus process integration
+These run 106 protocol, registry, job, queue, scheduler, task, socket, and WAL C test groups plus process integration
 tests using Python 3's standard library. A loopback-capable environment is
 required. You can select the Python interpreter with `PYTHON=/path/to/python3`.
 Use `make test-unit` or `make test-integration` to run one layer separately.
@@ -17,6 +17,8 @@ Use `make test-wal-writer` for the file writer suite, or
 `make SANITIZE=1 test-wal-writer` for instrumented binaries.
 Use `make test-wal-replay` for existing-file recovery, or
 `make SANITIZE=1 test-wal-replay` for instrumented binaries.
+Use `make test-persistence` for durable coordinator transactions and restart
+scenarios, or `make SANITIZE=1 test-persistence` for instrumented binaries.
 Use `make test-recovery` for SIGKILL, SIGSTOP/heartbeat recovery, resumed-worker
 old-attempt protection, and retry exhaustion, or `make SANITIZE=1 test-recovery`
 for instrumented binaries.
@@ -173,8 +175,47 @@ survival, not power loss, existing-log replay, or coordinator restart recovery.
 
 These checks use real private temporary files with controlled I/O faults where
 needed. They verify standalone recovery and preserve active-job snapshots.
-Startup reconciliation, coordinator restart/ACK ordering, and power-loss
-survival are not established by these tests.
+Startup reconciliation and coordinator restart/ACK ordering are exercised by
+the separate tests below. These checks do not establish power-loss survival.
+
+`test_coordinator_store.c` adds six [transaction groups](../docs/persistence.md):
+
+- Inspect published jobs, registry, output values, clock, and sequence during
+  writes and syncs for registration, submission, assignment, STARTED, COMPLETED,
+  and task/worker-loss outcomes with remaining or exhausted retries.
+- Fail each of those nine mutations with a partial write or failed sync. Verify
+  unchanged live state/outputs, no later mutations or cleanup writes, and correct
+  subsequent recovery of a partial versus complete uncertain record.
+- Reject invalid inputs, duplicate registration, busy/unknown workers, and stale
+  reports without WAL I/O.
+- Restore mixed queued/active jobs, reconcile in ID order, preserve FIFO and retry
+  budgets on repeated startup, restore IDs, and continue a logical job clock from
+  timestamps greater than the new raw clock.
+- Fail the first or second reconciliation sync, then recover without charging a
+  durable interruption twice.
+- Stop on job-clock overflow/regression and WAL sequence exhaustion without
+  publishing or writing more state.
+
+`integration/test_persistence.py` adds seven process scenarios:
+
+- SIGKILL after submission ACK and accepted binary completion; independently
+  decode WAL records and verify completion precedes the next assignment.
+- Restart mixed queued/RUNNING/ASSIGNED jobs, preserve FIFO and budgets, avoid
+  repeated retry increments, and complete the recovered attempts.
+- Enforce a child-process file-size limit at nine live write boundaries: no
+  success publication for the failed transition, no extra cleanup records, and
+  safe repair/restart afterward. Submission ACK delivery can remain uncertain
+  when a later assignment fails before an already-queued ACK is transmitted.
+- Fail reconciliation writing and require startup refusal before listening.
+- Reject missing, already-existing initialization targets, competing writers,
+  and corrupt logs; repair an incomplete final record only.
+- Retain idle-worker allocations and reconcile work after graceful shutdown.
+- Exercise the default WAL path, recovery mode, help, and invalid options.
+
+The file limits affect private temporary WALs only; diagnostics use pipes. The
+coordinator has no production fault-injection switches. Existing process fixtures
+now explicitly create a temporary WAL per coordinator. Neither test layer
+simulates power loss or exhaustively kills the coordinator at every instruction.
 
 `test_net.c` has six socket test groups and two parsing groups. Socket
 tests use local stream socket pairs and child processes to verify fragmented
@@ -484,7 +525,7 @@ The focused command prints each detected reason and elapsed observation time or
 heartbeat silence duration. The full integration target includes this suite once.
 
 By default, suites select available ports. The original coordinator and worker
-suites each skip one default-endpoint check. To run all 77 scenarios, stop any existing
+suites each skip one default-endpoint check. To run all 84 scenarios, stop any existing
 coordinator on port 9000 and run:
 
 ```sh
@@ -496,5 +537,6 @@ make test-sanitize INTEGRATION_ARGS='--port 9000'
 When 9000 is selected, the harness starts the coordinator without `--port` and
 also invokes `faultline ping` and `faultline-worker` without `--coordinator`
 to test all defaults. Processes started by the harness are stopped afterward.
-With automatic port selection, the suite discovers 77 scenarios: 75 run and two
-default-port checks are skipped. Coordinator restart recovery is not implemented or tested yet.
+With automatic port selection, the suite discovers 84 scenarios: 82 run and two
+default-port checks are skipped. The seven persistence scenarios always use
+automatic ports independently of the legacy suites' optional port 9000 checks.

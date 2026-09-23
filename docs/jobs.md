@@ -18,7 +18,7 @@ now orchestrates storage, enqueue, assignment, reports, and worker-loss transiti
 | `worker_id` | Assigned worker ID while active; zero while queued. Terminal jobs retain the last worker ID for inspection. |
 | `attempt` | Assignment number: zero before the first assignment, then 1, 2, 3, etc. |
 | `retry_count`, `max_retries` | Requeues already granted and the maximum additional attempts allowed. |
-| `created_at_ms` | Coordinator monotonic time when the record was initialized. Never changes. |
+| `created_at_ms` | Coordinator logical job time when the record was initialized. Never changes. |
 | `updated_at_ms` | Time of the latest successful state transition. |
 | `assigned_at_ms` | Time the current/latest attempt was assigned. |
 | `started_at_ms` | Time that attempt reported starting. |
@@ -41,7 +41,7 @@ input, or numeric computation limit.
 
 All numeric fields are host-order values. Neither this struct nor its arrays of
 metadata constitute a wire format or WAL record. Job messages encode selected
-fields explicitly; persistence serialization is still future work. The worker ID is a logical ID, never a socket descriptor.
+fields explicitly; the [WAL format](wal-format.md) also serializes fields explicitly. The worker ID is a logical ID, never a socket descriptor.
 
 ## States and allowed transitions
 
@@ -152,15 +152,15 @@ a FIFO, send another assignment, or run another task. An explicit successful
 queue push adds the retried ID to the back. The scheduler now performs that
 insertion for task failure and worker loss. The coordinator ties the active
 assignment's lease to worker connection/heartbeat liveness; see the
-[lease contract](recovery.md#assignment-lease). Separate execution deadlines and
-persistent recovery remain later work. The model preserves only the current/latest
+[lease contract](recovery.md#assignment-lease). Separate execution deadlines
+remain later work; [persistent recovery](persistence.md) now uses these same rules. The model preserves only the current/latest
 attempt's metadata, not a full attempt history.
 
 ## Timestamp rules
 
-Times are coordinator `CLOCK_MONOTONIC` milliseconds. The caller obtains them
-through the existing clock helper during runtime job handling. They are
-not wall-clock dates or worker-provided timestamps. Equal timestamps are valid:
+Times use the coordinator's logical job clock: the recovered maximum plus fresh
+`CLOCK_MONOTONIC` elapsed milliseconds for this session. They are not wall-clock
+dates or worker-provided timestamps. Equal timestamps are valid:
 multiple events can occur in one millisecond. Going backward is rejected.
 
 `-1` means an assignment/start/finish event has not occurred for this attempt.
@@ -168,12 +168,10 @@ Zero is a valid time, so it cannot be the unset marker. A failure before STARTED
 leaves `started_at_ms` unset. Requeue clears the attempt's timestamps; terminal
 states keep their available timestamps for inspection.
 
-These current values belong to one coordinator clock lifetime. The upcoming
-[durability contract](durability.md#time-across-restarts) preserves job timestamps
-on a logical timeline: a new session continues from the recovered maximum plus
-fresh monotonic elapsed time. Socket and heartbeat deadlines still use a fresh
-raw monotonic clock. This policy is defined but not implemented; it excludes
-downtime from cross-session job timestamp differences.
+The [durability contract](durability.md#time-across-restarts) preserves job
+timestamps on this logical timeline. Socket and heartbeat deadlines still use
+a fresh raw monotonic clock. Downtime is excluded from cross-session job
+timestamp differences.
 
 ## Example and tests
 

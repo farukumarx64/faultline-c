@@ -1,15 +1,14 @@
 # Coordinator durability contract
 
-Defined 2026-09-21. This is the contract for the upcoming persistence
-implementation, not a description of persistence already shipped. The current
-coordinator still holds jobs in memory and loses them on exit. The
+Defined 2026-09-21. [Coordinator persistence](persistence.md) now implements
+this contract's durable operation ordering and startup reconciliation. The
 [format step](wal-format.md) implements byte codecs and validation, and the
 [writer step](wal-writer.md) implements new-file creation, locking, complete
 appends, and synchronization. [Replay](wal-replay.md) implements existing-log
 validation, state reconstruction, incomplete-tail repair, and append resumption.
-Coordinator integration, startup reconciliation, and WAL CLI options remain pending.
+`--wal PATH` selects the retained log; `--init-wal` explicitly creates a new one.
 
-The promise to implement is: **after the client receives a valid submission ACK,
+The promise is: **after the client receives a valid submission ACK,
 the job can be recovered from the same WAL after a coordinator process crash.**
 Recovery preserves the job's identity, input, retry budget, and any durably
 recorded terminal outcome. It may retry interrupted work; it does not promise
@@ -29,8 +28,8 @@ successful or exactly-once execution.
   OS-crash/power-loss survival are outside this first contract.
 - Ordinary recovery requires the existing WAL. Creating an empty store must be
   an explicit initialization action. Missing, inaccessible, incompatible, or
-  corrupt state must not silently become a new empty coordinator. The eventual
-  CLI syntax for initialization and selecting the WAL belongs to implementation.
+  corrupt state must not silently become a new empty coordinator. `--init-wal`
+  explicitly creates the file selected by `--wal` (default `faultline.wal`).
 - A newly initialized WAL must have its header/file synced and its parent
   directory synced before service begins. Initialization must not overwrite an
   existing log. The first implementation does not rotate or compact the WAL.
@@ -67,7 +66,7 @@ retry increment, or a created job without reserving its ID, is forbidden. The
 bytes; raw C structs are never the persistent format.
 
 The existing 256-job store limit includes retained DONE and FAILED records.
-Persistence means a restart will no longer free those slots. Replay must reject
+Persistence means a restart does not free those slots. Replay must reject
 state that exceeds supported limits rather than dropping records. Eviction,
 archival, and WAL compaction are separate future work; the log can continue to
 grow through transitions and registrations even with a bounded job count.
@@ -211,9 +210,8 @@ each job if a crash interrupts reconciliation of several active jobs.
 
 ## Time across restarts
 
-Current job times are raw coordinator monotonic milliseconds. They must not be
-compared directly with readings from a different clock origin after restart.
-The persistence implementation will use a **logical job timeline** for job fields:
+Raw monotonic readings from different coordinator sessions cannot be compared
+directly. The implementation uses a **logical job timeline** for job fields:
 
 - Preserve every recorded timestamp and `-1` unset marker during replay.
 - Set a new session's base to the greatest nonnegative job timestamp in the
@@ -221,8 +219,8 @@ The persistence implementation will use a **logical job timeline** for job field
 - For new transitions, use `base + elapsed_monotonic_ms_since_session_start`.
   Equal timestamps remain valid. Detect overflow and stop instead of wrapping.
 - Job event times are nondecreasing across the log, not only within each job.
-  Replay enforces this ordering and returns the recovered base; live clock
-  integration is still pending.
+  Replay enforces this ordering and returns the recovered base; the transaction
+  layer supplies this clock for live job changes and startup reconciliation.
 - Use this job clock for all job creation/transitions, including reconciliation.
   Continue using fresh raw monotonic time for sockets, heartbeat deadlines, and
   worker execution; old heartbeat times are never restored.
@@ -266,12 +264,15 @@ The operator must restore usable storage and restart; storage failure is not a
 task error and must not consume retry allowance by itself. Subsequent startup
 still reconciles any active attempts because their coordinator connections ended.
 
-## Acceptance checks for later implementation
+## Acceptance checks and remaining phase verification
 
-These are required coordinator-level checks to add with runtime integration.
-The [writer tests](wal-writer.md#files-and-verification) and
-[replay tests](wal-replay.md#verification) cover storage and reconstruction
-independently; they do not establish these full checks:
+This is the phase's acceptance matrix. The [coordinator tests](persistence.md#files-and-verification)
+now cover live ordering, SIGKILL/restart, terminal results, FIFO/retry accounting,
+storage failure, and startup rejection. The [writer tests](wal-writer.md#files-and-verification)
+and [replay tests](wal-replay.md#verification) cover storage and reconstruction.
+An exhaustive controlled crash at every listed boundary and the final phase
+review remain further work; this is not a claim that every permutation has
+already been exercised:
 
 1. Kill after submission ACK; recover the exact job, arguments, budget, and ID.
 2. Kill before sync/ACK and after sync but before ACK; recover valid surviving
@@ -302,7 +303,8 @@ record types, lengths, byte order, sequence, checksums, payloads, and validation
 rules that encode this contract. The [WAL writer](wal-writer.md) now implements
 new-log initialization and reliable append/sync. [Replay](wal-replay.md) now
 restores the complete valid history and repairs permitted incomplete tails.
-Next come startup reconciliation, runtime integration, and coordinator-crash
-experiments. The existing
+[Coordinator integration](persistence.md) now applies those pieces to live
+operations and startup reconciliation. Further crash-point experiments and
+the persistence phase review remain. The existing
 [worker-recovery guarantees](recovery.md) continue to apply; persistence does
 not make execution exactly once or replenish finite retry budgets.

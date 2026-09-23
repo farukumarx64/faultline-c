@@ -22,8 +22,9 @@ bounded retries on failure or worker loss. Workers now execute all four
 [built-in tasks](tasks.md) and report results while heartbeating. The
 [recovery contract](recovery.md#assignment-lease) defines assignment leases tied
 to worker liveness, stale-attempt protection, and bounded at-least-once retries.
-Result queries, execution deadlines independent of heartbeats, and persistent
-recovery remain future work.
+[Coordinator persistence](persistence.md) now provides durable transitions and
+restart recovery. Result queries and execution deadlines independent of
+heartbeats remain future work.
 
 ## Components and ownership
 
@@ -46,8 +47,8 @@ worker runs a job.
 
 The **coordinator** owns the authoritative job state, FIFO queue, worker registry,
 and current assignments. It gives the oldest queued job to an idle worker,
-monitors worker liveness, and applies retry limits. Its state is currently in
-memory; durable transitions in an append-only write-ahead log (WAL) are planned.
+monitors worker liveness, and applies retry limits. Each accepted transition is
+appended and synced to the WAL before its prepared state is published in memory.
 
 Each **worker** connects to the coordinator, registers for an ID, sends periodic
 heartbeats, and executes one assigned job at a time. It reports job start,
@@ -69,14 +70,12 @@ assignment live, even if the task itself stops making progress. Revoking the
 lease does not prove the old worker stopped executing. The
 [recovery guide](recovery.md) documents expiry, overlap, and the acceptance checks.
 
-The future WAL will record job creation and meaningful transitions. Restart
-replay must reconstruct state, preserve terminal outcomes, and make queued work
-available again. The [durability contract](durability.md) now specifies that
-recovered ASSIGNED/RUNNING attempts use the worker-loss retry policy, with each
-recovery outcome synced before dispatch resumes. Already-queued jobs do not
-consume another retry just because startup runs again. This is defined behavior
-for the upcoming persistence implementation; the current coordinator still loses
-its job store when it exits.
+The WAL records job creation and meaningful transitions. Restart replay restores
+state, terminal outcomes, and queued work. Recovered ASSIGNED/RUNNING attempts
+use the worker-loss retry policy, with each recovery outcome synced before the
+coordinator listens. Already-queued jobs do not consume another retry just because
+startup runs again. See the [durability contract](durability.md) and
+[implementation guide](persistence.md).
 
 ## Guarantees and limits
 
@@ -88,11 +87,10 @@ its job store when it exits.
   more than once. Tasks should be idempotent. Retry limits can produce terminal
   failure, even before any computation begins. Eventual execution or success
   requires available workers and continued coordinator/task/network progress.
-- Submission ACKs currently confirm in-memory acceptance only. For the future
-  persistence phase, the contract requires a complete creation record and
-  successful WAL sync before an ACK. Job identity, input, counters, queue order,
-  and terminal outcomes must survive coordinator process restart using that WAL.
-  This guarantee is specified but not yet implemented.
+- Submission ACKs require a complete creation record and successful WAL sync.
+  Job identity, input, counters, queue order, and terminal outcomes recover from
+  the retained WAL after a coordinator process restart. A missing ACK leaves
+  the outcome uncertain; the job may already be durable.
 - There is one coordinator and no automatic failover. Scheduling is unavailable
   while it is down. Existing worker computations may continue,
   and restart recovery must account for their uncertain outcomes.
@@ -133,8 +131,9 @@ locks new logs, fully writes each encoded record, and syncs before reporting
 success. Storage failures permanently disable its handle. [WAL replay](wal-replay.md)
 validates complete histories, rebuilds jobs/results/retries/FIFO and ID counters,
 repairs incomplete final records, and resumes the same locked writer after sync.
-Startup reconciliation and runtime integration remain future steps; the running
-coordinator does not use these modules yet.
+The [coordinator store](persistence.md) prepares changes on a scratch scheduler,
+commits them through this writer, then publishes. Startup recovery precedes the
+listening socket, and fatal storage errors stop all further work and WAL appends.
 
 ## Evidence required for v0.1
 

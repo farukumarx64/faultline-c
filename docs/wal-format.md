@@ -3,11 +3,9 @@
 Defined 2026-09-21. The byte format, in-memory encoders/decoders, and format tests
 are implemented. The [WAL writer](wal-writer.md) now implements new-file creation,
 locking, and append/sync. [Replay](wal-replay.md) implements reading, historical
-validation, reconstruction, and incomplete-tail repair. Coordinator integration
-and startup reconciliation remain later steps.
-The coordinator still loses its in-memory state
-on exit. See the [durability contract](durability.md) for the behavior this
-format must eventually support.
+validation, reconstruction, and incomplete-tail repair. [Coordinator persistence](persistence.md)
+now uses these modules for live transitions and startup reconciliation. See the
+[durability contract](durability.md) for the supported guarantees and limits.
 
 A WAL is an ordered history of durable state changes. The writer appends and
 syncs one complete record before a caller may publish its effects. The replay
@@ -189,8 +187,8 @@ These checks describe one record. [Replay](wal-replay.md) adds history validatio
   the FIFO head and preventing duplicate entries. Sorting jobs by ID is insufficient.
 - Preserve DONE/FAILED terminal records and exact active-job snapshots.
 
-Startup integration must then reconcile recovered active jobs using the
-durability contract before admitting new work; that step is not implemented yet.
+The coordinator store then reconciles recovered active jobs using the
+durability contract before admitting new work.
 
 For example, a perfectly checksummed COMPLETED snapshot with no preceding
 creation/assignment/start records must fail replay even though its bytes decode.
@@ -291,8 +289,8 @@ reader advance to the next record. Decoded jobs own their argument/result bytes.
 Encoders never write unused array capacity or native struct padding.
 
 The codec implementation allocates no heap memory and performs no file/socket I/O,
-`fsync()`, scheduler mutation, or replay. It currently links into the WAL tests,
-not the coordinator executable. Runtime ACK and retry behavior are unchanged.
+`fsync()`, scheduler mutation, or replay. The coordinator and WAL tests link it;
+the [transaction layer](persistence.md) supplies durable ACK and retry ordering.
 
 ```sh
 make test-wal
@@ -313,5 +311,5 @@ checks; file-based replay is tested separately.
 The [WAL file writer](wal-writer.md) now provides new-log initialization and
 locking, complete append handling, and the required sync/error boundary.
 The [WAL replay module](wal-replay.md) provides existing-log reconstruction,
-incomplete-tail repair, and locked append resumption. Coordinator integration
-and startup reconciliation remain separate steps.
+incomplete-tail repair, and locked append resumption. The separate
+[coordinator store](persistence.md) supplies live transactions and startup reconciliation.

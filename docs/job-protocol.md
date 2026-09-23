@@ -64,10 +64,10 @@ The retry budget stays coordinator-owned and is not included in assignments.
 | --- | --- | --- |
 | 0 | 8 | Coordinator-issued `job_id`, nonzero |
 
-Its meaning is successful acceptance into the coordinator's job store and FIFO.
-The coordinator ACKs only after both succeed; queue/store exhaustion
-cannot produce a success ACK. This is not a completion result or a durability
-promise. Persistence and the ACK/WAL flush policy come later.
+Its meaning is durable acceptance into the coordinator's job store and FIFO.
+The coordinator ACKs only after appending and syncing the creation record, then
+publishing the prepared state; queue/store exhaustion cannot produce a success
+ACK. It is not a completion result. See the [durability contract](durability.md).
 
 This initial format has no request ID or rejection payload. The intended first
 CLI flow has one outstanding submission per connection, so that connection

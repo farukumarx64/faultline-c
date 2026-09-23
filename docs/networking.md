@@ -1,5 +1,8 @@
 # The first TCP exchange
 
+For a first coordinator launch, explicitly create its WAL with `--init-wal`.
+Later launches recover the same file; see [persistence startup](persistence.md#starting-and-restarting).
+
 Faultline can now start a coordinator on `127.0.0.1:9000`, accept a CLI connection,
 receive a binary PING header, and send a binary PONG header. The coordinator also
 accepts registration and heartbeat frames and owns a [worker registry](workers.md).
@@ -229,7 +232,8 @@ EOF, I/O errors, protocol rejection, stalled transfers, heartbeat expiry, and co
 
 The coordinator currently listens only on IPv4 loopback. The CLI and worker accept a
 numeric IPv4 address. There is no hostname resolution, IPv6, automatic worker
-reconnection or persistence yet.
+reconnection yet. [Coordinator persistence](persistence.md) now supplies durable
+ACK/assignment/result ordering without changing the network frame format.
 Logs provide basic event
 visibility; full timestamped structured logging remains future work.
 
