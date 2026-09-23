@@ -221,8 +221,13 @@ append as if it were a new operation.
   binary results, FIFO/retry preservation, file-size-limit write failures, startup
   rejection, and graceful shutdown. Each scenario may contain multiple cases.
 - [`tests/integration/test_startup_recovery.py`](../tests/integration/test_startup_recovery.py):
-  four focused startup scenarios described above. `test-persistence` includes
-  both process suites; `test-startup-recovery` selects the focused suite.
+  four focused startup scenarios described above; `test-startup-recovery`
+  selects the focused suite.
+- [`tests/integration/test_coordinator_crashes.py`](../tests/integration/test_coordinator_crashes.py):
+  ten methods covering 35 live-write crash cases, ten interrupted-startup cases,
+  and two real CLI/worker scenarios. The [crash guide](coordinator-crashes.md)
+  explains the test-only harness and exact boundaries. `test-persistence`
+  includes all three process suites.
 
 ```sh
 make test-persistence
@@ -236,9 +241,9 @@ it does not fill the disk. Diagnostics use pipes. There are no production fault
 switches. C tests inject sync failures through an internal I/O seam while checking
 that outputs, live jobs, and allocation counters remain unpublished during I/O.
 
-The suite now contains 107 C groups and 88 process scenarios (two default-port
+The suite now contains 107 C groups and 98 process scenarios (two default-port
 checks are skipped with automatic ports). Existing process fixtures each create
 their own temporary WAL. The persistence scenarios establish concrete restart
-and ordering behavior, while an exhaustive crash-point matrix and the final
-persistence phase review remain further verification work. They do not simulate
+and ordering behavior, including selected crashes before/during/after WAL writes
+and flushes. The final persistence phase review remains. These checks do not simulate
 power loss, prove exactly-once side effects, or benchmark flush latency.

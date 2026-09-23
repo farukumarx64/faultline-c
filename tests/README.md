@@ -21,6 +21,9 @@ Use `make test-persistence` for durable coordinator transactions and restart
 scenarios, or `make SANITIZE=1 test-persistence` for instrumented binaries.
 Use `make test-startup-recovery` for focused recovery checks, or add `SANITIZE=1`
 for instrumented binaries. `test-persistence` includes that process suite too.
+Use `make test-coordinator-crashes` for controlled SIGKILL boundaries and real
+CLI/worker recovery; add `SANITIZE=1` for instrumentation. This suite is also
+included in `test-persistence` and `test-integration`.
 Use `make test-recovery` for SIGKILL, SIGSTOP/heartbeat recovery, resumed-worker
 old-attempt protection, and retry exhaustion, or `make SANITIZE=1 test-recovery`
 for instrumented binaries.
@@ -239,8 +242,31 @@ simulates power loss or exhaustively kills the coordinator at every instruction.
 
 The startup suite shares the persistence fixture and independent Python WAL
 decoder. It uses controlled worker peers and ephemeral initial ports, reusing
-each coordinator's exact endpoint on restart. `test-integration` runs both suites
+each coordinator's exact endpoint on restart. `test-integration` runs these suites
 once; `test-startup-recovery` selects these four scenarios plus the C store suite.
+
+`integration/test_coordinator_crashes.py` adds ten test methods (47 cases):
+
+- Five boundaries for each of seven WAL record types: before writing, after a
+  partial header, after a partial payload, before fsync, and after successful
+  fsync before publication. Verify no premature ACK/assignment/event log,
+  preserve prior terminal snapshots, repair incomplete suffixes, retain complete
+  valid records, restore counters, and complete eligible work with a fresh peer.
+- Ten cases interrupting either the first or second startup requeue at those
+  boundaries. No listener opens early; each retryable interruption consumes one retry;
+  existing pending work keeps its place ahead of recovered retries.
+- Submit all four built-in tasks through the real CLI, crash after ACKs, restart,
+  and execute them with a real worker; crash again and retain terminal outcomes.
+- Crash during a real running sleep, restart, and complete its next attempt on
+  a fresh worker. Preserve the result on another restart.
+
+The separate `tests/crash-coordinator` binary compiles the production main with
+only its store-open call redirected into `tests/crash_coordinator_io.c`. It uses
+the existing I/O seam and normal production objects; `make all` does not build
+it. Python kills the paused test process with SIGKILL, then always recovers with
+the normal coordinator on the same endpoint/log. There are no production crash
+switches. See the [crash guide](../docs/coordinator-crashes.md) for boundaries
+and the distinction between process crashes and power loss.
 
 `test_net.c` has six socket test groups and two parsing groups. Socket
 tests use local stream socket pairs and child processes to verify fragmented
@@ -550,7 +576,7 @@ The focused command prints each detected reason and elapsed observation time or
 heartbeat silence duration. The full integration target includes this suite once.
 
 By default, suites select available ports. The original coordinator and worker
-suites each skip one default-endpoint check. To run all 88 scenarios, stop any existing
+suites each skip one default-endpoint check. To run all 98 scenarios, stop any existing
 coordinator on port 9000 and run:
 
 ```sh
@@ -562,6 +588,6 @@ make test-sanitize INTEGRATION_ARGS='--port 9000'
 When 9000 is selected, the harness starts the coordinator without `--port` and
 also invokes `faultline ping` and `faultline-worker` without `--coordinator`
 to test all defaults. Processes started by the harness are stopped afterward.
-With automatic port selection, the suite discovers 88 scenarios: 86 run and two
-default-port checks are skipped. The eleven persistence/startup scenarios always use
+With automatic port selection, the suite discovers 98 scenarios: 96 run and two
+default-port checks are skipped. The 21 persistence/startup/crash scenarios always use
 automatic ports independently of the legacy suites' optional port 9000 checks.

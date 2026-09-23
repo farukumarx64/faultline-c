@@ -24,6 +24,9 @@ retry counts, FIFO order, and ID counters, repairs incomplete tails, and resumes
 the locked writer. [Coordinator persistence](docs/persistence.md) now connects
 these modules to live operations: sync before ACK/dispatch/result publication,
 and reconcile interrupted attempts before listening after restart.
+[Coordinator crash checks](docs/coordinator-crashes.md) now kill the process
+around WAL writes and flushes, recover with the same log, and execute restored
+work through real CLI/worker scenarios.
 
 Dedicated failure tests distinguish worker exit and TCP reset from missed
 heartbeats on an open connection. A healthy worker and the CLI must remain usable
@@ -206,6 +209,8 @@ Use `make test-persistence` for coordinator commit ordering and restart checks;
 add `SANITIZE=1` for instrumentation.
 Use `make test-startup-recovery` for restored job states, interrupted-attempt
 retry accounting, and fresh registration after restart; add `SANITIZE=1` for instrumentation.
+Use `make test-coordinator-crashes` for SIGKILL at selected WAL boundaries and
+real CLI/worker restart scenarios; add `SANITIZE=1` for instrumentation.
 Use `make test-scheduling` for CLI submission and scheduling scenarios.
 Use `make test-execution` for task results, concurrent workers, and cancellation.
 Use `make test-recovery` for crash/heartbeat recovery, resumed-worker protection,
@@ -243,7 +248,8 @@ faultline/
 │   ├── wal-format.md
 │   ├── wal-writer.md
 │   ├── wal-replay.md
-│   └── persistence.md
+│   ├── persistence.md
+│   └── coordinator-crashes.md
 ├── include/             Shared C headers
 ├── src/
 │   ├── common/          Shared protocol, networking, and logging code
@@ -275,3 +281,5 @@ explains complete appends, sync boundaries, and storage failures. The
 reconstruction, incomplete-tail repair, and safely resuming appends. The
 [coordinator persistence guide](docs/persistence.md) connects these operations
 to durable live transitions, startup, retry accounting, and failure shutdown.
+The [coordinator crash guide](docs/coordinator-crashes.md) describes the test-only
+crash harness, verified boundaries, and process-crash guarantees.

@@ -275,9 +275,11 @@ This is the phase's acceptance matrix. The [coordinator tests](persistence.md#fi
 now cover live ordering, SIGKILL/restart, terminal results, FIFO/retry accounting,
 storage failure, and startup rejection. The [writer tests](wal-writer.md#files-and-verification)
 and [replay tests](wal-replay.md#verification) cover storage and reconstruction.
-An exhaustive controlled crash at every listed boundary and the final phase
-review remain further work; this is not a claim that every permutation has
-already been exercised:
+The [coordinator crash matrix](coordinator-crashes.md) now exercises selected
+before-write, partial-write, before-sync, and after-sync boundaries in live
+operations and startup recovery, plus real CLI/worker restart scenarios. The
+final phase review remains; this is not a claim that every instruction or
+permutation has been exercised:
 
 1. Kill after submission ACK; recover the exact job, arguments, budget, and ID.
 2. Kill before sync/ACK and after sync but before ACK; recover valid surviving
@@ -309,7 +311,8 @@ rules that encode this contract. The [WAL writer](wal-writer.md) now implements
 new-log initialization and reliable append/sync. [Replay](wal-replay.md) now
 restores the complete valid history and repairs permitted incomplete tails.
 [Coordinator integration](persistence.md) now applies those pieces to live
-operations and startup reconciliation. Further crash-point experiments and
-the persistence phase review remain. The existing
+operations and startup reconciliation. [Crash verification](coordinator-crashes.md)
+now checks those boundaries using SIGKILL and the same WAL. The persistence phase
+review remains. The existing
 [worker-recovery guarantees](recovery.md) continue to apply; persistence does
 not make execution exactly once or replenish finite retry budgets.
