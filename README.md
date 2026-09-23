@@ -204,6 +204,8 @@ Use `make test-wal-replay` for history validation, reconstructed state, tail
 repair, and append resumption; add `SANITIZE=1` for instrumentation.
 Use `make test-persistence` for coordinator commit ordering and restart checks;
 add `SANITIZE=1` for instrumentation.
+Use `make test-startup-recovery` for restored job states, interrupted-attempt
+retry accounting, and fresh registration after restart; add `SANITIZE=1` for instrumentation.
 Use `make test-scheduling` for CLI submission and scheduling scenarios.
 Use `make test-execution` for task results, concurrent workers, and cancellation.
 Use `make test-recovery` for crash/heartbeat recovery, resumed-worker protection,

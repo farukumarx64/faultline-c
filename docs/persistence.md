@@ -98,6 +98,13 @@ FIFO, ID counters, and results. Only permissible incomplete final records are
 removed. The existing [reader](wal-replay.md) syncs the surviving history before
 the transaction layer proceeds.
 
+`recover_interrupted_jobs()` performs reconciliation through the same private
+durable worker-loss operation as live disconnects. The store's `opened` flag stays
+false throughout replay and reconciliation, including during every sync. Public
+registration, submission, assignment, report, and worker-loss calls cannot mutate
+it until recovery succeeds. The coordinator then opens the listener. A ready WAL
+is necessary, but it does not by itself make the coordinator store ready.
+
 All recovered ASSIGNED/RUNNING jobs lost their old coordinator connection. The
 store visits them in ascending job ID order, using the existing worker-loss rule:
 
@@ -111,6 +118,27 @@ Existing queued jobs stay ahead of these recovered retries. DONE/FAILED remain
 terminal. The live registry starts empty, with only its ID allocator restored.
 The job array is already ordered by increasing creation IDs, as replay requires.
 
+| Last saved state | Recovered outcome |
+| --- | --- |
+| QUEUED, including zero retries or an already-used retry allowance | Keep the exact job and FIFO position; its pending attempt can still run. |
+| DONE | Keep exact binary result, timestamps, counters, and historical owner; never dispatch it again. |
+| FAILED | Keep failure reason, timestamps, counters, and historical owner; never dispatch it again. |
+| ASSIGNED/RUNNING with allowance remaining | Append/sync WORKER_LOST → QUEUED, increment retry count once, retain attempt number, clear worker and assignment/start/finish times, enqueue at the tail. |
+| ASSIGNED/RUNNING with allowance exhausted (including zero retries) | Append/sync WORKER_LOST → FAILED; retain attempt, retry count, owner, and available assignment/start times; set finish time. |
+
+For example, if jobs 9 and 10 were queued while jobs 5 and 6 were active and still
+had retries available, the restored queue is `[9, 10, 5, 6]`. Restarting again
+before dispatch does not change those counters or add more requeue records.
+Only the next durable assignment advances an attempt number.
+
+The old TCP connection cannot return when the coordinator binds the same host
+and port again. A fresh socket starts unregistered; sending an old worker ID or
+completion report does not restore its authority. Fresh registration allocates a
+new ID above the recovered high-water mark. A terminal job's retained worker ID
+is historical metadata, not a live registry entry. No heartbeat deadline or socket
+descriptor is restored. The old worker process might still be computing, so this
+continues to permit overlapping execution under the at-least-once policy.
+
 If startup stops midway, another startup adopts complete surviving reconciliation
 records. Those jobs are already QUEUED/FAILED and are not charged again. Remaining
 active snapshots are reconciled. A failed recovery never opens the listener.
@@ -121,6 +149,42 @@ Graceful coordinator shutdown also leaves active durable attempts for the next
 startup. Shutdown closes sockets and the WAL without writing job-loss records.
 This gives one interruption-accounting path and keeps storage-failure cleanup
 from attempting further appends.
+
+### Focused startup checks
+
+```sh
+make test-startup-recovery
+make SANITIZE=1 test-startup-recovery
+```
+
+The C store suite covers 27 histories across all five states, budgets 0–2, and
+every used-retry count allowed by those budgets. It compares every persisted
+job field after recovery and another restart, checks an entirely empty live
+registry, and reuses an old descriptor number with a new worker ID. A queued
+job still gets its pending attempt; a terminal job is not dispatched. Sync
+observers verify that public mutations are blocked throughout startup and that
+failed reconciliation never sets `opened`.
+
+Four process tests in
+[`test_startup_recovery.py`](../tests/integration/test_startup_recovery.py) add:
+
+- One ten-job history containing DONE, FAILED, queued, and both active states
+  with zero, remaining, and exhausted allowances. Recover only the six active
+  jobs, preserve exact terminal/queued snapshots, then dispatch in recovered FIFO
+  order. Existing terminal jobs do not run again.
+- Restart on the same TCP endpoint. The old socket closes; new unregistered
+  sockets cannot report under old identities. A freshly registered worker receives
+  the next attempt and completes it under a new worker ID.
+- Repeated coordinator SIGKILL while a job is ASSIGNED, consuming two retries
+  and then reaching FAILED at attempt 3. Extra restarts between assignments do
+  not change the WAL or retry count.
+- The same repeated-crash scenario for RUNNING jobs. A fresh job still executes
+  after the original job's allowance is exhausted.
+
+The existing persistence tests also inject incomplete reconciliation writes and
+sync failures, requiring safe retry accounting on the next startup. These checks
+use controlled TCP peers; they do not add automatic reconnect to the worker or
+prove that a disconnected task process stopped computing.
 
 ## Clocks and fatal failures
 
@@ -149,13 +213,16 @@ append as if it were a new operation.
   preparation, durable commit/publication, startup reconciliation, and logical time.
 - [`src/coordinator/main.c`](../src/coordinator/main.c): persistence options,
   startup-before-listen, durable handlers, failure exit, and socket cleanup.
-- [`tests/test_coordinator_store.c`](../tests/test_coordinator_store.c): six groups
+- [`tests/test_coordinator_store.c`](../tests/test_coordinator_store.c): seven groups
   observing live state and outputs during writes/syncs, failures at all nine
   mutation variants, invalid input, reconciliation, clocks, and sequence exhaustion.
 - [`tests/integration/test_persistence.py`](../tests/integration/test_persistence.py):
   seven process scenarios using independent Python WAL decoding, SIGKILL/restart,
   binary results, FIFO/retry preservation, file-size-limit write failures, startup
   rejection, and graceful shutdown. Each scenario may contain multiple cases.
+- [`tests/integration/test_startup_recovery.py`](../tests/integration/test_startup_recovery.py):
+  four focused startup scenarios described above. `test-persistence` includes
+  both process suites; `test-startup-recovery` selects the focused suite.
 
 ```sh
 make test-persistence
@@ -169,7 +236,7 @@ it does not fill the disk. Diagnostics use pipes. There are no production fault
 switches. C tests inject sync failures through an internal I/O seam while checking
 that outputs, live jobs, and allocation counters remain unpublished during I/O.
 
-The suite now contains 106 C groups and 84 process scenarios (two default-port
+The suite now contains 107 C groups and 88 process scenarios (two default-port
 checks are skipped with automatic ports). Existing process fixtures each create
 their own temporary WAL. The persistence scenarios establish concrete restart
 and ordering behavior, while an exhaustive crash-point matrix and the final

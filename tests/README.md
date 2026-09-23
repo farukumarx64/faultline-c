@@ -7,7 +7,7 @@ make test
 make test-sanitize
 ```
 
-These run 106 protocol, registry, job, queue, scheduler, task, socket, and WAL C test groups plus process integration
+These run 107 protocol, registry, job, queue, scheduler, task, socket, and WAL C test groups plus process integration
 tests using Python 3's standard library. A loopback-capable environment is
 required. You can select the Python interpreter with `PYTHON=/path/to/python3`.
 Use `make test-unit` or `make test-integration` to run one layer separately.
@@ -19,6 +19,8 @@ Use `make test-wal-replay` for existing-file recovery, or
 `make SANITIZE=1 test-wal-replay` for instrumented binaries.
 Use `make test-persistence` for durable coordinator transactions and restart
 scenarios, or `make SANITIZE=1 test-persistence` for instrumented binaries.
+Use `make test-startup-recovery` for focused recovery checks, or add `SANITIZE=1`
+for instrumented binaries. `test-persistence` includes that process suite too.
 Use `make test-recovery` for SIGKILL, SIGSTOP/heartbeat recovery, resumed-worker
 old-attempt protection, and retry exhaustion, or `make SANITIZE=1 test-recovery`
 for instrumented binaries.
@@ -178,7 +180,7 @@ needed. They verify standalone recovery and preserve active-job snapshots.
 Startup reconciliation and coordinator restart/ACK ordering are exercised by
 the separate tests below. These checks do not establish power-loss survival.
 
-`test_coordinator_store.c` adds six [transaction groups](../docs/persistence.md):
+`test_coordinator_store.c` adds seven [transaction groups](../docs/persistence.md):
 
 - Inspect published jobs, registry, output values, clock, and sequence during
   writes and syncs for registration, submission, assignment, STARTED, COMPLETED,
@@ -192,7 +194,12 @@ the separate tests below. These checks do not establish power-loss survival.
   budgets on repeated startup, restore IDs, and continue a logical job clock from
   timestamps greater than the new raw clock.
 - Fail the first or second reconciliation sync, then recover without charging a
-  durable interruption twice.
+  durable interruption twice. Public mutations are blocked during every startup
+  sync; only complete success enables the store's live operations.
+- Recover 27 histories across all five job states, retry budgets 0–2, and every
+  applicable used-retry count. Compare all persisted fields and binary results
+  across two restarts; verify empty connections/heartbeats, fresh worker identity
+  despite descriptor reuse, preserved pending attempts, and terminal retention.
 - Stop on job-clock overflow/regression and WAL sequence exhaustion without
   publishing or writing more state.
 
@@ -216,6 +223,24 @@ The file limits affect private temporary WALs only; diagnostics use pipes. The
 coordinator has no production fault-injection switches. Existing process fixtures
 now explicitly create a temporary WAL per coordinator. Neither test layer
 simulates power loss or exhaustively kills the coordinator at every instruction.
+
+`integration/test_startup_recovery.py` adds four focused process scenarios:
+
+- Recover a ten-job mixed history, preserving DONE/FAILED/QUEUED exactly while
+  reconciling ASSIGNED and RUNNING at zero/remaining/exhausted retry allowances.
+  Verify six new outcomes in job-ID order, no changes on an extra restart, and
+  subsequent FIFO dispatch of existing queued jobs before recovered retries.
+- Restart at the same host/port; old sockets cannot be restored, and old worker
+  heartbeats/results on unregistered connections change no WAL bytes. Fresh
+  registration gets a new ID and completes the next attempt.
+- Repeated SIGKILL during ASSIGNED exhausts two retries at attempt 3. Extra
+  restarts before assignment consume no retry. New work still executes afterward.
+- Repeat the same coordinator-crash exhaustion check for RUNNING jobs.
+
+The startup suite shares the persistence fixture and independent Python WAL
+decoder. It uses controlled worker peers and ephemeral initial ports, reusing
+each coordinator's exact endpoint on restart. `test-integration` runs both suites
+once; `test-startup-recovery` selects these four scenarios plus the C store suite.
 
 `test_net.c` has six socket test groups and two parsing groups. Socket
 tests use local stream socket pairs and child processes to verify fragmented
@@ -525,7 +550,7 @@ The focused command prints each detected reason and elapsed observation time or
 heartbeat silence duration. The full integration target includes this suite once.
 
 By default, suites select available ports. The original coordinator and worker
-suites each skip one default-endpoint check. To run all 84 scenarios, stop any existing
+suites each skip one default-endpoint check. To run all 88 scenarios, stop any existing
 coordinator on port 9000 and run:
 
 ```sh
@@ -537,6 +562,6 @@ make test-sanitize INTEGRATION_ARGS='--port 9000'
 When 9000 is selected, the harness starts the coordinator without `--port` and
 also invokes `faultline ping` and `faultline-worker` without `--coordinator`
 to test all defaults. Processes started by the harness are stopped afterward.
-With automatic port selection, the suite discovers 84 scenarios: 82 run and two
-default-port checks are skipped. The seven persistence scenarios always use
+With automatic port selection, the suite discovers 88 scenarios: 86 run and two
+default-port checks are skipped. The eleven persistence/startup scenarios always use
 automatic ports independently of the legacy suites' optional port 9000 checks.

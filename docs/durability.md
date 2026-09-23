@@ -161,6 +161,11 @@ Before accepting clients or scheduling anything, startup must:
 5. Announce readiness only after replay and all recovery transitions succeed.
    Then accept fresh registrations/submissions and resume normal dispatch.
 
+The implementation keeps the store's live-operation gate closed throughout these
+steps, even after its WAL writer is ready. The [focused startup checks](persistence.md#focused-startup-checks)
+exercise all job states, retry boundaries, repeated coordinator crashes, and
+fresh registration after restarting on the same TCP endpoint.
+
 | Last recovered state | Startup action | Retry/attempt effect |
 | --- | --- | --- |
 | QUEUED | Keep queued in its recovered position. | No increment; no interrupted active attempt exists. |
