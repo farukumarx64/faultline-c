@@ -19,8 +19,9 @@ struct faultline_worker {
     int64_t last_heartbeat_ms;
 };
 
-/* Coordinator-owned, bounded storage. Fields are read-only outside its API and
- * WAL replay, which restores only the allocator into an empty live registry. */
+/* Coordinator-owned, bounded storage. Fields are read-only outside its API,
+ * WAL replay, and coordinator_store's durable registration publication. Replay
+ * restores only the allocator into an empty live registry. */
 struct faultline_worker_registry {
     struct faultline_worker workers[FAULTLINE_MAX_WORKERS];
     uint32_t next_worker_id;

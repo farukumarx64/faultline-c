@@ -57,7 +57,7 @@ enum faultline_scheduler_result faultline_scheduler_worker_lost(
 
 /*
  * Initialize once; fields and returned records are read-only outside scheduler
- * operations and the WAL replay module, which builds an isolated recovery store.
+ * operations, WAL replay, and coordinator_store's prepared transaction publication.
  * Required pointers must reference valid, non-overlapping storage. Rejected
  * operations preserve the scheduler and outputs. now_ms is monotonic and >= 0.
  * Retained records keep their addresses until reinitialization. IDs never wrap.

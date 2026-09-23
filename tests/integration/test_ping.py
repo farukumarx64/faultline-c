@@ -56,8 +56,11 @@ class CoordinatorTestCase(unittest.TestCase):
                 cls.port = reservation.getsockname()[1]
         else:
             cls.port = TEST_PORT
-        # Port 9000 also exercises the coordinator's no-argument default.
-        command = [cls.coordinator]
+        # Each fixture owns a new durable store. Port 9000 still tests the default endpoint.
+        cls.storage = tempfile.TemporaryDirectory(prefix="faultline-integration-")
+        cls.addClassCleanup(cls.storage.cleanup)
+        cls.wal = str(Path(cls.storage.name) / "state.wal")
+        command = [cls.coordinator, "--wal", cls.wal, "--init-wal"]
         if cls.port != 9000:
             command.extend(["--port", str(cls.port)])
         command.extend(cls.COORDINATOR_ARGUMENTS)
@@ -323,7 +326,8 @@ class CoordinatorTests(CoordinatorTestCase):
 
     def test_port_conflict_and_bad_arguments(self):
         for command in (
-            [self.coordinator, "--port", str(self.port)],
+            [self.coordinator, "--wal", str(Path(self.storage.name) / "conflict.wal"),
+             "--init-wal", "--port", str(self.port)],
             [self.coordinator, "--port", "65536"],
             [self.cli, "ping", "--coordinator", "127.0.0.1:0"],
             [self.cli, "ping", "--coordinator", "invalid:9000"],

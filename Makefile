@@ -26,17 +26,18 @@ SCHEDULER_OBJECT := $(BUILD_DIR)/coordinator/scheduler.o
 WAL_FORMAT_OBJECT := $(BUILD_DIR)/coordinator/wal_format.o
 WAL_WRITER_OBJECT := $(BUILD_DIR)/coordinator/wal_writer.o
 WAL_REPLAY_OBJECT := $(BUILD_DIR)/coordinator/wal_replay.o
+STORE_OBJECT := $(BUILD_DIR)/coordinator/coordinator_store.o
 TASK_OBJECT := $(BUILD_DIR)/worker/task.o
 MAIN_OBJECTS := $(BUILD_DIR)/coordinator/main.o \
 	$(BUILD_DIR)/worker/main.o $(BUILD_DIR)/cli/main.o
-TEST_NAMES := test_protocol test_messages test_net test_worker_registry test_jobs test_job_queue test_job_messages test_scheduler test_tasks test_wal test_wal_writer test_wal_replay
+TEST_NAMES := test_protocol test_messages test_net test_worker_registry test_jobs test_job_queue test_job_messages test_scheduler test_tasks test_wal test_wal_writer test_wal_replay test_coordinator_store
 TEST_OBJECTS := $(addprefix $(BUILD_DIR)/tests/,$(addsuffix .o,$(TEST_NAMES)))
-OBJECTS := $(COMMON_OBJECTS) $(MAIN_OBJECTS) $(TEST_OBJECTS) $(REGISTRY_OBJECT) $(JOB_OBJECT) $(QUEUE_OBJECT) $(SCHEDULER_OBJECT) $(TASK_OBJECT) $(WAL_FORMAT_OBJECT) $(WAL_WRITER_OBJECT) $(WAL_REPLAY_OBJECT)
+OBJECTS := $(COMMON_OBJECTS) $(MAIN_OBJECTS) $(TEST_OBJECTS) $(REGISTRY_OBJECT) $(JOB_OBJECT) $(QUEUE_OBJECT) $(SCHEDULER_OBJECT) $(TASK_OBJECT) $(WAL_FORMAT_OBJECT) $(WAL_WRITER_OBJECT) $(WAL_REPLAY_OBJECT) $(STORE_OBJECT)
 PROGRAMS := $(BUILD_DIR)/faultline-coordinator \
 	$(BUILD_DIR)/faultline-worker $(BUILD_DIR)/faultline
 TEST_PROGRAMS := $(addprefix $(BUILD_DIR)/tests/,$(TEST_NAMES))
 
-.PHONY: all sanitize test test-unit test-integration test-failures test-scheduling test-execution test-recovery test-wal test-wal-writer test-wal-replay test-sanitize clean
+.PHONY: all sanitize test test-unit test-integration test-failures test-scheduling test-execution test-recovery test-wal test-wal-writer test-wal-replay test-persistence test-sanitize clean
 
 all: $(PROGRAMS)
 
@@ -58,6 +59,7 @@ test-unit: $(TEST_PROGRAMS)
 	./$(BUILD_DIR)/tests/test_wal
 	./$(BUILD_DIR)/tests/test_wal_writer
 	./$(BUILD_DIR)/tests/test_wal_replay
+	./$(BUILD_DIR)/tests/test_coordinator_store
 
 test-wal: $(BUILD_DIR)/tests/test_wal
 	./$(BUILD_DIR)/tests/test_wal
@@ -68,7 +70,12 @@ test-wal-writer: $(BUILD_DIR)/tests/test_wal_writer
 test-wal-replay: $(BUILD_DIR)/tests/test_wal_replay
 	./$(BUILD_DIR)/tests/test_wal_replay
 
+test-persistence: all $(BUILD_DIR)/tests/test_coordinator_store
+	./$(BUILD_DIR)/tests/test_coordinator_store
+	$(PYTHON) tests/integration/test_persistence.py --bin-dir $(BUILD_DIR)
+
 test-integration: all
+	$(PYTHON) tests/integration/test_persistence.py --bin-dir $(BUILD_DIR)
 	$(PYTHON) tests/integration/test_recovery.py --bin-dir $(BUILD_DIR) $(INTEGRATION_ARGS)
 	$(PYTHON) tests/integration/test_execution.py --bin-dir $(BUILD_DIR) $(INTEGRATION_ARGS)
 	$(PYTHON) tests/integration/test_failure_detection.py --bin-dir $(BUILD_DIR) $(INTEGRATION_ARGS)
@@ -92,7 +99,7 @@ test-failures: all
 test-sanitize:
 	$(MAKE) SANITIZE=1 test
 
-$(BUILD_DIR)/faultline-coordinator: $(BUILD_DIR)/coordinator/main.o $(COMMON_OBJECTS) $(REGISTRY_OBJECT) $(JOB_OBJECT) $(QUEUE_OBJECT) $(SCHEDULER_OBJECT)
+$(BUILD_DIR)/faultline-coordinator: $(BUILD_DIR)/coordinator/main.o $(COMMON_OBJECTS) $(REGISTRY_OBJECT) $(JOB_OBJECT) $(QUEUE_OBJECT) $(SCHEDULER_OBJECT) $(WAL_FORMAT_OBJECT) $(WAL_WRITER_OBJECT) $(WAL_REPLAY_OBJECT) $(STORE_OBJECT)
 	$(CC) $(CFLAGS) $(PROJECT_CFLAGS) $(SANITIZER_FLAGS) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
 $(BUILD_DIR)/faultline-worker: $(BUILD_DIR)/worker/main.o $(COMMON_OBJECTS) $(TASK_OBJECT)
@@ -119,6 +126,8 @@ $(BUILD_DIR)/tests/test_wal: $(JOB_OBJECT) $(WAL_FORMAT_OBJECT)
 $(BUILD_DIR)/tests/test_wal_writer: $(JOB_OBJECT) $(WAL_FORMAT_OBJECT) $(WAL_WRITER_OBJECT)
 
 $(BUILD_DIR)/tests/test_wal_replay: $(JOB_OBJECT) $(QUEUE_OBJECT) $(SCHEDULER_OBJECT) $(REGISTRY_OBJECT) $(WAL_FORMAT_OBJECT) $(WAL_WRITER_OBJECT) $(WAL_REPLAY_OBJECT)
+
+$(BUILD_DIR)/tests/test_coordinator_store: $(JOB_OBJECT) $(QUEUE_OBJECT) $(SCHEDULER_OBJECT) $(REGISTRY_OBJECT) $(WAL_FORMAT_OBJECT) $(WAL_WRITER_OBJECT) $(WAL_REPLAY_OBJECT) $(STORE_OBJECT)
 
 $(BUILD_DIR)/worker/main.o $(BUILD_DIR)/tests/test_tasks.o: PROJECT_CFLAGS += -pthread
 $(BUILD_DIR)/faultline-worker $(BUILD_DIR)/tests/test_tasks: LDLIBS += -pthread
