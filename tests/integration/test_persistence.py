@@ -57,7 +57,7 @@ def read_wal(path, allow_tail=False):
 
 
 class Server:
-    def __init__(self, executable, directory, path, initialize=True, limit=None, default_path=False, extra=(), port=None):
+    def __init__(self, executable, directory, path, initialize=True, limit=None, default_path=False, extra=(), port=None, env=None):
         if port is None:
             with socket.socket() as reservation:
                 reservation.bind(('127.0.0.1', 0))
@@ -77,7 +77,7 @@ class Server:
                       'os.execv(sys.argv[2],sys.argv[2:])')
             command = [sys.executable, '-c', script, str(limit), *command]
         # Pipes keep the process's file-size limit from interfering with diagnostics.
-        self.process = subprocess.Popen(command, cwd=directory, stdout=subprocess.PIPE,
+        self.process = subprocess.Popen(command, cwd=directory, env=env, stdout=subprocess.PIPE,
                                         stderr=subprocess.STDOUT, text=True)
         self.lines = []
         self.reader = threading.Thread(target=self.drain, daemon=True)

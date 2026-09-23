@@ -27,6 +27,8 @@ WAL_FORMAT_OBJECT := $(BUILD_DIR)/coordinator/wal_format.o
 WAL_WRITER_OBJECT := $(BUILD_DIR)/coordinator/wal_writer.o
 WAL_REPLAY_OBJECT := $(BUILD_DIR)/coordinator/wal_replay.o
 STORE_OBJECT := $(BUILD_DIR)/coordinator/coordinator_store.o
+COORDINATOR_OBJECTS := $(COMMON_OBJECTS) $(REGISTRY_OBJECT) $(JOB_OBJECT) $(QUEUE_OBJECT) $(SCHEDULER_OBJECT) $(WAL_FORMAT_OBJECT) $(WAL_WRITER_OBJECT) $(WAL_REPLAY_OBJECT) $(STORE_OBJECT)
+CRASH_TEST_OBJECTS := $(BUILD_DIR)/tests/crash_coordinator_main.o $(BUILD_DIR)/tests/crash_coordinator_io.o
 TASK_OBJECT := $(BUILD_DIR)/worker/task.o
 MAIN_OBJECTS := $(BUILD_DIR)/coordinator/main.o \
 	$(BUILD_DIR)/worker/main.o $(BUILD_DIR)/cli/main.o
@@ -37,7 +39,7 @@ PROGRAMS := $(BUILD_DIR)/faultline-coordinator \
 	$(BUILD_DIR)/faultline-worker $(BUILD_DIR)/faultline
 TEST_PROGRAMS := $(addprefix $(BUILD_DIR)/tests/,$(TEST_NAMES))
 
-.PHONY: all sanitize test test-unit test-integration test-failures test-scheduling test-execution test-recovery test-wal test-wal-writer test-wal-replay test-persistence test-startup-recovery test-sanitize clean
+.PHONY: all sanitize test test-unit test-integration test-failures test-scheduling test-execution test-recovery test-wal test-wal-writer test-wal-replay test-persistence test-startup-recovery test-coordinator-crashes test-sanitize clean
 
 all: $(PROGRAMS)
 
@@ -70,18 +72,23 @@ test-wal-writer: $(BUILD_DIR)/tests/test_wal_writer
 test-wal-replay: $(BUILD_DIR)/tests/test_wal_replay
 	./$(BUILD_DIR)/tests/test_wal_replay
 
-test-persistence: all $(BUILD_DIR)/tests/test_coordinator_store
+test-persistence: all $(BUILD_DIR)/tests/test_coordinator_store $(BUILD_DIR)/tests/crash-coordinator
 	./$(BUILD_DIR)/tests/test_coordinator_store
 	$(PYTHON) tests/integration/test_persistence.py --bin-dir $(BUILD_DIR)
 	$(PYTHON) tests/integration/test_startup_recovery.py --bin-dir $(BUILD_DIR)
+	$(PYTHON) tests/integration/test_coordinator_crashes.py --bin-dir $(BUILD_DIR)
 
 test-startup-recovery: all $(BUILD_DIR)/tests/test_coordinator_store
 	./$(BUILD_DIR)/tests/test_coordinator_store
 	$(PYTHON) tests/integration/test_startup_recovery.py --bin-dir $(BUILD_DIR)
 
-test-integration: all
+test-coordinator-crashes: all $(BUILD_DIR)/tests/crash-coordinator
+	$(PYTHON) tests/integration/test_coordinator_crashes.py --bin-dir $(BUILD_DIR)
+
+test-integration: all $(BUILD_DIR)/tests/crash-coordinator
 	$(PYTHON) tests/integration/test_persistence.py --bin-dir $(BUILD_DIR)
 	$(PYTHON) tests/integration/test_startup_recovery.py --bin-dir $(BUILD_DIR)
+	$(PYTHON) tests/integration/test_coordinator_crashes.py --bin-dir $(BUILD_DIR)
 	$(PYTHON) tests/integration/test_recovery.py --bin-dir $(BUILD_DIR) $(INTEGRATION_ARGS)
 	$(PYTHON) tests/integration/test_execution.py --bin-dir $(BUILD_DIR) $(INTEGRATION_ARGS)
 	$(PYTHON) tests/integration/test_failure_detection.py --bin-dir $(BUILD_DIR) $(INTEGRATION_ARGS)
@@ -105,8 +112,15 @@ test-failures: all
 test-sanitize:
 	$(MAKE) SANITIZE=1 test
 
-$(BUILD_DIR)/faultline-coordinator: $(BUILD_DIR)/coordinator/main.o $(COMMON_OBJECTS) $(REGISTRY_OBJECT) $(JOB_OBJECT) $(QUEUE_OBJECT) $(SCHEDULER_OBJECT) $(WAL_FORMAT_OBJECT) $(WAL_WRITER_OBJECT) $(WAL_REPLAY_OBJECT) $(STORE_OBJECT)
+$(BUILD_DIR)/faultline-coordinator: $(BUILD_DIR)/coordinator/main.o $(COORDINATOR_OBJECTS)
 	$(CC) $(CFLAGS) $(PROJECT_CFLAGS) $(SANITIZER_FLAGS) $(LDFLAGS) $^ $(LDLIBS) -o $@
+
+$(BUILD_DIR)/tests/crash-coordinator: $(CRASH_TEST_OBJECTS) $(COORDINATOR_OBJECTS)
+	$(CC) $(CFLAGS) $(PROJECT_CFLAGS) $(SANITIZER_FLAGS) $(LDFLAGS) $^ $(LDLIBS) -o $@
+
+$(BUILD_DIR)/tests/crash_coordinator_main.o: src/coordinator/main.c
+	@mkdir -p $(@D)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(PROJECT_CFLAGS) $(SANITIZER_FLAGS) -Dfaultline_store_open=faultline_test_store_open -MMD -MP -c $< -o $@
 
 $(BUILD_DIR)/faultline-worker: $(BUILD_DIR)/worker/main.o $(COMMON_OBJECTS) $(TASK_OBJECT)
 	$(CC) $(CFLAGS) $(PROJECT_CFLAGS) $(SANITIZER_FLAGS) $(LDFLAGS) $^ $(LDLIBS) -o $@
@@ -150,3 +164,4 @@ clean:
 	rm -rf build
 
 -include $(OBJECTS:.o=.d)
+-include $(CRASH_TEST_OBJECTS:.o=.d)
