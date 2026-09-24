@@ -168,5 +168,6 @@ just because the coordinator restarted.
 The next planned phase is **CLI and observability**: status, jobs, workers, and
 stats commands, clearer logs, and basic metrics. The current CLI exposes ping
 and submission; stored results are durable even though job-query commands are
-not yet implemented. Request deduplication remains an optional later enhancement,
-not an unfinished persistence requirement.
+not yet implemented. [Request deduplication](request-deduplication.md) is recorded
+as an optional later enhancement, with proposed semantics, open decisions, and
+acceptance checks; it is not an unfinished persistence requirement.

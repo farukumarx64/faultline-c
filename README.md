@@ -266,7 +266,8 @@ faultline/
 │   ├── wal-replay.md
 │   ├── persistence.md
 │   ├── coordinator-crashes.md
-│   └── persistence-review.md
+│   ├── persistence-review.md
+│   └── request-deduplication.md
 ├── include/             Shared C headers
 ├── src/
 │   ├── common/          Shared protocol, networking, and logging code
@@ -302,3 +303,6 @@ The [coordinator crash guide](docs/coordinator-crashes.md) describes the test-on
 crash harness, verified boundaries, and process-crash guarantees.
 The [persistence phase review](docs/persistence-review.md) consolidates the
 durable-state promise, repeat-execution rules, evidence, and remaining scope.
+The [deferred request-deduplication proposal](docs/request-deduplication.md)
+records a future enhancement for safely repeating submissions after a lost ACK.
+It is not implemented; CLI and observability are the next planned phase.

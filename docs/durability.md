@@ -115,7 +115,8 @@ the client. It adopts the entire valid log prefix, including complete records
 that survived without a confirmed sync or ACK. It syncs that recovered prefix
 before serving work. Missing an ACK is therefore not proof of rejection, and
 manual resubmission can create another job. Client-request deduplication remains
-outside the MVP protocol.
+outside the MVP protocol; the [deferred proposal](request-deduplication.md)
+records the behavior and crash checks to consider when revisiting it.
 
 ## Ordering other durable transitions
 
