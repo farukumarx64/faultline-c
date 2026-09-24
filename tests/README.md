@@ -29,6 +29,9 @@ old-attempt protection, and retry exhaustion, or `make SANITIZE=1 test-recovery`
 for instrumented binaries.
 The [phase review](../docs/recovery.md#phase-review) records the recovery outcomes,
 supporting test coverage, and the limits of those checks.
+The [persistence phase review](../docs/persistence-review.md#verification-record)
+records the full normal/sanitizer regression with default-endpoint checks enabled,
+and maps durable admission, replay, retry accounting, and crash recovery to tests.
 Use `make test-execution` for built-in results, heartbeats during computation,
 worker reuse, and cancellation, or `make SANITIZE=1 test-execution` for instrumented binaries.
 Use `make test-scheduling` for CLI submission and scheduling, or

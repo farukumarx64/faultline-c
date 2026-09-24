@@ -189,6 +189,22 @@ missing an ACK still leaves an uncertain client outcome. See [the lease and exec
 The [fault-tolerance phase review](docs/recovery.md#phase-review) records the
 verified recovery cases and the boundary before persistence.
 
+## Persistence guarantees
+
+- A received submission ACK means the job is recoverable after a coordinator
+  process crash using the same retained WAL and working local storage.
+- Job inputs, IDs, retry accounting, queue order, and saved terminal outcomes
+  survive. DONE and FAILED jobs receive no new attempts.
+- Interrupted ASSIGNED/RUNNING jobs retry from the beginning if their allowance
+  permits. Work can execute more than once; finite retries can end in failure.
+- Workers need fresh connections and registrations. A missing submission ACK
+  remains uncertain; manual resubmission can create another job.
+- This covers process crashes under the storage assumptions, not storage loss,
+  universal power-loss survival, exactly-once effects, or automatic failover.
+
+The [persistence phase review](docs/persistence-review.md) records the full
+verification results, acceptance boundaries, retry rules, and exclusions.
+
 ## Tests
 
 ```sh
@@ -249,7 +265,8 @@ faultline/
 │   ├── wal-writer.md
 │   ├── wal-replay.md
 │   ├── persistence.md
-│   └── coordinator-crashes.md
+│   ├── coordinator-crashes.md
+│   └── persistence-review.md
 ├── include/             Shared C headers
 ├── src/
 │   ├── common/          Shared protocol, networking, and logging code
@@ -283,3 +300,5 @@ reconstruction, incomplete-tail repair, and safely resuming appends. The
 to durable live transitions, startup, retry accounting, and failure shutdown.
 The [coordinator crash guide](docs/coordinator-crashes.md) describes the test-only
 crash harness, verified boundaries, and process-crash guarantees.
+The [persistence phase review](docs/persistence-review.md) consolidates the
+durable-state promise, repeat-execution rules, evidence, and remaining scope.

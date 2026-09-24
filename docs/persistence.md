@@ -245,5 +245,6 @@ The suite now contains 107 C groups and 98 process scenarios (two default-port
 checks are skipped with automatic ports). Existing process fixtures each create
 their own temporary WAL. The persistence scenarios establish concrete restart
 and ordering behavior, including selected crashes before/during/after WAL writes
-and flushes. The final persistence phase review remains. These checks do not simulate
+and flushes. The [phase review](persistence-review.md) records the full regression
+results and precise guarantees. These checks do not simulate
 power loss, prove exactly-once side effects, or benchmark flush latency.

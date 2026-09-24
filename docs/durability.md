@@ -7,6 +7,8 @@ this contract's durable operation ordering and startup reconciliation. The
 appends, and synchronization. [Replay](wal-replay.md) implements existing-log
 validation, state reconstruction, incomplete-tail repair, and append resumption.
 `--wal PATH` selects the retained log; `--init-wal` explicitly creates a new one.
+The [2026-09-24 phase review](persistence-review.md) records verification against
+this contract and gives a concise guide to the guarantees and exclusions.
 
 The promise is: **after the client receives a valid submission ACK,
 the job can be recovered from the same WAL after a coordinator process crash.**
@@ -269,7 +271,7 @@ The operator must restore usable storage and restart; storage failure is not a
 task error and must not consume retry allowance by itself. Subsequent startup
 still reconciles any active attempts because their coordinator connections ended.
 
-## Acceptance checks and remaining phase verification
+## Acceptance checks
 
 This is the phase's acceptance matrix. The [coordinator tests](persistence.md#files-and-verification)
 now cover live ordering, SIGKILL/restart, terminal results, FIFO/retry accounting,
@@ -278,8 +280,8 @@ and [replay tests](wal-replay.md#verification) cover storage and reconstruction.
 The [coordinator crash matrix](coordinator-crashes.md) now exercises selected
 before-write, partial-write, before-sync, and after-sync boundaries in live
 operations and startup recovery, plus real CLI/worker restart scenarios. The
-final phase review remains; this is not a claim that every instruction or
-permutation has been exercised:
+[phase review](persistence-review.md#verification-record) records the full
+regression results; these checks do not exercise every instruction or permutation:
 
 1. Kill after submission ACK; recover the exact job, arguments, budget, and ID.
 2. Kill before sync/ACK and after sync but before ACK; recover valid surviving
@@ -312,7 +314,8 @@ new-log initialization and reliable append/sync. [Replay](wal-replay.md) now
 restores the complete valid history and repairs permitted incomplete tails.
 [Coordinator integration](persistence.md) now applies those pieces to live
 operations and startup reconciliation. [Crash verification](coordinator-crashes.md)
-now checks those boundaries using SIGKILL and the same WAL. The persistence phase
-review remains. The existing
+now checks those boundaries using SIGKILL and the same WAL. The
+[persistence phase review](persistence-review.md) ties these checks to the
+guarantees and remaining scope. The existing
 [worker-recovery guarantees](recovery.md) continue to apply; persistence does
 not make execution exactly once or replenish finite retry budgets.

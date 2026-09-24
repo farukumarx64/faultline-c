@@ -116,4 +116,5 @@ every possible byte offset. The existing writer/replay/store suites complement
 them with short I/O, storage errors, arbitrary incomplete tails, invalid history,
 corruption, readiness gating, and retry-boundary checks. They do not simulate
 power loss, verify exactly-once external side effects, or measure flush latency.
-The final persistence phase review remains separate work.
+The [persistence phase review](persistence-review.md) records the full regression
+results and consolidates the guarantees, exclusions, and roadmap handoff.

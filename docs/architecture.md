@@ -100,6 +100,8 @@ stopped. An expired assignment can overlap with a later retry. The implementatio
 distinguishes attempts so a late result cannot overwrite a newer attempt or a
 terminal result. This protects coordinator state, not external task effects.
 See the [full guarantee and its limits](recovery.md#at-least-once-execution-and-its-limits).
+The [persistence phase review](persistence-review.md) records what survives a
+coordinator restart, what can execute again, and the verification evidence.
 
 The MVP excludes coordinator consensus, exactly-once execution, task
 checkpointing, arbitrary shell execution, a web dashboard, Kubernetes

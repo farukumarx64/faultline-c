@@ -170,7 +170,8 @@ allow local scheduling slack and are not production latency guarantees.
 This phase review established worker-failure behavior before persistence. The
 subsequent [durability contract](durability.md) and [coordinator implementation](persistence.md)
 now add WAL-backed identities, sync-before-ACK ordering, replay, and interrupted
-attempt accounting at startup. Separate persistence tests provide that evidence;
+attempt accounting at startup. The [persistence phase review](persistence-review.md)
+records the separate restart evidence and current guarantees;
 the six worker-recovery scenarios above still have their original scope.
 
 ## Hard-crash scenario
