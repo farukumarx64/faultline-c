@@ -7,10 +7,12 @@ make test
 make test-sanitize
 ```
 
-These run 107 protocol, registry, job, queue, scheduler, task, socket, and WAL C test groups plus process integration
+These run 114 protocol, registry, job, queue, scheduler, task, socket, and WAL C test groups plus process integration
 tests using Python 3's standard library. A loopback-capable environment is
 required. You can select the Python interpreter with `PYTHON=/path/to/python3`.
 Use `make test-unit` or `make test-integration` to run one layer separately.
+Use `make test-job-status-protocol` for status codecs, or
+`make SANITIZE=1 test-job-status-protocol` for instrumented binaries.
 Use `make test-wal` for the WAL format suite, or `make SANITIZE=1 test-wal`
 for the same checks with AddressSanitizer/UBSan.
 Use `make test-wal-writer` for the file writer suite, or
@@ -95,6 +97,25 @@ test, source line, and expression. Its checks remain active with `NDEBUG` set.
 Rejected codec calls preserve all output bytes and written/consumed counts.
 These are buffer/model tests; separate process tests cover live execution. The
 binary also links the job model for the final identity check.
+
+`test_job_status.c` adds seven [status codec](../docs/job-status-protocol.md) groups:
+
+- Literal request/not-found frames and responses for all states, including fresh
+  and retried QUEUED, with unaligned buffers and independent expected bytes.
+- Snapshots of real model transitions through assignment, execution, completion,
+  task/worker loss, requeueing, and exhausted retry budgets.
+- Maximum IDs/counters, attempt `2^32`, empty and 1/255/256/1023/1024-byte binary
+  results, and result ownership after overwriting the receive buffer.
+- Every incomplete prefix and insufficient capacity for all examples and the
+  maximum 1072-byte status frame, using exact-sized allocations for ASan.
+- Invalid state/owner/attempt/retry/failure/result combinations, on encode and
+  decode, with invalid metadata rejected before missing result bytes arrive.
+- Invalid outer/inner lengths, `SIZE_MAX`, null pointers, and unchanged outputs.
+- Mixed PING/status/not-found/request frames with exact consumption and a final
+  request completed in fragments.
+
+These checks exercise codecs and the model, not live status queries. The existing
+coordinator rejection tests include the three new types until query handlers exist.
 
 `test_wal.c` adds ten [WAL format](../docs/wal-format.md) groups:
 

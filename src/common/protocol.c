@@ -5,6 +5,15 @@
 _Static_assert(FAULTLINE_HEADER_SIZE + FAULTLINE_JOB_COMPLETED_PREFIX_SIZE +
                FAULTLINE_JOB_MAX_RESULT_SIZE <= FAULTLINE_MESSAGE_MAX_FRAME_SIZE,
                "maximum frame size must also fit completed results");
+_Static_assert(FAULTLINE_HEADER_SIZE + FAULTLINE_JOB_ASSIGN_PREFIX_SIZE +
+               FAULTLINE_JOB_MAX_ARGUMENT_SIZE <= FAULTLINE_MESSAGE_MAX_FRAME_SIZE,
+               "maximum frame size must also fit assignments");
+_Static_assert(FAULTLINE_JOB_QUEUED == 1 && FAULTLINE_JOB_ASSIGNED == 2 &&
+               FAULTLINE_JOB_RUNNING == 3 && FAULTLINE_JOB_DONE == 4 && FAULTLINE_JOB_FAILED == 5,
+               "job state IDs are part of the status wire format");
+_Static_assert(FAULTLINE_JOB_FAILURE_NONE == 0 && FAULTLINE_JOB_FAILURE_TASK == 1 &&
+               FAULTLINE_JOB_FAILURE_WORKER_LOST == 2,
+               "failure IDs are part of the status wire format");
 
 static void write_u16_be(uint8_t *out, uint16_t value)
 {
@@ -77,6 +86,16 @@ static enum faultline_protocol_result message_payload_bounds(
         break;
     case FAULTLINE_MSG_JOB_FAILED:
         *minimum = FAULTLINE_JOB_FAILED_PAYLOAD_SIZE;
+        break;
+    case FAULTLINE_MSG_JOB_STATUS_REQUEST:
+        *minimum = FAULTLINE_JOB_STATUS_REQUEST_PAYLOAD_SIZE;
+        break;
+    case FAULTLINE_MSG_JOB_STATUS_RESPONSE:
+        *minimum = FAULTLINE_JOB_STATUS_RESPONSE_PREFIX_SIZE;
+        extra = FAULTLINE_JOB_MAX_RESULT_SIZE;
+        break;
+    case FAULTLINE_MSG_JOB_STATUS_NOT_FOUND:
+        *minimum = FAULTLINE_JOB_STATUS_NOT_FOUND_PAYLOAD_SIZE;
         break;
     default:
         return FAULTLINE_PROTOCOL_UNKNOWN_MESSAGE_TYPE;
@@ -179,6 +198,36 @@ static enum faultline_protocol_result validate_identity(
     return FAULTLINE_PROTOCOL_OK;
 }
 
+static enum faultline_protocol_result validate_job_status(
+    const struct faultline_job_status_payload *status)
+{
+    if (status->job_id == 0) { return FAULTLINE_PROTOCOL_INVALID_JOB_ID; }
+    if (status->state < FAULTLINE_JOB_QUEUED || status->state > FAULTLINE_JOB_FAILED) {
+        return FAULTLINE_PROTOCOL_INVALID_JOB_STATE;
+    }
+    if (status->retry_count > status->max_retries ||
+        (status->state == FAULTLINE_JOB_FAILED && status->retry_count != status->max_retries)) {
+        return FAULTLINE_PROTOCOL_INVALID_RETRY_COUNT;
+    }
+    int queued = status->state == FAULTLINE_JOB_QUEUED;
+    if ((queued && status->worker_id != 0) || (!queued && status->worker_id == 0)) {
+        return FAULTLINE_PROTOCOL_INVALID_WORKER_ID;
+    }
+    /* Widen before adding: UINT32_MAX retries still permits attempt 2^32. */
+    uint64_t expected_attempt = (uint64_t)status->retry_count + (queued ? 0u : 1u);
+    if (status->attempt != expected_attempt) { return FAULTLINE_PROTOCOL_INVALID_ATTEMPT; }
+    int has_failure = status->state == FAULTLINE_JOB_FAILED || (queued && status->attempt != 0);
+    if (has_failure ? (status->failure != FAULTLINE_JOB_FAILURE_TASK &&
+                       status->failure != FAULTLINE_JOB_FAILURE_WORKER_LOST) :
+                      status->failure != FAULTLINE_JOB_FAILURE_NONE) {
+        return FAULTLINE_PROTOCOL_INVALID_FAILURE;
+    }
+    if (status->state != FAULTLINE_JOB_DONE && status->result_size != 0) {
+        return FAULTLINE_PROTOCOL_INVALID_PAYLOAD_LENGTH;
+    }
+    return FAULTLINE_PROTOCOL_OK;
+}
+
 /* Validate host values and derive the exact length before touching output bytes. */
 static enum faultline_protocol_result validate_message(
     const struct faultline_message *message, uint32_t *payload_size)
@@ -236,6 +285,17 @@ static enum faultline_protocol_result validate_message(
         if (message->payload.job_failed.failure != FAULTLINE_JOB_FAILURE_TASK) {
             return FAULTLINE_PROTOCOL_INVALID_FAILURE;
         }
+        break;
+    case FAULTLINE_MSG_JOB_STATUS_REQUEST:
+        if (message->payload.job_status_request == 0) { return FAULTLINE_PROTOCOL_INVALID_JOB_ID; }
+        break;
+    case FAULTLINE_MSG_JOB_STATUS_RESPONSE:
+        result = validate_job_status(&message->payload.job_status_response);
+        if (result != FAULTLINE_PROTOCOL_OK) { return result; }
+        data_size = message->payload.job_status_response.result_size;
+        break;
+    case FAULTLINE_MSG_JOB_STATUS_NOT_FOUND:
+        if (message->payload.job_status_not_found == 0) { return FAULTLINE_PROTOCOL_INVALID_JOB_ID; }
         break;
     default:
         return FAULTLINE_PROTOCOL_UNKNOWN_MESSAGE_TYPE;
@@ -336,6 +396,25 @@ enum faultline_protocol_result faultline_message_encode(
         write_identity(payload, &message->payload.job_failed.identity);
         write_u16_be(payload + 20, message->payload.job_failed.failure);
         break;
+    case FAULTLINE_MSG_JOB_STATUS_REQUEST:
+        write_u64_be(payload, message->payload.job_status_request);
+        break;
+    case FAULTLINE_MSG_JOB_STATUS_RESPONSE: {
+        const struct faultline_job_status_payload *status = &message->payload.job_status_response;
+        write_u64_be(payload, status->job_id);
+        write_u16_be(payload + 8, status->state);
+        write_u32_be(payload + 10, status->worker_id);
+        write_u64_be(payload + 14, status->attempt);
+        write_u32_be(payload + 22, status->retry_count);
+        write_u32_be(payload + 26, status->max_retries);
+        write_u16_be(payload + 30, status->failure);
+        write_u32_be(payload + 32, (uint32_t)status->result_size);
+        memcpy(payload + 36, status->result, status->result_size);
+        break;
+    }
+    case FAULTLINE_MSG_JOB_STATUS_NOT_FOUND:
+        write_u64_be(payload, message->payload.job_status_not_found);
+        break;
     default: /* Validated empty messages have nothing to write. */
         break;
     }
@@ -411,6 +490,25 @@ enum faultline_protocol_result faultline_message_decode(
     case FAULTLINE_MSG_JOB_FAILED:
         read_identity(payload, &decoded.payload.job_failed.identity);
         decoded.payload.job_failed.failure = read_u16_be(payload + 20);
+        break;
+    case FAULTLINE_MSG_JOB_STATUS_REQUEST:
+        decoded.payload.job_status_request = read_u64_be(payload);
+        break;
+    case FAULTLINE_MSG_JOB_STATUS_RESPONSE: {
+        struct faultline_job_status_payload *status = &decoded.payload.job_status_response;
+        status->job_id = read_u64_be(payload);
+        status->state = read_u16_be(payload + 8);
+        status->worker_id = read_u32_be(payload + 10);
+        status->attempt = read_u64_be(payload + 14);
+        status->retry_count = read_u32_be(payload + 22);
+        status->max_retries = read_u32_be(payload + 26);
+        status->failure = read_u16_be(payload + 30);
+        status->result_size = read_u32_be(payload + 32);
+        data = status->result;
+        break;
+    }
+    case FAULTLINE_MSG_JOB_STATUS_NOT_FOUND:
+        decoded.payload.job_status_not_found = read_u64_be(payload);
         break;
     default: /* Validated empty messages keep worker_id zero. */
         break;

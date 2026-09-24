@@ -118,7 +118,9 @@ heartbeat handlers support partial headers and the fixed worker ID payload; see
 [the networking walkthrough](networking.md). The coordinator's
 [worker registry](workers.md) owns IDs independently of reusable socket descriptors.
 The shared message representation supports bounded variable job payloads.
-Coordinator transport buffers now fit 1062-byte frames. Runtime handlers accept
+Coordinator transport buffers now fit 1072-byte frames, including the new
+[status response format](job-status-protocol.md). Query codecs are implemented;
+coordinator lookup and CLI output are pending. Runtime handlers accept
 submissions and worker reports, and workers receive assignments with partial-frame
 buffering while keeping heartbeats active.
 

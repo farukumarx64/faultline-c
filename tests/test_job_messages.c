@@ -169,13 +169,13 @@ static int test_partial_frames(void)
             CHECK(encode_error(&examples[i].message, size, FAULTLINE_PROTOCOL_BUFFER_TOO_SMALL) == EXIT_SUCCESS);
         }
     }
-    /* Every prefix/capacity of the largest supported frame, including long data. */
+    /* Every prefix/capacity of the largest assignment, including long data. */
     struct faultline_message message = examples[2].message;
     uint8_t wire[FAULTLINE_MESSAGE_MAX_FRAME_SIZE];
     size_t written = 0;
     message.payload.job_assign.argument_size = FAULTLINE_JOB_MAX_ARGUMENT_SIZE;
     CHECK(faultline_message_encode(wire, sizeof(wire), &message, &written) == FAULTLINE_PROTOCOL_OK);
-    CHECK(written == sizeof(wire));
+    CHECK(written == FAULTLINE_HEADER_SIZE + FAULTLINE_JOB_ASSIGN_PREFIX_SIZE + FAULTLINE_JOB_MAX_ARGUMENT_SIZE);
     for (size_t size = 0; size < written; ++size) {
         CHECK(decode_error(wire, size, FAULTLINE_PROTOCOL_BUFFER_TOO_SMALL) == EXIT_SUCCESS);
         CHECK(encode_error(&message, size, FAULTLINE_PROTOCOL_BUFFER_TOO_SMALL) == EXIT_SUCCESS);

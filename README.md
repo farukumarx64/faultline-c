@@ -44,6 +44,9 @@ assigns the oldest queued job to an alive, idle worker. Reports update job state
 worker loss and task failures apply bounded retries. Workers execute `sleep`,
 `prime_count`, `fibonacci`, and `hash` while heartbeating, report real results,
 and take the next job. See [built-in tasks](docs/tasks.md) for inputs and examples.
+The [job-status protocol](docs/job-status-protocol.md) now defines a query by ID,
+a state/result snapshot, and an explicit not-found reply. Its codecs are tested;
+coordinator lookup and the CLI `status` command are the next step.
 
 ## Build and run
 
@@ -215,6 +218,8 @@ make test-sanitize
 Both commands build and run C unit tests and Python integration tests against
 the real executables. `test-sanitize` instruments all C programs under test.
 Use `make test-unit` or `make test-integration` to run either layer separately.
+Use `make test-job-status-protocol` for status payloads and validation, or add
+`SANITIZE=1` for AddressSanitizer/UBSan.
 Use `make test-wal` for WAL format checks, or `make SANITIZE=1 test-wal`
 for the same checks with AddressSanitizer/UBSan.
 Use `make test-wal-writer` for real-file appends, sync ordering, storage-error
@@ -253,6 +258,7 @@ faultline/
 │   ├── architecture.md
 │   ├── protocol.md
 │   ├── job-protocol.md
+│   ├── job-status-protocol.md
 │   ├── networking.md
 │   ├── workers.md
 │   ├── jobs.md

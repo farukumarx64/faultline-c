@@ -1,7 +1,8 @@
 # Job messages and payloads
 
 The shared codec in `include/protocol.h` and `src/common/protocol.c` defines six
-job messages. Each uses the existing [12-byte version 1 header](protocol.md).
+job lifecycle messages. Three additional read-only query formats are defined in
+[job-status-protocol.md](job-status-protocol.md). Each uses the existing [12-byte version 1 header](protocol.md).
 All metadata integers are unsigned and big-endian; arguments/results are opaque
 bytes. No C struct, enum representation, pointer, or `size_t` is sent directly.
 
@@ -29,8 +30,9 @@ version or capability negotiation.
 | 11 | `JOB_FAILED` | Worker → coordinator | 22 | 34 bytes |
 
 Arguments and results each allow 0–1024 bytes, matching the model's limits. The
-largest currently defined frame is 1062 bytes, exposed as
-`FAULTLINE_MESSAGE_MAX_FRAME_SIZE`. The generic header still allows up to 1 MiB;
+largest frame in this table is the 1062-byte assignment. The shared
+`FAULTLINE_MESSAGE_MAX_FRAME_SIZE` is 1072 bytes to also fit a full status response.
+The generic header still allows up to 1 MiB;
 complete-message validation imposes the smaller bounds above.
 
 ## Submission and acknowledgment
@@ -121,7 +123,7 @@ reports using its own monotonic clock.
 The coordinator uses `faultline_job_complete()` for an accepted report. STARTED must be
 accepted before COMPLETED: completion moves RUNNING → DONE. An empty result is
 valid. The result goes to the coordinator's authoritative job record; result
-retrieval by the CLI will need later handlers/messages.
+retrieval by the CLI will use the status response format once query handlers are added.
 
 `JOB_FAILED` appends a failure code:
 
@@ -132,8 +134,9 @@ retrieval by the CLI will need later handlers/messages.
 TASK includes executor errors and inability to start an assigned attempt, so
 failure may be reported from ASSIGNED or RUNNING. There is no free-form error
 text in this first payload. NONE=0, WORKER_LOST=2, and unknown values are invalid
-on the wire. WORKER_LOST is a decision made locally by the coordinator when a
+in this worker report. WORKER_LOST is a decision made locally by the coordinator when a
 connection fails or heartbeats expire; a worker cannot report itself lost.
+The coordinator can include WORKER_LOST in a read-only status response.
 
 `JOB_FAILED` means **this attempt failed**. The coordinator handler calls
 `faultline_job_fail()` with TASK. The model returns to QUEUED when retry allowance
@@ -174,8 +177,9 @@ A complete `JOB_STARTED` frame for job 42, worker 7, attempt 1 is:
 ```
 
 The identity's wire length is exactly 20 regardless of C struct padding.
-All timestamps, queue links, retry counters already spent, and socket descriptors
-stay local. The wire contains only fields needed for the particular message.
+Timestamps, queue links, and socket descriptors stay local. These six lifecycle
+messages omit retries already spent; status responses expose that counter and
+the retry limit. The wire contains only fields needed for the particular message.
 
 ## C representation and validation
 
@@ -192,8 +196,11 @@ stay local. The wire contains only fields needed for the particular message.
 | JOB_STARTED | `job_started` |
 | JOB_COMPLETED | `job_completed` |
 | JOB_FAILED | `job_failed` |
+| JOB_STATUS_REQUEST | `job_status_request` (the 64-bit ID) |
+| JOB_STATUS_RESPONSE | `job_status_response` |
+| JOB_STATUS_NOT_FOUND | `job_status_not_found` (the echoed 64-bit ID) |
 
-The union shares storage between alternatives instead of holding all six bodies
+The union shares storage between alternatives instead of holding all message bodies
 at once. Initialize the correct member, and inspect the type before reading it.
 Argument/result arrays belong to the message. The decoder copies bytes into them,
 so reusing the receive buffer does not invalidate a decoded message. Only the
@@ -239,7 +246,7 @@ perform no socket I/O, and allocate no heap memory.
 
 `tests/test_job_messages.c` adds eight groups covering independent literal frames
 for all six types; unaligned buffers; every prefix/short capacity of the example
-frames and the largest frame; 0/1/255/256/1024-byte data, embedded zeroes, and
+frames and the largest assignment; 0/1/255/256/1024-byte data, embedded zeroes, and
 receive-buffer reuse; all task IDs; maximum IDs/retry values and 64-bit attempts;
 invalid identities/tasks/failures; outer/inner length mismatches and overflow;
 mixed heartbeat/job streams; and a decoded old attempt rejected by the model.
@@ -247,7 +254,7 @@ Every rejected codec call is checked for unchanged outputs. Existing lifecycle
 vectors still verify their original bytes and null-pointer contracts.
 
 TCP integration tests cover CLI acceptance, live FIFO dispatch, fragment handling,
-worker identity, validated reports, and retries. The real worker retains its
-assignment until executors are added; controlled TCP peers send start/result/failure
-reports. Wrong-direction job headers remain rejected before collecting payloads.
+worker identity, validated reports, and retries. Real workers execute tasks;
+controlled TCP peers also send start/result/failure reports to test the handlers.
+Wrong-direction job headers remain rejected before collecting payloads.
 Run `make test-unit`, `make SANITIZE=1 test-unit`, and `make test-integration`.

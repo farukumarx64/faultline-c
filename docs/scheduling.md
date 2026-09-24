@@ -185,8 +185,9 @@ state across coordinator restart using the same retained WAL.
 
 ## Transport and the worker loop
 
-Coordinator input/output buffers now each hold the largest supported frame,
-1062 bytes. They still use nonblocking reads/writes, retain partial progress, and
+Coordinator input/output buffers now each hold the largest codec-defined frame,
+1072 bytes, including the [status response](job-status-protocol.md) whose handler
+is still pending. They use nonblocking reads/writes, retain partial progress, and
 handle one frame at a time. Headers are checked for allowed direction/connection
 role, and the codec rejects invalid outer bounds before payload collection.
 Replies and assignments share the existing per-connection output phase, so one

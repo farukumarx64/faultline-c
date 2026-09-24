@@ -16,6 +16,8 @@ coordinator scheduling/report handlers, and worker assignment reception now use
 them; see the [job message specification](job-protocol.md) and
 [scheduling guide](scheduling.md). Workers execute the [built-in tasks](tasks.md)
 and send actual start, result, or failure reports.
+The [job-status codec](job-status-protocol.md) also defines requests, snapshots,
+and explicit not-found replies; coordinator query handlers and CLI output are pending.
 
 ## Header layout
 
@@ -26,7 +28,7 @@ fields use unsigned, big-endian encoding, also called network byte order.
 | --- | --- | --- | --- |
 | 0 | 4 bytes | Magic | `0x464c494e`, the ASCII bytes `FLIN` |
 | 4 | 2 bytes | Version | `1` |
-| 6 | 2 bytes | Message type | IDs `1` through `11`, listed below |
+| 6 | 2 bytes | Message type | IDs `1` through `14`, listed below |
 | 8 | 4 bytes | Payload length | `0` through `1,048,576` bytes inclusive |
 
 ```text
@@ -50,8 +52,7 @@ authentication mechanism. The version selects the interpretation of the
 protocol and is independent of the application's eventual `v0.1.0` release tag.
 An unsupported version is rejected; version negotiation is not implemented.
 
-Zero and IDs outside the table below are rejected. Query messages will receive
-explicit IDs when their payload formats are designed. Existing IDs must
+Zero and IDs outside the table below are rejected. Existing IDs must
 not be renumbered. Enum storage layout is never used as the wire representation.
 
 ## Messages and payloads
@@ -69,9 +70,15 @@ not be renumbered. Enum storage layout is never used as the wire representation.
 | 9 | `JOB_STARTED` | Worker to coordinator | Job/worker/attempt identity | 32 bytes |
 | 10 | `JOB_COMPLETED` | Worker to coordinator | Identity, result length and bytes | 36–1060 bytes |
 | 11 | `JOB_FAILED` | Worker to coordinator | Identity and TASK failure code | 34 bytes |
+| 12 | `JOB_STATUS_REQUEST` | Client to coordinator | Nonzero 8-byte job ID | 20 bytes |
+| 13 | `JOB_STATUS_RESPONSE` | Coordinator to client | Job ID, state, worker, attempt, retries, failure, result length and bytes | 48–1072 bytes |
+| 14 | `JOB_STATUS_NOT_FOUND` | Coordinator to client | Echoed nonzero 8-byte job ID | 20 bytes |
 
 See [job-protocol.md](job-protocol.md) for every job field's byte offset, acceptance
-and report semantics, retry identity, and validation rules. The following worker
+and report semantics, retry identity, and validation rules. See
+[job-status-protocol.md](job-status-protocol.md) for query layouts and state
+consistency. Types 12–14 currently have codecs only; incoming query types remain
+rejected by the coordinator's handler whitelist. The following worker
 lifecycle discussion describes the currently active TCP handlers.
 
 `WORKER_REGISTER` requests an identity. It does not propose an ID or carry
@@ -250,7 +257,7 @@ Header validation proceeds in the following order and returns the first error:
 | `FAULTLINE_PROTOCOL_BUFFER_TOO_SMALL` | Fewer than 12 input bytes or output bytes of capacity. |
 | `FAULTLINE_PROTOCOL_BAD_MAGIC` | Magic does not match `FLIN`. |
 | `FAULTLINE_PROTOCOL_UNSUPPORTED_VERSION` | Version is not 1. |
-| `FAULTLINE_PROTOCOL_UNKNOWN_MESSAGE_TYPE` | Type is not one of the eleven defined message IDs. |
+| `FAULTLINE_PROTOCOL_UNKNOWN_MESSAGE_TYPE` | Type is not one of the fourteen defined message IDs. |
 | `FAULTLINE_PROTOCOL_PAYLOAD_TOO_LARGE` | Declared payload exceeds 1 MiB. |
 | `FAULTLINE_PROTOCOL_OK` | Header was successfully encoded or decoded. |
 
@@ -266,12 +273,14 @@ The complete-message functions have these additional errors:
 
 | Result | Meaning |
 | --- | --- |
-| `FAULTLINE_PROTOCOL_INVALID_PAYLOAD_LENGTH` | The declared length differs from the required fixed length or prefix + data length. |
-| `FAULTLINE_PROTOCOL_INVALID_WORKER_ID` | Worker ACK/HEARTBEAT or job identity has ID zero, or an empty message supplies a nonzero ID. |
-| `FAULTLINE_PROTOCOL_INVALID_JOB_ID` | A job ACK or job identity has job ID zero. |
-| `FAULTLINE_PROTOCOL_INVALID_ATTEMPT` | Assignment/report attempt is zero. |
+| `FAULTLINE_PROTOCOL_INVALID_PAYLOAD_LENGTH` | The declared length differs from the required fixed length or prefix + data length, or a non-DONE status carries result bytes. |
+| `FAULTLINE_PROTOCOL_INVALID_WORKER_ID` | Worker ACK/HEARTBEAT or job identity has ID zero, an empty message supplies a nonzero ID, or a status owner contradicts its state. |
+| `FAULTLINE_PROTOCOL_INVALID_JOB_ID` | A job ACK, job identity, or status request/reply has job ID zero. |
+| `FAULTLINE_PROTOCOL_INVALID_ATTEMPT` | Assignment/report attempt is zero, or a status attempt contradicts its state/retry count. |
 | `FAULTLINE_PROTOCOL_INVALID_TASK_TYPE` | Submission/assignment task type is unknown. |
-| `FAULTLINE_PROTOCOL_INVALID_FAILURE` | A worker failure report contains a code other than TASK=1. |
+| `FAULTLINE_PROTOCOL_INVALID_FAILURE` | A worker failure report contains a code other than TASK=1, or a status failure contradicts its state. |
+| `FAULTLINE_PROTOCOL_INVALID_JOB_STATE` | A status state is outside QUEUED through FAILED. |
+| `FAULTLINE_PROTOCOL_INVALID_RETRY_COUNT` | Status retries exceed the limit, or FAILED has not exhausted it. |
 
 Message encoding checks pointers, type, payload fields, byte counts, and output
 capacity before writing. It returns `BUFFER_TOO_SMALL` if the entire frame will
@@ -279,7 +288,8 @@ not fit, without writing even a partial header. Message decoding checks the
 header and outer bounds, waits for the fixed prefix, validates its fields and
 inner length, then waits for any remaining variable data. Job argument/result
 sizes above 1024 also return `PAYLOAD_TOO_LARGE`, even below the header's 1 MiB
-ceiling. See the job specification for exact validation behavior.
+ceiling when the other fields are valid. See the job and status specifications
+for exact validation behavior.
 
 On any failure, message outputs and the `written`/`consumed` counters stay
 unchanged. On success, encoding reports the full frame size and leaves extra
@@ -303,7 +313,7 @@ A short header is incomplete input, not necessarily a malformed message. The
 current coordinator keeps partial headers per connection, and the CLI uses
 `faultline_recv_exact()` to collect a response. Both detect EOF during a header.
 The coordinator first reads only the bytes remaining in one 12-byte header.
-For a supported payload, it collects the declared bytes in its bounded 1062-byte
+For a supported payload, it collects the declared bytes in its bounded 1072-byte
 buffer before dispatching. Following frames stay in the socket's receive buffer
 until the coordinator is ready for them. Invalid outer lengths and disallowed
 message directions are rejected from the header. The worker uses the same maximum
@@ -341,3 +351,6 @@ followed by a heartbeat completed in fragments.
 
 Eight job-message test groups additionally cover all six job formats, bounded
 variable data, attempt identity, and mixed streams; see [their coverage](job-protocol.md#verification).
+Seven status-message groups cover request/not-found frames, every job state,
+model transitions, counter consistency, results, and partial frames; see
+[their coverage](job-status-protocol.md#verification).

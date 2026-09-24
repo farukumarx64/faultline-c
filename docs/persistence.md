@@ -241,7 +241,7 @@ it does not fill the disk. Diagnostics use pipes. There are no production fault
 switches. C tests inject sync failures through an internal I/O seam while checking
 that outputs, live jobs, and allocation counters remain unpublished during I/O.
 
-The suite now contains 107 C groups and 98 process scenarios (two default-port
+The suite now contains 114 C groups and 98 process scenarios (two default-port
 checks are skipped with automatic ports). Existing process fixtures each create
 their own temporary WAL. The persistence scenarios establish concrete restart
 and ordering behavior, including selected crashes before/during/after WAL writes

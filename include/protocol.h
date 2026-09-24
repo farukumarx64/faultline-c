@@ -23,8 +23,11 @@
 #define FAULTLINE_JOB_STARTED_PAYLOAD_SIZE 20u
 #define FAULTLINE_JOB_COMPLETED_PREFIX_SIZE 24u
 #define FAULTLINE_JOB_FAILED_PAYLOAD_SIZE 22u
+#define FAULTLINE_JOB_STATUS_REQUEST_PAYLOAD_SIZE 8u
+#define FAULTLINE_JOB_STATUS_RESPONSE_PREFIX_SIZE 36u
+#define FAULTLINE_JOB_STATUS_NOT_FOUND_PAYLOAD_SIZE 8u
 #define FAULTLINE_MESSAGE_MAX_FRAME_SIZE \
-    (FAULTLINE_HEADER_SIZE + FAULTLINE_JOB_ASSIGN_PREFIX_SIZE + FAULTLINE_JOB_MAX_ARGUMENT_SIZE)
+    (FAULTLINE_HEADER_SIZE + FAULTLINE_JOB_STATUS_RESPONSE_PREFIX_SIZE + FAULTLINE_JOB_MAX_RESULT_SIZE)
 
 enum faultline_message_type {
     FAULTLINE_MSG_PING = 1,
@@ -37,7 +40,10 @@ enum faultline_message_type {
     FAULTLINE_MSG_JOB_ASSIGN = 8,
     FAULTLINE_MSG_JOB_STARTED = 9,
     FAULTLINE_MSG_JOB_COMPLETED = 10,
-    FAULTLINE_MSG_JOB_FAILED = 11
+    FAULTLINE_MSG_JOB_FAILED = 11,
+    FAULTLINE_MSG_JOB_STATUS_REQUEST = 12,
+    FAULTLINE_MSG_JOB_STATUS_RESPONSE = 13,
+    FAULTLINE_MSG_JOB_STATUS_NOT_FOUND = 14
 };
 
 /* Host-order values only. Never send this struct directly over a socket. */
@@ -77,14 +83,31 @@ struct faultline_job_completed_payload {
 
 struct faultline_job_failed_payload {
     struct faultline_job_identity identity;
-    uint16_t failure; /* Only TASK is a worker report; WORKER_LOST is local. */
+    uint16_t failure; /* Only TASK is a worker report; WORKER_LOST is coordinator-decided. */
+};
+
+/* A read-only snapshot, not an assignment or a worker execution report.
+ * QUEUED has no owner; DONE/FAILED retain their last worker as history.
+ * Only DONE carries result bytes. A requeued job retains its last failure.
+ * See docs/job-status-protocol.md for state/counter consistency rules. */
+struct faultline_job_status_payload {
+    uint64_t job_id;
+    uint16_t state;
+    uint32_t worker_id;
+    uint64_t attempt;
+    uint32_t retry_count;
+    uint32_t max_retries;
+    uint16_t failure;
+    size_t result_size;
+    uint8_t result[FAULTLINE_JOB_MAX_RESULT_SIZE];
 };
 
 /*
  * Host-order tagged union: initialize/read only the member named by message_type.
  * Empty messages use payload.worker_id = 0; worker ACK/HEARTBEAT use a nonzero ID.
  * Job byte arrays are owned copies, not strings or borrowed buffer pointers.
- * Never send this struct directly. See docs/job-protocol.md for wire offsets.
+ * Never send this struct directly. Wire offsets are in docs/job-protocol.md
+ * and docs/job-status-protocol.md.
  */
 struct faultline_message {
     uint16_t message_type;
@@ -96,6 +119,9 @@ struct faultline_message {
         struct faultline_job_identity job_started;
         struct faultline_job_completed_payload job_completed;
         struct faultline_job_failed_payload job_failed;
+        uint64_t job_status_request;   /* Nonzero job ID to inspect. */
+        struct faultline_job_status_payload job_status_response;
+        uint64_t job_status_not_found; /* Echoes the nonzero requested ID. */
     } payload;
 };
 
@@ -112,7 +138,9 @@ enum faultline_protocol_result {
     FAULTLINE_PROTOCOL_INVALID_JOB_ID,
     FAULTLINE_PROTOCOL_INVALID_ATTEMPT,
     FAULTLINE_PROTOCOL_INVALID_TASK_TYPE,
-    FAULTLINE_PROTOCOL_INVALID_FAILURE
+    FAULTLINE_PROTOCOL_INVALID_FAILURE,
+    FAULTLINE_PROTOCOL_INVALID_JOB_STATE,
+    FAULTLINE_PROTOCOL_INVALID_RETRY_COUNT
 };
 
 /*
