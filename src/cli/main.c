@@ -14,11 +14,13 @@ static void usage(FILE *stream)
     fputs("Usage: faultline ping [--coordinator IPv4:PORT]\n"
           "       faultline submit TASK [--args TEXT | --args-hex HEX]\n"
           "                        [--max-retries N] [--coordinator IPv4:PORT]\n"
+          "       faultline status ID [--coordinator IPv4:PORT]\n"
           "Tasks: sleep, prime_count, fibonacci, hash. Arguments: at most 1024 bytes.\n"
           "sleep: milliseconds 0..86400000; prime_count: inclusive bound 0..100000000.\n"
           "fibonacci: index 0..93; hash: raw bytes, FNV-1a 64-bit checksum.\n"
           "Numeric arguments must be decimal digits. Workers validate task inputs.\n"
-          "Submission prints a job ID; completed results appear in the coordinator log.\n"
+          "Submission prints a job ID; status displays its state and saved result.\n"
+          "Status ID: decimal 1..18446744073709551615. Exit: 0 found, 2 not found, 1 error.\n"
           "Default coordinator: 127.0.0.1:9000; max retries: 0.\n", stream);
 }
 
@@ -218,7 +220,160 @@ static int run_submit(int argc, char **argv)
     return status;
 }
 
+static int parse_job_id(const char *text, uint64_t *job_id)
+{
+    uint64_t value = 0;
+    if (*text == '\0') { return -1; }
+    for (const char *cursor = text; *cursor != '\0'; ++cursor) {
+        if (*cursor < '0' || *cursor > '9') { return -1; }
+        uint64_t digit = (uint64_t)(*cursor - '0');
+        if (value > (UINT64_MAX - digit) / UINT64_C(10)) { return -1; }
+        value = value * UINT64_C(10) + digit;
+    }
+    if (value == 0) { return -1; }
+    *job_id = value;
+    return 0;
+}
+
+/* All pieces of the response share one deadline, including its variable data. */
+static int receive_status_bytes(int fd, uint8_t *wire, size_t size, int64_t start)
+{
+    int64_t now = faultline_monotonic_ms();
+    if (now < 0 || now - start >= FAULTLINE_IO_TIMEOUT_MS ||
+        faultline_recv_exact(fd, wire, size, FAULTLINE_IO_TIMEOUT_MS - (int)(now - start)) !=
+        FAULTLINE_RECEIVE_OK) {
+        fputs("faultline: status response incomplete (connection closed, timed out, or read failed)\n", stderr);
+        return -1;
+    }
+    return 0;
+}
+
+static int receive_status(int fd, uint64_t job_id, struct faultline_message *reply)
+{
+    uint8_t wire[FAULTLINE_MESSAGE_MAX_FRAME_SIZE];
+    struct faultline_header header;
+    size_t consumed, prefix;
+    int64_t start = faultline_monotonic_ms();
+    if (start < 0) { perror("faultline: clock"); return -1; }
+    if (receive_status_bytes(fd, wire, FAULTLINE_HEADER_SIZE, start) < 0) { return -1; }
+    if (faultline_header_decode(wire, FAULTLINE_HEADER_SIZE, &header) != FAULTLINE_PROTOCOL_OK) {
+        fputs("faultline: invalid status response header\n", stderr);
+        return -1;
+    }
+    if (header.message_type == FAULTLINE_MSG_JOB_STATUS_NOT_FOUND &&
+        header.payload_length == FAULTLINE_JOB_STATUS_NOT_FOUND_PAYLOAD_SIZE) {
+        prefix = FAULTLINE_JOB_STATUS_NOT_FOUND_PAYLOAD_SIZE;
+    } else if (header.message_type == FAULTLINE_MSG_JOB_STATUS_RESPONSE &&
+               header.payload_length >= FAULTLINE_JOB_STATUS_RESPONSE_PREFIX_SIZE &&
+               header.payload_length <= FAULTLINE_JOB_STATUS_RESPONSE_PREFIX_SIZE + FAULTLINE_JOB_MAX_RESULT_SIZE) {
+        prefix = FAULTLINE_JOB_STATUS_RESPONSE_PREFIX_SIZE;
+    } else {
+        fputs("faultline: expected a bounded status response or not-found reply\n", stderr);
+        return -1;
+    }
+    if (receive_status_bytes(fd, wire + FAULTLINE_HEADER_SIZE, prefix, start) < 0) { return -1; }
+    size_t available = FAULTLINE_HEADER_SIZE + prefix;
+    enum faultline_protocol_result result = faultline_message_decode(wire, available, reply, &consumed);
+    if (result == FAULTLINE_PROTOCOL_BUFFER_TOO_SMALL) {
+        /* Prefix fields and inner/outer lengths have passed codec validation. */
+        size_t remaining = (size_t)header.payload_length - prefix;
+        if (receive_status_bytes(fd, wire + available, remaining, start) < 0) { return -1; }
+        available += remaining;
+        result = faultline_message_decode(wire, available, reply, &consumed);
+    }
+    if (result != FAULTLINE_PROTOCOL_OK || consumed != available) {
+        fputs("faultline: invalid status response payload\n", stderr);
+        return -1;
+    }
+    uint64_t echoed = reply->message_type == FAULTLINE_MSG_JOB_STATUS_NOT_FOUND ?
+                      reply->payload.job_status_not_found : reply->payload.job_status_response.job_id;
+    if (echoed != job_id) {
+        fputs("faultline: status response job ID does not match request\n", stderr);
+        return -1;
+    }
+    return 0;
+}
+
+static const char *status_state_name(uint16_t state)
+{
+    switch (state) {
+    case FAULTLINE_JOB_QUEUED: return "QUEUED";
+    case FAULTLINE_JOB_ASSIGNED: return "ASSIGNED";
+    case FAULTLINE_JOB_RUNNING: return "RUNNING";
+    case FAULTLINE_JOB_DONE: return "DONE";
+    case FAULTLINE_JOB_FAILED: return "FAILED";
+    default: return "INVALID";
+    }
+}
+
+static const char *status_failure_name(uint16_t failure)
+{
+    switch (failure) {
+    case FAULTLINE_JOB_FAILURE_NONE: return "NONE";
+    case FAULTLINE_JOB_FAILURE_TASK: return "TASK";
+    case FAULTLINE_JOB_FAILURE_WORKER_LOST: return "WORKER_LOST";
+    default: return "INVALID";
+    }
+}
+
+static int print_status(const struct faultline_job_status_payload *snapshot)
+{
+    printf("job_id=%" PRIu64 "\nstate=%s\n", snapshot->job_id, status_state_name(snapshot->state));
+    if (snapshot->worker_id == 0) { puts("worker_id=none"); }
+    else { printf("worker_id=%" PRIu32 "\n", snapshot->worker_id); }
+    printf("attempt=%" PRIu64 "\nretries=%" PRIu32 "/%" PRIu32 "\nfailure=%s\nresult_bytes=%zu\n",
+           snapshot->attempt, snapshot->retry_count, snapshot->max_retries,
+           status_failure_name(snapshot->failure), snapshot->result_size);
+    if (snapshot->state == FAULTLINE_JOB_DONE) {
+        fputs("result=\"", stdout);
+        for (size_t i = 0; i < snapshot->result_size; ++i) {
+            unsigned int byte = snapshot->result[i];
+            if (byte >= 0x20 && byte <= 0x7e && byte != '"' && byte != '\\') {
+                (void)putchar((int)byte);
+            } else { printf("\\x%02x", byte); }
+        }
+        puts("\"");
+    }
+    if (fflush(stdout) == EOF || ferror(stdout)) { perror("faultline: write status"); return EXIT_FAILURE; }
+    return EXIT_SUCCESS;
+}
+
+static int run_status(int argc, char **argv)
+{
+    char host[INET_ADDRSTRLEN] = FAULTLINE_DEFAULT_HOST;
+    uint16_t port = FAULTLINE_DEFAULT_PORT;
+    struct faultline_message request = {.message_type = FAULTLINE_MSG_JOB_STATUS_REQUEST}, reply;
+    if ((argc != 3 && argc != 5) || parse_job_id(argv[2], &request.payload.job_status_request) < 0 ||
+        (argc == 5 && (strcmp(argv[3], "--coordinator") != 0 ||
+                      faultline_parse_endpoint(argv[4], host, sizeof(host), &port) < 0))) {
+        usage(stderr);
+        return EXIT_FAILURE;
+    }
+    uint8_t wire[FAULTLINE_HEADER_SIZE + FAULTLINE_JOB_STATUS_REQUEST_PAYLOAD_SIZE];
+    size_t written;
+    if (faultline_message_encode(wire, sizeof(wire), &request, &written) != FAULTLINE_PROTOCOL_OK) {
+        fputs("faultline: could not encode status request\n", stderr);
+        return EXIT_FAILURE;
+    }
+    if (faultline_ignore_sigpipe() < 0) { perror("faultline: configure SIGPIPE"); return EXIT_FAILURE; }
+    int fd = faultline_connect(host, port, FAULTLINE_IO_TIMEOUT_MS);
+    if (fd < 0) { perror("faultline: connect"); return EXIT_FAILURE; }
+    int status = EXIT_FAILURE;
+    if (faultline_send_all(fd, wire, written, FAULTLINE_IO_TIMEOUT_MS) < 0) {
+        perror("faultline: send status request");
+    } else if (receive_status(fd, request.payload.job_status_request, &reply) == 0) {
+        if (reply.message_type == FAULTLINE_MSG_JOB_STATUS_NOT_FOUND) {
+            fprintf(stderr, "faultline: job %" PRIu64 " not found\n", reply.payload.job_status_not_found);
+            status = 2;
+        } else { status = print_status(&reply.payload.job_status_response); }
+    }
+    (void)close(fd);
+    return status;
+}
+
 int main(int argc, char **argv)
 {
-    return argc >= 2 && strcmp(argv[1], "submit") == 0 ? run_submit(argc, argv) : run_ping(argc, argv);
+    if (argc >= 2 && strcmp(argv[1], "submit") == 0) { return run_submit(argc, argv); }
+    if (argc >= 2 && strcmp(argv[1], "status") == 0) { return run_status(argc, argv); }
+    return run_ping(argc, argv);
 }

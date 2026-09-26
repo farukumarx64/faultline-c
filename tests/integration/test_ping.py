@@ -279,11 +279,11 @@ class CoordinatorTests(CoordinatorTestCase):
     def test_job_reply_headers_are_rejected_from_clients(self):
         # Submission is supported; replies/assignments and unregistered worker
         # reports remain invalid even when their generic headers are well formed.
-        # Status messages are codec-only until lookup/CLI handlers are added.
+        # Status responses are outbound-only; status requests are supported.
         with self.connect() as healthy:
             worker_id = self.register_worker(healthy)
             for message_type, length in ((7, 8), (8, 26), (9, 20), (10, 24), (11, 22), (8, 1050),
-                                         (12, 8), (13, 36), (13, 1060), (14, 8)):
+                                         (13, 36), (13, 1060), (14, 8)):
                 with self.subTest(message_type=message_type), self.connect() as connection:
                     connection.sendall(struct.pack("!IHHI", 0x464c494e, 1, message_type, length))
                     self.assert_closed(connection)

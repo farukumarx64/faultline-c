@@ -39,7 +39,7 @@ PROGRAMS := $(BUILD_DIR)/faultline-coordinator \
 	$(BUILD_DIR)/faultline-worker $(BUILD_DIR)/faultline
 TEST_PROGRAMS := $(addprefix $(BUILD_DIR)/tests/,$(TEST_NAMES))
 
-.PHONY: all sanitize test test-unit test-integration test-failures test-scheduling test-execution test-recovery test-wal test-wal-writer test-wal-replay test-persistence test-startup-recovery test-coordinator-crashes test-job-status-protocol test-sanitize clean
+.PHONY: all sanitize test test-unit test-integration test-failures test-scheduling test-execution test-recovery test-wal test-wal-writer test-wal-replay test-persistence test-startup-recovery test-coordinator-crashes test-job-status-protocol test-status test-sanitize clean
 
 all: $(PROGRAMS)
 
@@ -66,6 +66,9 @@ test-unit: $(TEST_PROGRAMS)
 
 test-job-status-protocol: $(BUILD_DIR)/tests/test_job_status
 	./$(BUILD_DIR)/tests/test_job_status
+
+test-status: all
+	$(PYTHON) tests/integration/test_status.py --bin-dir $(BUILD_DIR) $(INTEGRATION_ARGS)
 
 test-wal: $(BUILD_DIR)/tests/test_wal
 	./$(BUILD_DIR)/tests/test_wal
@@ -97,6 +100,7 @@ test-integration: all $(BUILD_DIR)/tests/crash-coordinator
 	$(PYTHON) tests/integration/test_execution.py --bin-dir $(BUILD_DIR) $(INTEGRATION_ARGS)
 	$(PYTHON) tests/integration/test_failure_detection.py --bin-dir $(BUILD_DIR) $(INTEGRATION_ARGS)
 	$(PYTHON) tests/integration/test_scheduling.py --bin-dir $(BUILD_DIR) $(INTEGRATION_ARGS)
+	$(PYTHON) tests/integration/test_status.py --bin-dir $(BUILD_DIR) $(INTEGRATION_ARGS)
 	$(PYTHON) tests/integration/test_ping.py --bin-dir $(BUILD_DIR) $(INTEGRATION_ARGS)
 	$(PYTHON) tests/integration/test_worker.py --bin-dir $(BUILD_DIR) $(INTEGRATION_ARGS)
 	$(PYTHON) tests/integration/test_heartbeat.py --bin-dir $(BUILD_DIR) $(INTEGRATION_ARGS)

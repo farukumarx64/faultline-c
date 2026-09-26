@@ -22,7 +22,7 @@ struct client {
     int fd;
     enum client_phase phase;
     uint32_t worker_id;
-    int submitter;
+    int job_client; /* Submission/status connections cannot become workers. */
     uint8_t input[CLIENT_FRAME_CAPACITY];
     uint8_t output[CLIENT_FRAME_CAPACITY];
     size_t received;
@@ -159,8 +159,8 @@ static void handle_message(struct client *client,
         queue_reply(client, store, FAULTLINE_MSG_PONG, 0, now);
         break;
     case FAULTLINE_MSG_WORKER_REGISTER:
-        if (client->submitter) {
-            close_client(client, store, "submitter_cannot_register");
+        if (client->job_client) {
+            close_client(client, store, "job_client_cannot_register");
             return;
         }
         enum faultline_store_result registered = faultline_store_register(
@@ -209,9 +209,30 @@ static void handle_message(struct client *client,
             close_client(client, store, "submission_rejected");
             return;
         }
-        client->submitter = 1;
+        client->job_client = 1;
         log_job("job_submitted", faultline_scheduler_find(jobs, ack.payload.job_submit_ack), jobs);
         queue_message(client, store, &ack, now);
+        break;
+    }
+    case FAULTLINE_MSG_JOB_STATUS_REQUEST: {
+        uint64_t id = message->payload.job_status_request;
+        const struct faultline_job *job = faultline_scheduler_find(jobs, id);
+        struct faultline_message reply = {.message_type = FAULTLINE_MSG_JOB_STATUS_NOT_FOUND,
+                                          .payload.job_status_not_found = id};
+        client->job_client = 1;
+        if (job != NULL) {
+            /* The event loop owns the published store. Copy one snapshot before
+             * another event can change the job; queries require no WAL write. */
+            reply.message_type = FAULTLINE_MSG_JOB_STATUS_RESPONSE;
+            reply.payload.job_status_response = (struct faultline_job_status_payload){
+                .job_id = job->id, .state = (uint16_t)job->state,
+                .worker_id = job->worker_id, .attempt = job->attempt,
+                .retry_count = job->retry_count, .max_retries = job->max_retries,
+                .failure = (uint16_t)job->failure, .result_size = job->result_size
+            };
+            memcpy(reply.payload.job_status_response.result, job->result, job->result_size);
+        }
+        queue_message(client, store, &reply, now);
         break;
     }
     case FAULTLINE_MSG_JOB_STARTED:
@@ -275,8 +296,9 @@ static void read_message(struct client *client,
             return;
         }
         int allowed = header.message_type == FAULTLINE_MSG_PING ||
-            (header.message_type == FAULTLINE_MSG_WORKER_REGISTER && !client->submitter) ||
-            (header.message_type == FAULTLINE_MSG_JOB_SUBMIT && client->worker_id == 0) ||
+            (header.message_type == FAULTLINE_MSG_WORKER_REGISTER && !client->job_client) ||
+            ((header.message_type == FAULTLINE_MSG_JOB_SUBMIT ||
+              header.message_type == FAULTLINE_MSG_JOB_STATUS_REQUEST) && client->worker_id == 0) ||
             ((header.message_type == FAULTLINE_MSG_HEARTBEAT ||
               header.message_type == FAULTLINE_MSG_JOB_STARTED ||
               header.message_type == FAULTLINE_MSG_JOB_COMPLETED ||
