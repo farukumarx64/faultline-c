@@ -36,7 +36,7 @@ def assignment(job_id, worker_id, arguments=b'abc', attempt=1, task=4):
 def receive_frame(connection):
     header = test_ping.receive_exact(connection, 12)
     magic, version, kind, size = struct.unpack('!IHHI', header)
-    if magic != 0x464c494e or version != 1 or size > 1060:
+    if magic != 0x464c494e or version != 1 or size > 9732:
         raise AssertionError(f'Invalid frame header: {header.hex()}')
     return kind, test_ping.receive_exact(connection, size)
 

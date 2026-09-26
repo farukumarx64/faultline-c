@@ -26,8 +26,14 @@
 #define FAULTLINE_JOB_STATUS_REQUEST_PAYLOAD_SIZE 8u
 #define FAULTLINE_JOB_STATUS_RESPONSE_PREFIX_SIZE 36u
 #define FAULTLINE_JOB_STATUS_NOT_FOUND_PAYLOAD_SIZE 8u
+#define FAULTLINE_JOBS_MAX_ENTRIES 256u
+#define FAULTLINE_WORKERS_MAX_ENTRIES 64u
+#define FAULTLINE_JOBS_PREFIX_SIZE 4u
+#define FAULTLINE_JOB_SUMMARY_SIZE 38u
+#define FAULTLINE_WORKERS_PREFIX_SIZE 8u
+#define FAULTLINE_WORKER_SUMMARY_SIZE 30u
 #define FAULTLINE_MESSAGE_MAX_FRAME_SIZE \
-    (FAULTLINE_HEADER_SIZE + FAULTLINE_JOB_STATUS_RESPONSE_PREFIX_SIZE + FAULTLINE_JOB_MAX_RESULT_SIZE)
+    (FAULTLINE_HEADER_SIZE + FAULTLINE_JOBS_PREFIX_SIZE + FAULTLINE_JOBS_MAX_ENTRIES * FAULTLINE_JOB_SUMMARY_SIZE)
 
 enum faultline_message_type {
     FAULTLINE_MSG_PING = 1,
@@ -43,7 +49,11 @@ enum faultline_message_type {
     FAULTLINE_MSG_JOB_FAILED = 11,
     FAULTLINE_MSG_JOB_STATUS_REQUEST = 12,
     FAULTLINE_MSG_JOB_STATUS_RESPONSE = 13,
-    FAULTLINE_MSG_JOB_STATUS_NOT_FOUND = 14
+    FAULTLINE_MSG_JOB_STATUS_NOT_FOUND = 14,
+    FAULTLINE_MSG_JOBS_REQUEST = 15,
+    FAULTLINE_MSG_JOBS_RESPONSE = 16,
+    FAULTLINE_MSG_WORKERS_REQUEST = 17,
+    FAULTLINE_MSG_WORKERS_RESPONSE = 18
 };
 
 /* Host-order values only. Never send this struct directly over a socket. */
@@ -102,6 +112,45 @@ struct faultline_job_status_payload {
     uint8_t result[FAULTLINE_JOB_MAX_RESULT_SIZE];
 };
 
+/* Bounded, ID-sorted snapshots. Jobs omit argument/result bytes; status retrieves
+ * an individual result. Worker ages are coordinator-computed durations, not
+ * timestamps in another machine's clock domain. See docs/listings.md. */
+struct faultline_job_summary {
+    uint64_t job_id;
+    uint16_t task_type;
+    uint16_t state;
+    uint32_t worker_id;
+    uint64_t attempt;
+    uint32_t retry_count;
+    uint32_t max_retries;
+    uint16_t failure;
+    uint32_t result_size;
+};
+
+enum faultline_worker_view_state {
+    FAULTLINE_WORKER_VIEW_ALIVE = 1,
+    FAULTLINE_WORKER_VIEW_DEAD = 2
+};
+
+struct faultline_worker_summary {
+    uint32_t worker_id;
+    uint16_t state;
+    uint64_t heartbeat_age_ms;
+    uint64_t job_id; /* Zero when idle/dead; otherwise the current active job. */
+    uint64_t attempt; /* Zero iff job_id is zero. */
+};
+
+struct faultline_jobs_payload {
+    size_t count;
+    struct faultline_job_summary entries[FAULTLINE_JOBS_MAX_ENTRIES];
+};
+
+struct faultline_workers_payload {
+    size_t count;
+    uint32_t heartbeat_timeout_ms;
+    struct faultline_worker_summary entries[FAULTLINE_WORKERS_MAX_ENTRIES];
+};
+
 /*
  * Host-order tagged union: initialize/read only the member named by message_type.
  * Empty messages use payload.worker_id = 0; worker ACK/HEARTBEAT use a nonzero ID.
@@ -122,6 +171,8 @@ struct faultline_message {
         uint64_t job_status_request;   /* Nonzero job ID to inspect. */
         struct faultline_job_status_payload job_status_response;
         uint64_t job_status_not_found; /* Echoes the nonzero requested ID. */
+        struct faultline_jobs_payload jobs;
+        struct faultline_workers_payload workers;
     } payload;
 };
 
@@ -140,7 +191,11 @@ enum faultline_protocol_result {
     FAULTLINE_PROTOCOL_INVALID_TASK_TYPE,
     FAULTLINE_PROTOCOL_INVALID_FAILURE,
     FAULTLINE_PROTOCOL_INVALID_JOB_STATE,
-    FAULTLINE_PROTOCOL_INVALID_RETRY_COUNT
+    FAULTLINE_PROTOCOL_INVALID_RETRY_COUNT,
+    FAULTLINE_PROTOCOL_INVALID_LIST_COUNT,
+    FAULTLINE_PROTOCOL_INVALID_LIST_ORDER,
+    FAULTLINE_PROTOCOL_INVALID_WORKER_STATE,
+    FAULTLINE_PROTOCOL_INVALID_HEARTBEAT_TIMEOUT
 };
 
 /*

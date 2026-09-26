@@ -226,7 +226,7 @@ static int test_fragments(void)
     uint8_t wire[FAULTLINE_MESSAGE_MAX_FRAME_SIZE];
     size_t size;
     CHECK(faultline_message_encode(wire, sizeof(wire), &message, &size) == FAULTLINE_PROTOCOL_OK);
-    CHECK(size == 1072 && size == sizeof(wire));
+    CHECK(size == FAULTLINE_HEADER_SIZE + FAULTLINE_JOB_STATUS_RESPONSE_PREFIX_SIZE + FAULTLINE_JOB_MAX_RESULT_SIZE);
     for (size_t n = 0; n < size; ++n) {
         CHECK(decode_error(wire, n, FAULTLINE_PROTOCOL_BUFFER_TOO_SMALL) == EXIT_SUCCESS);
         CHECK(encode_error(&message, n, FAULTLINE_PROTOCOL_BUFFER_TOO_SMALL) == EXIT_SUCCESS);

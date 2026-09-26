@@ -154,7 +154,7 @@ static int test_invalid_frames(void)
     } bad_headers[] = {
         {0, 0, FAULTLINE_PROTOCOL_BAD_MAGIC},
         {5, 2, FAULTLINE_PROTOCOL_UNSUPPORTED_VERSION},
-        {7, 15, FAULTLINE_PROTOCOL_UNKNOWN_MESSAGE_TYPE}
+        {7, 19, FAULTLINE_PROTOCOL_UNKNOWN_MESSAGE_TYPE}
     };
     struct faultline_message decoded = sentinel;
     size_t consumed = 99;

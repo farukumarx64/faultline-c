@@ -16,6 +16,11 @@
 #define MAX_CLIENTS 64
 #define CLIENT_FRAME_CAPACITY FAULTLINE_MESSAGE_MAX_FRAME_SIZE
 
+_Static_assert(FAULTLINE_JOB_STORE_CAPACITY <= FAULTLINE_JOBS_MAX_ENTRIES,
+               "job listing must fit every retained job");
+_Static_assert(FAULTLINE_MAX_WORKERS <= FAULTLINE_WORKERS_MAX_ENTRIES,
+               "worker listing must fit the entire registry");
+
 enum client_phase { READING_MESSAGE, WRITING_REPLY };
 
 struct client {
@@ -145,9 +150,72 @@ static void queue_reply(struct client *client, struct faultline_coordinator_stor
     queue_message(client, store, &reply, now);
 }
 
+static int compare_job_summaries(const void *left, const void *right)
+{
+    uint64_t a = ((const struct faultline_job_summary *)left)->job_id;
+    uint64_t b = ((const struct faultline_job_summary *)right)->job_id;
+    return (a > b) - (a < b);
+}
+
+static int compare_worker_summaries(const void *left, const void *right)
+{
+    uint32_t a = ((const struct faultline_worker_summary *)left)->worker_id;
+    uint32_t b = ((const struct faultline_worker_summary *)right)->worker_id;
+    return (a > b) - (a < b);
+}
+
+static void queue_listing(struct client *client, struct faultline_coordinator_store *store,
+                          uint16_t request_type, int heartbeat_timeout_ms)
+{
+    struct faultline_message reply = {0};
+    int64_t now = faultline_monotonic_ms();
+    if (now < 0) { close_client(client, store, "clock_error"); return; }
+    client->job_client = 1;
+    if (request_type == FAULTLINE_MSG_JOBS_REQUEST) {
+        reply.message_type = FAULTLINE_MSG_JOBS_RESPONSE;
+        struct faultline_jobs_payload *list = &reply.payload.jobs;
+        list->count = store->jobs.count;
+        for (size_t i = 0; i < list->count; ++i) {
+            const struct faultline_job *job = &store->jobs.jobs[i];
+            list->entries[i] = (struct faultline_job_summary){
+                .job_id = job->id, .task_type = (uint16_t)job->task_type, .state = (uint16_t)job->state,
+                .worker_id = job->worker_id, .attempt = job->attempt, .retry_count = job->retry_count,
+                .max_retries = job->max_retries, .failure = (uint16_t)job->failure,
+                .result_size = (uint32_t)job->result_size
+            };
+        }
+        qsort(list->entries, list->count, sizeof(list->entries[0]), compare_job_summaries);
+    } else {
+        reply.message_type = FAULTLINE_MSG_WORKERS_RESPONSE;
+        struct faultline_workers_payload *list = &reply.payload.workers;
+        list->heartbeat_timeout_ms = (uint32_t)heartbeat_timeout_ms;
+        for (size_t i = 0; i < FAULTLINE_MAX_WORKERS; ++i) {
+            const struct faultline_worker *worker = &store->workers.workers[i];
+            if (worker->state == FAULTLINE_WORKER_UNUSED) { continue; }
+            if (worker->last_heartbeat_ms < 0 || now < worker->last_heartbeat_ms) {
+                close_client(client, store, "clock_error");
+                return;
+            }
+            const struct faultline_job *active = worker->state == FAULTLINE_WORKER_ALIVE ?
+                faultline_scheduler_active(&store->jobs, worker->id) : NULL;
+            list->entries[list->count++] = (struct faultline_worker_summary){
+                .worker_id = worker->id,
+                .state = worker->state == FAULTLINE_WORKER_ALIVE ?
+                         FAULTLINE_WORKER_VIEW_ALIVE : FAULTLINE_WORKER_VIEW_DEAD,
+                .heartbeat_age_ms = (uint64_t)(now - worker->last_heartbeat_ms),
+                .job_id = active == NULL ? 0 : active->id,
+                .attempt = active == NULL ? 0 : active->attempt
+            };
+        }
+        /* Registry slot reuse can put a newer ID before an older one. */
+        qsort(list->entries, list->count, sizeof(list->entries[0]), compare_worker_summaries);
+    }
+    queue_message(client, store, &reply, now);
+}
+
 static void handle_message(struct client *client,
                             struct faultline_coordinator_store *store,
-                            const struct faultline_message *message, int64_t now)
+                            const struct faultline_message *message, int64_t now, int heartbeat_timeout_ms)
 {
     struct faultline_worker_registry *registry = &store->workers;
     struct faultline_scheduler *jobs = &store->jobs;
@@ -253,6 +321,10 @@ static void handle_message(struct client *client,
         reset_input(client);
         break;
     }
+    case FAULTLINE_MSG_JOBS_REQUEST:
+    case FAULTLINE_MSG_WORKERS_REQUEST:
+        queue_listing(client, store, message->message_type, heartbeat_timeout_ms);
+        break;
     default:
         close_client(client, store, "unexpected_message");
         break;
@@ -260,7 +332,7 @@ static void handle_message(struct client *client,
 }
 
 static void read_message(struct client *client,
-                          struct faultline_coordinator_store *store, int64_t now)
+                          struct faultline_coordinator_store *store, int64_t now, int heartbeat_timeout_ms)
 {
     ssize_t count = recv(client->fd, client->input + client->received,
                             client->expected - client->received, 0);
@@ -298,7 +370,9 @@ static void read_message(struct client *client,
         int allowed = header.message_type == FAULTLINE_MSG_PING ||
             (header.message_type == FAULTLINE_MSG_WORKER_REGISTER && !client->job_client) ||
             ((header.message_type == FAULTLINE_MSG_JOB_SUBMIT ||
-              header.message_type == FAULTLINE_MSG_JOB_STATUS_REQUEST) && client->worker_id == 0) ||
+              header.message_type == FAULTLINE_MSG_JOB_STATUS_REQUEST ||
+              header.message_type == FAULTLINE_MSG_JOBS_REQUEST ||
+              header.message_type == FAULTLINE_MSG_WORKERS_REQUEST) && client->worker_id == 0) ||
             ((header.message_type == FAULTLINE_MSG_HEARTBEAT ||
               header.message_type == FAULTLINE_MSG_JOB_STARTED ||
               header.message_type == FAULTLINE_MSG_JOB_COMPLETED ||
@@ -328,7 +402,7 @@ static void read_message(struct client *client,
         close_client(client, store, "invalid_message");
         return;
     }
-    handle_message(client, store, &message, now);
+    handle_message(client, store, &message, now, heartbeat_timeout_ms);
 }
 
 static void write_reply(struct client *client,
@@ -525,7 +599,7 @@ static int run_coordinator(int listener, int heartbeat_timeout_ms,
             }
             if (clients[i].phase == READING_MESSAGE &&
                 (events & (POLLIN | POLLHUP | POLLERR)) != 0) {
-                read_message(&clients[i], store, now);
+                read_message(&clients[i], store, now, heartbeat_timeout_ms);
             } else if (clients[i].phase == WRITING_REPLY &&
                        (events & (POLLOUT | POLLHUP | POLLERR)) != 0) {
                 write_reply(&clients[i], store, now);

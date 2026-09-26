@@ -2,6 +2,12 @@
 
 #include <string.h>
 
+_Static_assert(FAULTLINE_HEADER_SIZE + FAULTLINE_JOB_STATUS_RESPONSE_PREFIX_SIZE +
+               FAULTLINE_JOB_MAX_RESULT_SIZE <= FAULTLINE_MESSAGE_MAX_FRAME_SIZE,
+               "maximum frame size must fit status results");
+_Static_assert(FAULTLINE_HEADER_SIZE + FAULTLINE_WORKERS_PREFIX_SIZE +
+               FAULTLINE_WORKERS_MAX_ENTRIES * FAULTLINE_WORKER_SUMMARY_SIZE <= FAULTLINE_MESSAGE_MAX_FRAME_SIZE,
+               "maximum frame size must fit worker lists");
 _Static_assert(FAULTLINE_HEADER_SIZE + FAULTLINE_JOB_COMPLETED_PREFIX_SIZE +
                FAULTLINE_JOB_MAX_RESULT_SIZE <= FAULTLINE_MESSAGE_MAX_FRAME_SIZE,
                "maximum frame size must also fit completed results");
@@ -60,6 +66,8 @@ static enum faultline_protocol_result message_payload_bounds(
     case FAULTLINE_MSG_PING:
     case FAULTLINE_MSG_PONG:
     case FAULTLINE_MSG_WORKER_REGISTER:
+    case FAULTLINE_MSG_JOBS_REQUEST:
+    case FAULTLINE_MSG_WORKERS_REQUEST:
         *minimum = 0;
         break;
     case FAULTLINE_MSG_WORKER_REGISTER_ACK:
@@ -96,6 +104,14 @@ static enum faultline_protocol_result message_payload_bounds(
         break;
     case FAULTLINE_MSG_JOB_STATUS_NOT_FOUND:
         *minimum = FAULTLINE_JOB_STATUS_NOT_FOUND_PAYLOAD_SIZE;
+        break;
+    case FAULTLINE_MSG_JOBS_RESPONSE:
+        *minimum = FAULTLINE_JOBS_PREFIX_SIZE;
+        extra = FAULTLINE_JOBS_MAX_ENTRIES * FAULTLINE_JOB_SUMMARY_SIZE;
+        break;
+    case FAULTLINE_MSG_WORKERS_RESPONSE:
+        *minimum = FAULTLINE_WORKERS_PREFIX_SIZE;
+        extra = FAULTLINE_WORKERS_MAX_ENTRIES * FAULTLINE_WORKER_SUMMARY_SIZE;
         break;
     default:
         return FAULTLINE_PROTOCOL_UNKNOWN_MESSAGE_TYPE;
@@ -228,6 +244,48 @@ static enum faultline_protocol_result validate_job_status(
     return FAULTLINE_PROTOCOL_OK;
 }
 
+static enum faultline_protocol_result validate_jobs(const struct faultline_jobs_payload *list)
+{
+    if (list->count > FAULTLINE_JOBS_MAX_ENTRIES) { return FAULTLINE_PROTOCOL_INVALID_LIST_COUNT; }
+    for (size_t i = 0; i < list->count; ++i) {
+        const struct faultline_job_summary *entry = &list->entries[i];
+        const struct faultline_job_status_payload status = {
+            .job_id = entry->job_id, .state = entry->state, .worker_id = entry->worker_id,
+            .attempt = entry->attempt, .retry_count = entry->retry_count,
+            .max_retries = entry->max_retries, .failure = entry->failure, .result_size = entry->result_size
+        };
+        enum faultline_protocol_result result = validate_job_status(&status);
+        if (result != FAULTLINE_PROTOCOL_OK) { return result; }
+        if (!valid_task(entry->task_type)) { return FAULTLINE_PROTOCOL_INVALID_TASK_TYPE; }
+        if (entry->result_size > FAULTLINE_JOB_MAX_RESULT_SIZE) { return FAULTLINE_PROTOCOL_PAYLOAD_TOO_LARGE; }
+        if (i != 0 && entry->job_id <= list->entries[i - 1].job_id) {
+            return FAULTLINE_PROTOCOL_INVALID_LIST_ORDER;
+        }
+    }
+    return FAULTLINE_PROTOCOL_OK;
+}
+
+static enum faultline_protocol_result validate_workers(const struct faultline_workers_payload *list)
+{
+    if (list->count > FAULTLINE_WORKERS_MAX_ENTRIES) { return FAULTLINE_PROTOCOL_INVALID_LIST_COUNT; }
+    if (list->heartbeat_timeout_ms == 0) { return FAULTLINE_PROTOCOL_INVALID_HEARTBEAT_TIMEOUT; }
+    for (size_t i = 0; i < list->count; ++i) {
+        const struct faultline_worker_summary *entry = &list->entries[i];
+        if (entry->worker_id == 0) { return FAULTLINE_PROTOCOL_INVALID_WORKER_ID; }
+        if (entry->state != FAULTLINE_WORKER_VIEW_ALIVE && entry->state != FAULTLINE_WORKER_VIEW_DEAD) {
+            return FAULTLINE_PROTOCOL_INVALID_WORKER_STATE;
+        }
+        if ((entry->job_id == 0) != (entry->attempt == 0)) { return FAULTLINE_PROTOCOL_INVALID_ATTEMPT; }
+        if (entry->state == FAULTLINE_WORKER_VIEW_DEAD && entry->job_id != 0) {
+            return FAULTLINE_PROTOCOL_INVALID_JOB_ID;
+        }
+        if (i != 0 && entry->worker_id <= list->entries[i - 1].worker_id) {
+            return FAULTLINE_PROTOCOL_INVALID_LIST_ORDER;
+        }
+    }
+    return FAULTLINE_PROTOCOL_OK;
+}
+
 /* Validate host values and derive the exact length before touching output bytes. */
 static enum faultline_protocol_result validate_message(
     const struct faultline_message *message, uint32_t *payload_size)
@@ -245,6 +303,8 @@ static enum faultline_protocol_result validate_message(
     case FAULTLINE_MSG_PING:
     case FAULTLINE_MSG_PONG:
     case FAULTLINE_MSG_WORKER_REGISTER:
+    case FAULTLINE_MSG_JOBS_REQUEST:
+    case FAULTLINE_MSG_WORKERS_REQUEST:
         if (message->payload.worker_id != 0) {
             return FAULTLINE_PROTOCOL_INVALID_WORKER_ID;
         }
@@ -296,6 +356,16 @@ static enum faultline_protocol_result validate_message(
         break;
     case FAULTLINE_MSG_JOB_STATUS_NOT_FOUND:
         if (message->payload.job_status_not_found == 0) { return FAULTLINE_PROTOCOL_INVALID_JOB_ID; }
+        break;
+    case FAULTLINE_MSG_JOBS_RESPONSE:
+        result = validate_jobs(&message->payload.jobs);
+        if (result != FAULTLINE_PROTOCOL_OK) { return result; }
+        data_size = message->payload.jobs.count * FAULTLINE_JOB_SUMMARY_SIZE;
+        break;
+    case FAULTLINE_MSG_WORKERS_RESPONSE:
+        result = validate_workers(&message->payload.workers);
+        if (result != FAULTLINE_PROTOCOL_OK) { return result; }
+        data_size = message->payload.workers.count * FAULTLINE_WORKER_SUMMARY_SIZE;
         break;
     default:
         return FAULTLINE_PROTOCOL_UNKNOWN_MESSAGE_TYPE;
@@ -415,6 +485,35 @@ enum faultline_protocol_result faultline_message_encode(
     case FAULTLINE_MSG_JOB_STATUS_NOT_FOUND:
         write_u64_be(payload, message->payload.job_status_not_found);
         break;
+    case FAULTLINE_MSG_JOBS_RESPONSE:
+        write_u32_be(payload, (uint32_t)message->payload.jobs.count);
+        for (size_t i = 0; i < message->payload.jobs.count; ++i) {
+            uint8_t *out = payload + FAULTLINE_JOBS_PREFIX_SIZE + i * FAULTLINE_JOB_SUMMARY_SIZE;
+            const struct faultline_job_summary *entry = &message->payload.jobs.entries[i];
+            write_u64_be(out, entry->job_id);
+            write_u16_be(out + 8, entry->task_type);
+            write_u16_be(out + 10, entry->state);
+            write_u32_be(out + 12, entry->worker_id);
+            write_u64_be(out + 16, entry->attempt);
+            write_u32_be(out + 24, entry->retry_count);
+            write_u32_be(out + 28, entry->max_retries);
+            write_u16_be(out + 32, entry->failure);
+            write_u32_be(out + 34, entry->result_size);
+        }
+        break;
+    case FAULTLINE_MSG_WORKERS_RESPONSE:
+        write_u32_be(payload, (uint32_t)message->payload.workers.count);
+        write_u32_be(payload + 4, message->payload.workers.heartbeat_timeout_ms);
+        for (size_t i = 0; i < message->payload.workers.count; ++i) {
+            uint8_t *out = payload + FAULTLINE_WORKERS_PREFIX_SIZE + i * FAULTLINE_WORKER_SUMMARY_SIZE;
+            const struct faultline_worker_summary *entry = &message->payload.workers.entries[i];
+            write_u32_be(out, entry->worker_id);
+            write_u16_be(out + 4, entry->state);
+            write_u64_be(out + 6, entry->heartbeat_age_ms);
+            write_u64_be(out + 14, entry->job_id);
+            write_u64_be(out + 22, entry->attempt);
+        }
+        break;
     default: /* Validated empty messages have nothing to write. */
         break;
     }
@@ -510,6 +609,43 @@ enum faultline_protocol_result faultline_message_decode(
     case FAULTLINE_MSG_JOB_STATUS_NOT_FOUND:
         decoded.payload.job_status_not_found = read_u64_be(payload);
         break;
+    case FAULTLINE_MSG_JOBS_RESPONSE:
+    case FAULTLINE_MSG_WORKERS_RESPONSE: {
+        int jobs = header.message_type == FAULTLINE_MSG_JOBS_RESPONSE;
+        uint32_t count = read_u32_be(payload);
+        uint32_t limit = jobs ? FAULTLINE_JOBS_MAX_ENTRIES : FAULTLINE_WORKERS_MAX_ENTRIES;
+        uint32_t stride = jobs ? FAULTLINE_JOB_SUMMARY_SIZE : FAULTLINE_WORKER_SUMMARY_SIZE;
+        if (count > limit) { return FAULTLINE_PROTOCOL_INVALID_LIST_COUNT; }
+        if (header.payload_length != minimum + count * stride) { return FAULTLINE_PROTOCOL_INVALID_PAYLOAD_LENGTH; }
+        if (!jobs && read_u32_be(payload + 4) == 0) { return FAULTLINE_PROTOCOL_INVALID_HEARTBEAT_TIMEOUT; }
+        if (wire_size < FAULTLINE_HEADER_SIZE + (size_t)header.payload_length) {
+            return FAULTLINE_PROTOCOL_BUFFER_TOO_SMALL;
+        }
+        if (jobs) { decoded.payload.jobs.count = count; }
+        else {
+            decoded.payload.workers.count = count;
+            decoded.payload.workers.heartbeat_timeout_ms = read_u32_be(payload + 4);
+        }
+        for (size_t i = 0; i < count; ++i) {
+            const uint8_t *in = payload + minimum + i * stride;
+            if (jobs) {
+                decoded.payload.jobs.entries[i] = (struct faultline_job_summary){
+                    .job_id = read_u64_be(in), .task_type = read_u16_be(in + 8),
+                    .state = read_u16_be(in + 10), .worker_id = read_u32_be(in + 12),
+                    .attempt = read_u64_be(in + 16), .retry_count = read_u32_be(in + 24),
+                    .max_retries = read_u32_be(in + 28), .failure = read_u16_be(in + 32),
+                    .result_size = read_u32_be(in + 34)
+                };
+            } else {
+                decoded.payload.workers.entries[i] = (struct faultline_worker_summary){
+                    .worker_id = read_u32_be(in), .state = read_u16_be(in + 4),
+                    .heartbeat_age_ms = read_u64_be(in + 6), .job_id = read_u64_be(in + 14),
+                    .attempt = read_u64_be(in + 22)
+                };
+            }
+        }
+        break;
+    }
     default: /* Validated empty messages keep worker_id zero. */
         break;
     }
