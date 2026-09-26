@@ -1,5 +1,9 @@
 # Workers and the coordinator registry
 
+Use [`faultline workers`](listings.md#workers) to inspect retained worker IDs,
+liveness, heartbeat age, and active job/attempt. Dead entries can disappear on
+slot reuse, and the live registry is empty after coordinator restart.
+
 For a first coordinator launch, explicitly create its WAL with `--init-wal`.
 Later launches recover the same file; see [persistence startup](persistence.md#starting-and-restarting).
 

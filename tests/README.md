@@ -7,7 +7,7 @@ make test
 make test-sanitize
 ```
 
-These run 114 protocol, registry, job, queue, scheduler, task, socket, and WAL C test groups plus 113 process integration
+These run 121 protocol, registry, job, queue, scheduler, task, socket, and WAL C test groups plus 126 process integration
 tests using Python 3's standard library. A loopback-capable environment is
 required. You can select the Python interpreter with `PYTHON=/path/to/python3`.
 Use `make test-unit` or `make test-integration` to run one layer separately.
@@ -15,6 +15,9 @@ Use `make test-job-status-protocol` for status codecs, or
 `make SANITIZE=1 test-job-status-protocol` for instrumented binaries.
 Use `make test-status` for the live status command, or `make SANITIZE=1 test-status`
 for instrumented binaries. `INTEGRATION_ARGS='--port 9000'` also checks its default endpoint.
+Use `make test-list-protocol` for listing codecs and `make test-listings` for
+live job/worker inspection. Both accept `SANITIZE=1`; the process target accepts
+`INTEGRATION_ARGS='--port 9000'` to check both commands' default endpoint.
 Use `make test-wal` for the WAL format suite, or `make SANITIZE=1 test-wal`
 for the same checks with AddressSanitizer/UBSan.
 Use `make test-wal-writer` for the file writer suite, or
@@ -141,6 +144,25 @@ live status queries; coordinator rejection tests retain outbound-only replies.
 - Malformed headers/prefixes and mismatched reply IDs, rejected without output.
 - Truncated replies at header/prefix/result boundaries and connection refusal.
 - One five-second response deadline shared by header, fixed prefix, and result.
+
+`test_list_messages.c` adds seven [listing protocol](../docs/listings.md#verification) groups:
+
+- Independent literal bytes for job/worker summaries, unaligned buffers and owned copies.
+- Empty request/reply frames with valid zero counts.
+- Maximum 256-job/64-worker lists, integer limits, every incomplete prefix of
+  both maximum frames, and insufficient output capacities.
+- All job states with valid retry/ownership combinations.
+- Early rejection of count overflow, length mismatch, invalid timeout and null arguments.
+- Invalid row fields, duplicate/descending IDs, and unchanged outputs on error.
+- Mixed request/list streams with an incomplete trailing frame.
+
+`integration/test_listings.py` adds thirteen live scenarios: empty/default-endpoint
+views; mixed retained states and active worker jobs; retries/FIFO/WAL immutability;
+heartbeat age and sorted slot reuse; 256 retained jobs and stable encoded snapshots;
+fragmented/coalesced requests and connection roles; real worker busy/idle changes;
+heartbeat expiry despite listing polls; recovered jobs and reset registry after a
+restart; fragmented maximum replies and integer limits; malformed replies; invalid
+options, truncation and refused connections; and one deadline per full response.
 
 `test_wal.c` adds ten [WAL format](../docs/wal-format.md) groups:
 

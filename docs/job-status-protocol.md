@@ -64,11 +64,12 @@ Offsets are relative to the payload, after the 12-byte header.
 | 32 | 4 | `result_length` | Number of result bytes, 0–1024. |
 | 36 | `result_length` | Result bytes | Opaque binary data, present only for DONE. |
 
-The payload length must equal `36 + result_length` exactly. The shared
-`FAULTLINE_MESSAGE_MAX_FRAME_SIZE` is now 1072 bytes: header 12 + prefix 36 +
-result 1024. Transport arrays use that constant. The maximum assignment is
-still 1062 bytes. The generic header's 1 MiB ceiling is unchanged; complete
-message validation enforces these smaller limits.
+The payload length must equal `36 + result_length` exactly. The largest status
+response is 1072 bytes: header 12 + prefix 36 + result 1024. The shared
+`FAULTLINE_MESSAGE_MAX_FRAME_SIZE` is 9744 bytes to also hold a full
+[job listing](listings.md#wire-format). Transport arrays use that constant.
+The maximum assignment is still 1062 bytes. The generic header's 1 MiB ceiling
+is unchanged; complete-message validation enforces each format's smaller limit.
 
 An empty DONE result is valid. Results are not necessarily text, can include
 zero bytes, and have no implicit NUL terminator. The decoder copies them into

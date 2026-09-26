@@ -31,7 +31,8 @@ version or capability negotiation.
 
 Arguments and results each allow 0–1024 bytes, matching the model's limits. The
 largest frame in this table is the 1062-byte assignment. The shared
-`FAULTLINE_MESSAGE_MAX_FRAME_SIZE` is 1072 bytes to also fit a full status response.
+`FAULTLINE_MESSAGE_MAX_FRAME_SIZE` is 9744 bytes to also fit a full
+[job listing](listings.md#wire-format); status responses remain at most 1072 bytes.
 The generic header still allows up to 1 MiB;
 complete-message validation imposes the smaller bounds above.
 

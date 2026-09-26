@@ -196,8 +196,8 @@ This demonstrates retained bytes after a writer process crash. It does not
 simulate power loss or reconstruct coordinator job state.
 
 The eleven writer groups are joined by twelve [replay groups](wal-replay.md#verification),
-plus seven coordinator-store groups. With seven [status protocol groups](job-status-protocol.md#verification),
-the current C unit total is 114. Replay
+plus seven coordinator-store groups. With seven [status protocol groups](job-status-protocol.md#verification)
+and seven [listing protocol groups](listings.md#verification), the current C unit total is 121. Replay
 validates history, reconstructs state,
 handles only permissible incomplete tails, syncs the recovered prefix, and safely
 resumes appending. [Coordinator integration](persistence.md) applies this boundary

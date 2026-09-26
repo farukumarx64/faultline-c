@@ -26,6 +26,8 @@ to worker liveness, stale-attempt protection, and bounded at-least-once retries.
 restart recovery. [CLI status queries](status.md) read saved state and results
 without changing jobs or the WAL. Execution deadlines independent of heartbeats
 remain future work.
+The [jobs/workers commands](listings.md) return bounded snapshots of retained
+jobs and live/dead registry entries, sorted by identity.
 
 ## Components and ownership
 
@@ -119,10 +121,10 @@ heartbeat handlers support partial headers and the fixed worker ID payload; see
 [the networking walkthrough](networking.md). The coordinator's
 [worker registry](workers.md) owns IDs independently of reusable socket descriptors.
 The shared message representation supports bounded variable job payloads.
-Coordinator transport buffers now fit 1072-byte frames, including the new
-[status response format](job-status-protocol.md). Coordinator lookup copies a
+Coordinator transport buffers now fit 9744-byte frames, including full
+[job listings](listings.md). Coordinator lookup copies a
 consistent published snapshot for CLI display. Runtime handlers accept status
-requests, submissions, and worker reports, and workers receive assignments with partial-frame
+and listing requests, submissions, and worker reports, and workers receive assignments with partial-frame
 buffering while keeping heartbeats active.
 
 Workers use one task pthread while the main thread owns the socket and heartbeats.

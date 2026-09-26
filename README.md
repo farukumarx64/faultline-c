@@ -48,6 +48,8 @@ The CLI now [queries job status](docs/status.md) by ID, displaying state, worker
 attempt, retries, failure reason, and escaped result bytes. Read-only coordinator
 lookup uses the [job-status protocol](docs/job-status-protocol.md), including an
 explicit not-found reply, and works with jobs recovered from the WAL.
+[`jobs` and `workers`](docs/listings.md) now list retained job summaries and
+worker liveness, heartbeat age, and active assignments in ID order.
 
 ## Build and run
 
@@ -192,6 +194,18 @@ It exits 0 for a known job (including FAILED), 2 for an unknown ID, and 1 on an
 argument, network, protocol, or output error. See [the status guide](docs/status.md)
 for queued/retried states, result escaping, and restart behavior.
 
+Inspect all retained jobs and worker registrations:
+
+```sh
+./build/debug/faultline jobs
+./build/debug/faultline workers
+```
+
+Both accept `--coordinator IPv4:PORT` and exit 0 for a valid listing, including
+an empty one. Jobs include completed and failed records. Workers include retained
+dead registrations until slot reuse; the live registry starts empty after restart.
+See [the listing guide](docs/listings.md) for table columns and snapshot semantics.
+
 [Worker recovery checks](docs/recovery.md) kill a busy worker with SIGKILL or
 pause it with SIGSTOP until its heartbeat expires. In both cases, an
 already-connected worker completes the same job on attempt 2 and remains
@@ -241,6 +255,8 @@ Use `make test-job-status-protocol` for status payloads and validation, or add
 `SANITIZE=1` for AddressSanitizer/UBSan.
 Use `make test-status` for live CLI queries, read-only checks, and recovered results;
 add `SANITIZE=1` for instrumentation.
+Use `make test-list-protocol` for listing codecs and `make test-listings` for live
+job/worker snapshots; add `SANITIZE=1` for instrumentation.
 Use `make test-wal` for WAL format checks, or `make SANITIZE=1 test-wal`
 for the same checks with AddressSanitizer/UBSan.
 Use `make test-wal-writer` for real-file appends, sync ordering, storage-error
@@ -281,6 +297,7 @@ faultline/
 │   ├── job-protocol.md
 │   ├── job-status-protocol.md
 │   ├── status.md
+│   ├── listings.md
 │   ├── networking.md
 │   ├── workers.md
 │   ├── jobs.md
@@ -301,7 +318,7 @@ faultline/
 │   ├── common/          Shared protocol, networking, and logging code
 │   ├── coordinator/     Event loop, registry, job store, scheduler, and WAL modules
 │   ├── worker/          Registration, heartbeats, and assignment reception
-│   └── cli/             PING, job submission, and status queries
+│   └── cli/             PING, submission, status, jobs, and workers
 └── tests/               C unit/storage tests and TCP integration tests
 ```
 

@@ -124,8 +124,9 @@ entire response shares one five-second monotonic deadline; partial transfers do
 not restart it. Connect and send retain their separate five-second budgets.
 
 The complete reply must pass codec validation and echo the requested job ID
-before the CLI prints anything. The CLI owns a bounded 1072-byte receive buffer,
-closes its socket on every post-connect exit path, and does not automatically
+before the CLI prints anything. The shared query receiver owns a bounded
+9744-byte buffer for [listings](listings.md); status frames still have a 1072-byte maximum.
+The CLI closes its socket on every post-connect exit path and does not automatically
 retry. A response is a snapshot, not an execution lease or proof of worker
 progress. Existing [durability guarantees](durability.md) remain unchanged.
 

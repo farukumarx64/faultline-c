@@ -110,7 +110,7 @@ The coordinator queues a success ACK only after WAL sync and publication of
 the prepared job and enqueue succeed.
 Full-store or invalid submissions close the connection without a success ACK.
 Closing a submitter connection after acceptance does not cancel its job or remove
-it from the queue. A client may mix subsequent submissions and status queries,
+it from the queue. A client may mix subsequent submissions, status, and listing queries,
 with serialized replies, but cannot switch that connection into a registered
 worker after either operation. Registered workers cannot submit or query jobs.
 PING remains available to either role.
@@ -188,7 +188,7 @@ state across coordinator restart using the same retained WAL.
 ## Transport and the worker loop
 
 Coordinator input/output buffers now each hold the largest codec-defined frame,
-1072 bytes, including the [status response](job-status-protocol.md).
+9744 bytes, including a full [job listing](listings.md#wire-format).
 They use nonblocking reads/writes, retain partial progress, and
 handle one frame at a time. Headers are checked for allowed direction/connection
 role, and the codec rejects invalid outer bounds before payload collection.

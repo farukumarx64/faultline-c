@@ -95,7 +95,7 @@ so a delayed worker sends no catch-up burst. A `heartbeat_sent` log records loca
 send completion; only the coordinator's `heartbeat_received` log proves processing.
 EOF, reset, a send failure, or invalid incoming frames produce
 an error and a failure exit. Valid JOB_ASSIGN frames are accumulated in a
-1072-byte buffer, validated against the registered worker ID, and retained.
+9744-byte buffer, validated against the registered worker ID, and retained.
 A worker executes one assignment in a task thread while its main thread sends
 heartbeats and reports results; see [tasks.md](tasks.md). A partial assignment has one five-second receive deadline
 from its first byte, independent of the heartbeat deadline.
@@ -113,7 +113,7 @@ READING_MESSAGE -> WRITING_REPLY -> READING_MESSAGE -> ...
 READING_MESSAGE -> record heartbeat -> READING_MESSAGE -> ...
 ```
 
-Each client owns 1072-byte input and output buffers, received/sent byte counters,
+Each client owns 9744-byte input and output buffers, received/sent byte counters,
 the expected input size, the actual output size, its phase, and a monotonic
 timestamp of its last byte-transfer progress. It also stores its assigned
 worker ID, or zero if the connection has not registered.

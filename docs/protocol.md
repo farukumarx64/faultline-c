@@ -19,6 +19,8 @@ and send actual start, result, or failure reports.
 The [job-status codec](job-status-protocol.md) also defines requests, snapshots,
 and explicit not-found replies, now used by read-only coordinator lookup and
 the [CLI status command](status.md).
+The [listing protocol](listings.md#wire-format) adds bounded, sorted job and
+worker snapshots for `faultline jobs` and `faultline workers`.
 
 ## Header layout
 
@@ -29,7 +31,7 @@ fields use unsigned, big-endian encoding, also called network byte order.
 | --- | --- | --- | --- |
 | 0 | 4 bytes | Magic | `0x464c494e`, the ASCII bytes `FLIN` |
 | 4 | 2 bytes | Version | `1` |
-| 6 | 2 bytes | Message type | IDs `1` through `14`, listed below |
+| 6 | 2 bytes | Message type | IDs `1` through `18`, listed below |
 | 8 | 4 bytes | Payload length | `0` through `1,048,576` bytes inclusive |
 
 ```text
@@ -74,6 +76,10 @@ not be renumbered. Enum storage layout is never used as the wire representation.
 | 12 | `JOB_STATUS_REQUEST` | Client to coordinator | Nonzero 8-byte job ID | 20 bytes |
 | 13 | `JOB_STATUS_RESPONSE` | Coordinator to client | Job ID, state, worker, attempt, retries, failure, result length and bytes | 48–1072 bytes |
 | 14 | `JOB_STATUS_NOT_FOUND` | Coordinator to client | Echoed nonzero 8-byte job ID | 20 bytes |
+| 15 | `JOBS_REQUEST` | Client to coordinator | Empty | 12 bytes |
+| 16 | `JOBS_RESPONSE` | Coordinator to client | Count and up to 256 job summaries | 16–9744 bytes |
+| 17 | `WORKERS_REQUEST` | Client to coordinator | Empty | 12 bytes |
+| 18 | `WORKERS_RESPONSE` | Coordinator to client | Count, heartbeat timeout, and up to 64 worker summaries | 20–1940 bytes |
 
 See [job-protocol.md](job-protocol.md) for every job field's byte offset, acceptance
 and report semantics, retry identity, and validation rules. See
@@ -135,14 +141,16 @@ WORKER_REGISTER_ACK are replies and are rejected as incoming requests. Wrong
 lengths, malformed frames, duplicate registration, and invalid heartbeat ownership
 close the offending connection without a protocol error response. The CLI still
 expects one empty PONG for `ping`, a JOB_SUBMIT_ACK for `submit`, or a matching
-status response/not-found reply for `status`. Nonzero PING/PONG lengths in header tests
+status response/not-found reply for `status`. `jobs` and `workers` each expect
+their matching bounded listing response. Nonzero PING/PONG lengths in header tests
 exercise generic length encoding, not valid complete messages.
 
 The coordinator also accepts JOB_SUBMIT from unregistered clients and STARTED,
 COMPLETED, and FAILED from registered workers. Job reports must match the
 connection, job owner, attempt, and allowed state transition. Job ACKs and
 assignments are outbound-only at the coordinator. A connection that has submitted
-or queried a job cannot switch to being a registered worker. See the scheduling guide for
+or queried a job/list cannot switch to being a registered worker. Registered
+workers cannot issue listing requests. See the scheduling guide for
 acceptance, capacity, report rejection, and retry behavior.
 
 ## Byte order and examples
@@ -260,7 +268,7 @@ Header validation proceeds in the following order and returns the first error:
 | `FAULTLINE_PROTOCOL_BUFFER_TOO_SMALL` | Fewer than 12 input bytes or output bytes of capacity. |
 | `FAULTLINE_PROTOCOL_BAD_MAGIC` | Magic does not match `FLIN`. |
 | `FAULTLINE_PROTOCOL_UNSUPPORTED_VERSION` | Version is not 1. |
-| `FAULTLINE_PROTOCOL_UNKNOWN_MESSAGE_TYPE` | Type is not one of the fourteen defined message IDs. |
+| `FAULTLINE_PROTOCOL_UNKNOWN_MESSAGE_TYPE` | Type is not one of the eighteen defined message IDs. |
 | `FAULTLINE_PROTOCOL_PAYLOAD_TOO_LARGE` | Declared payload exceeds 1 MiB. |
 | `FAULTLINE_PROTOCOL_OK` | Header was successfully encoded or decoded. |
 
@@ -284,6 +292,14 @@ The complete-message functions have these additional errors:
 | `FAULTLINE_PROTOCOL_INVALID_FAILURE` | A worker failure report contains a code other than TASK=1, or a status failure contradicts its state. |
 | `FAULTLINE_PROTOCOL_INVALID_JOB_STATE` | A status state is outside QUEUED through FAILED. |
 | `FAULTLINE_PROTOCOL_INVALID_RETRY_COUNT` | Status retries exceed the limit, or FAILED has not exhausted it. |
+| `FAULTLINE_PROTOCOL_INVALID_LIST_COUNT` | Job/worker count exceeds its bounded array capacity. |
+| `FAULTLINE_PROTOCOL_INVALID_LIST_ORDER` | Listing IDs are duplicated or not strictly increasing. |
+| `FAULTLINE_PROTOCOL_INVALID_WORKER_STATE` | A worker row has a state other than ALIVE or DEAD. |
+| `FAULTLINE_PROTOCOL_INVALID_HEARTBEAT_TIMEOUT` | A worker list has a zero heartbeat timeout. |
+
+Job summary rows follow the status rules above. A worker row also requires job
+ID and attempt to be either both zero or both nonzero; DEAD rows cannot carry
+an active job. See [listing validation](listings.md#wire-format).
 
 Message encoding checks pointers, type, payload fields, byte counts, and output
 capacity before writing. It returns `BUFFER_TOO_SMALL` if the entire frame will
@@ -316,7 +332,7 @@ A short header is incomplete input, not necessarily a malformed message. The
 current coordinator keeps partial headers per connection, and the CLI uses
 `faultline_recv_exact()` to collect a response. Both detect EOF during a header.
 The coordinator first reads only the bytes remaining in one 12-byte header.
-For a supported payload, it collects the declared bytes in its bounded 1072-byte
+For a supported payload, it collects the declared bytes in its bounded 9744-byte
 buffer before dispatching. Following frames stay in the socket's receive buffer
 until the coordinator is ready for them. Invalid outer lengths and disallowed
 message directions are rejected from the header. The worker uses the same maximum
@@ -357,3 +373,6 @@ variable data, attempt identity, and mixed streams; see [their coverage](job-pro
 Seven status-message groups cover request/not-found frames, every job state,
 model transitions, counter consistency, results, and partial frames; see
 [their coverage](job-status-protocol.md#verification).
+Seven listing groups cover exact bytes, bounded counts, row validation and order,
+maximum frames, partial input, and output preservation. Thirteen process scenarios
+exercise the [listing commands](listings.md#verification).
