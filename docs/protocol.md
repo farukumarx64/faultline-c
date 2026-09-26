@@ -17,7 +17,8 @@ them; see the [job message specification](job-protocol.md) and
 [scheduling guide](scheduling.md). Workers execute the [built-in tasks](tasks.md)
 and send actual start, result, or failure reports.
 The [job-status codec](job-status-protocol.md) also defines requests, snapshots,
-and explicit not-found replies; coordinator query handlers and CLI output are pending.
+and explicit not-found replies, now used by read-only coordinator lookup and
+the [CLI status command](status.md).
 
 ## Header layout
 
@@ -77,8 +78,9 @@ not be renumbered. Enum storage layout is never used as the wire representation.
 See [job-protocol.md](job-protocol.md) for every job field's byte offset, acceptance
 and report semantics, retry identity, and validation rules. See
 [job-status-protocol.md](job-status-protocol.md) for query layouts and state
-consistency. Types 12–14 currently have codecs only; incoming query types remain
-rejected by the coordinator's handler whitelist. The following worker
+consistency. The coordinator accepts status requests from unregistered clients
+and sends RESPONSE or NOT_FOUND; incoming status replies and worker queries are
+rejected by its handler whitelist. The following worker
 lifecycle discussion describes the currently active TCP handlers.
 
 `WORKER_REGISTER` requests an identity. It does not propose an ID or carry
@@ -132,14 +134,15 @@ connections for diagnostics, but does not update heartbeat time. PONG and
 WORKER_REGISTER_ACK are replies and are rejected as incoming requests. Wrong
 lengths, malformed frames, duplicate registration, and invalid heartbeat ownership
 close the offending connection without a protocol error response. The CLI still
-expects one empty PONG for `ping`, or a JOB_SUBMIT_ACK for `submit`. Nonzero PING/PONG lengths in header tests
+expects one empty PONG for `ping`, a JOB_SUBMIT_ACK for `submit`, or a matching
+status response/not-found reply for `status`. Nonzero PING/PONG lengths in header tests
 exercise generic length encoding, not valid complete messages.
 
 The coordinator also accepts JOB_SUBMIT from unregistered clients and STARTED,
 COMPLETED, and FAILED from registered workers. Job reports must match the
 connection, job owner, attempt, and allowed state transition. Job ACKs and
 assignments are outbound-only at the coordinator. A connection that has submitted
-a job cannot switch to being a registered worker. See the scheduling guide for
+or queried a job cannot switch to being a registered worker. See the scheduling guide for
 acceptance, capacity, report rejection, and retry behavior.
 
 ## Byte order and examples

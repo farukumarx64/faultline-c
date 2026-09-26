@@ -23,8 +23,9 @@ bounded retries on failure or worker loss. Workers now execute all four
 [recovery contract](recovery.md#assignment-lease) defines assignment leases tied
 to worker liveness, stale-attempt protection, and bounded at-least-once retries.
 [Coordinator persistence](persistence.md) now provides durable transitions and
-restart recovery. Result queries and execution deadlines independent of
-heartbeats remain future work.
+restart recovery. [CLI status queries](status.md) read saved state and results
+without changing jobs or the WAL. Execution deadlines independent of heartbeats
+remain future work.
 
 ## Components and ownership
 
@@ -119,9 +120,9 @@ heartbeat handlers support partial headers and the fixed worker ID payload; see
 [worker registry](workers.md) owns IDs independently of reusable socket descriptors.
 The shared message representation supports bounded variable job payloads.
 Coordinator transport buffers now fit 1072-byte frames, including the new
-[status response format](job-status-protocol.md). Query codecs are implemented;
-coordinator lookup and CLI output are pending. Runtime handlers accept
-submissions and worker reports, and workers receive assignments with partial-frame
+[status response format](job-status-protocol.md). Coordinator lookup copies a
+consistent published snapshot for CLI display. Runtime handlers accept status
+requests, submissions, and worker reports, and workers receive assignments with partial-frame
 buffering while keeping heartbeats active.
 
 Workers use one task pthread while the main thread owns the socket and heartbeats.

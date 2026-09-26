@@ -6,8 +6,9 @@ Later launches recover the same file; see [persistence startup](persistence.md#s
 Workers now execute `sleep`, `prime_count`, `fibonacci`, and `hash`, send real
 STARTED/COMPLETED/FAILED reports, and accept another assignment after reporting
 the current outcome. The coordinator validates the report, stores the result,
-and prints it in its `job_completed` log. The CLI still prints an acceptance ID
-and exits; result/status queries remain later work. [Persistence](persistence.md)
+and prints it in its `job_completed` log. Submission prints an acceptance ID;
+[`faultline status ID`](status.md) retrieves state and saved result bytes.
+[Persistence](persistence.md)
 now retains accepted results and reconciles active jobs after coordinator restart.
 
 ## Start with sleep

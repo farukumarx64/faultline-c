@@ -44,9 +44,10 @@ assigns the oldest queued job to an alive, idle worker. Reports update job state
 worker loss and task failures apply bounded retries. Workers execute `sleep`,
 `prime_count`, `fibonacci`, and `hash` while heartbeating, report real results,
 and take the next job. See [built-in tasks](docs/tasks.md) for inputs and examples.
-The [job-status protocol](docs/job-status-protocol.md) now defines a query by ID,
-a state/result snapshot, and an explicit not-found reply. Its codecs are tested;
-coordinator lookup and the CLI `status` command are the next step.
+The CLI now [queries job status](docs/status.md) by ID, displaying state, worker,
+attempt, retries, failure reason, and escaped result bytes. Read-only coordinator
+lookup uses the [job-status protocol](docs/job-status-protocol.md), including an
+explicit not-found reply, and works with jobs recovered from the WAL.
 
 ## Build and run
 
@@ -164,7 +165,7 @@ in FIFO order. Each worker executes one job at a time while continuing heartbeat
 Jobs move through ASSIGNED, RUNNING, and DONE. The coordinator stores and logs
 results: the examples above produce `slept_ms=1000`, `25`, `55`, and
 `a430d84680aabd0b`. Invalid task inputs report failure and follow the retry policy.
-The CLI prints an acceptance ID; result/status queries are still pending.
+Submission prints an acceptance ID. Query it with `./build/debug/faultline status 1`.
 See [task arguments, algorithms, and execution](docs/tasks.md).
 
 Arguments are passed through as text or hex-decoded bytes, up to 1024 bytes.
@@ -172,6 +173,24 @@ Retry allowance defaults to zero. The store retains 256 total jobs, including
 terminal records; full stores reject further submissions, and restarting preserves
 these records and the capacity limit. See [the scheduling guide](docs/scheduling.md) for CLI options,
 acceptance guarantees, worker eligibility, retries, and the current limits.
+
+For example, after job 1 completes on worker 1:
+
+```text
+job_id=1
+state=DONE
+worker_id=1
+attempt=1
+retries=0/1
+failure=NONE
+result_bytes=13
+result="slept_ms=1000"
+```
+
+`status` accepts `--coordinator IPv4:PORT` and reads one snapshot per invocation.
+It exits 0 for a known job (including FAILED), 2 for an unknown ID, and 1 on an
+argument, network, protocol, or output error. See [the status guide](docs/status.md)
+for queued/retried states, result escaping, and restart behavior.
 
 [Worker recovery checks](docs/recovery.md) kill a busy worker with SIGKILL or
 pause it with SIGSTOP until its heartbeat expires. In both cases, an
@@ -220,6 +239,8 @@ the real executables. `test-sanitize` instruments all C programs under test.
 Use `make test-unit` or `make test-integration` to run either layer separately.
 Use `make test-job-status-protocol` for status payloads and validation, or add
 `SANITIZE=1` for AddressSanitizer/UBSan.
+Use `make test-status` for live CLI queries, read-only checks, and recovered results;
+add `SANITIZE=1` for instrumentation.
 Use `make test-wal` for WAL format checks, or `make SANITIZE=1 test-wal`
 for the same checks with AddressSanitizer/UBSan.
 Use `make test-wal-writer` for real-file appends, sync ordering, storage-error
@@ -259,6 +280,7 @@ faultline/
 │   ├── protocol.md
 │   ├── job-protocol.md
 │   ├── job-status-protocol.md
+│   ├── status.md
 │   ├── networking.md
 │   ├── workers.md
 │   ├── jobs.md
@@ -279,7 +301,7 @@ faultline/
 │   ├── common/          Shared protocol, networking, and logging code
 │   ├── coordinator/     Event loop, registry, job store, scheduler, and WAL modules
 │   ├── worker/          Registration, heartbeats, and assignment reception
-│   └── cli/             PING and job submission
+│   └── cli/             PING, job submission, and status queries
 └── tests/               C unit/storage tests and TCP integration tests
 ```
 
@@ -311,4 +333,4 @@ The [persistence phase review](docs/persistence-review.md) consolidates the
 durable-state promise, repeat-execution rules, evidence, and remaining scope.
 The [deferred request-deduplication proposal](docs/request-deduplication.md)
 records a future enhancement for safely repeating submissions after a lost ACK.
-It is not implemented; CLI and observability are the next planned phase.
+It is not implemented; the CLI and observability phase is underway.

@@ -2,8 +2,8 @@
 
 The shared codec defines how a client asks about one job and how the coordinator
 represents its answer. Encoding, decoding, and validation are implemented and
-tested. Coordinator lookup handlers and a CLI `status` command are the next step;
-the current coordinator still rejects these message types from incoming headers.
+tested. The coordinator now serves read-only lookups, and `faultline status ID`
+displays the snapshot. See the [CLI status guide](status.md) for usage and exit codes.
 
 These messages use the existing [12-byte version 1 header](protocol.md). All
 integers are unsigned and big-endian. The encoder writes individual fields;
@@ -26,7 +26,7 @@ version negotiation. Query-capable peers will need matching implementations.
 Both REQUEST and NOT_FOUND carry a single nonzero, 8-byte `job_id` at payload
 offset 0. The request asks for that job's current snapshot. The reply echoes
 the exact requested ID, allowing the client to check which job the answer names.
-The initial query flow will use one outstanding request per connection; there
+The CLI uses one outstanding request per connection; there
 is no separate request identifier or subscription stream.
 
 NOT_FOUND means the coordinator's current job store has no record for that ID.
@@ -73,8 +73,8 @@ message validation enforces these smaller limits.
 An empty DONE result is valid. Results are not necessarily text, can include
 zero bytes, and have no implicit NUL terminator. The decoder copies them into
 the message's own array so later receive-buffer reuse cannot change the result.
-This response does not carry task type or arguments; a future generic CLI can
-display the raw result bytes without assuming their task-specific meaning.
+This response does not carry task type or arguments; the CLI displays escaped
+result bytes without assuming their task-specific meaning.
 
 ## State and counter consistency
 
@@ -133,11 +133,12 @@ leaves output buffers/messages and written/consumed counts unchanged. Successful
 decoding consumes exactly one frame, leaving following bytes for the caller.
 
 The codec cannot verify that the ID exists, that the snapshot is current, or
-that a reply matches an outstanding request. The later coordinator handler must
-look up the authoritative job and copy one consistent snapshot; the client must
-check the echoed ID. Querying must be read-only: no assignment, retry, heartbeat
-renewal, ID allocation, or WAL append. Existing connection-role checks still need
-explicit handler integration before requests can be served.
+that a reply matches an outstanding request. The coordinator handler looks up
+the authoritative job and copies one consistent snapshot; the CLI checks the
+echoed ID. Querying is read-only: no assignment, retry, heartbeat renewal, ID
+allocation, or WAL append. Status requests are admitted on unregistered client
+connections; replies are coordinator-to-client only. Query/submission connections
+cannot switch into the worker role. Registered workers cannot send status requests.
 
 A response describes one instant and may be out of date when received. It grants
 no execution lease and does not change the [durability contract](durability.md).
@@ -159,6 +160,7 @@ outer/inner lengths and null pointers; and mixed streams with a partial last
 frame. Error cases check unchanged outputs. Exact-sized input allocations let
 AddressSanitizer detect reads beyond the available bytes.
 
-Existing protocol vectors continue to test the original wire layouts. Process
-tests also check that the current coordinator rejects all three new types from
-the header until query handlers are implemented.
+Existing protocol vectors continue to test the original wire layouts. Fifteen
+[runtime scenarios](status.md#verification) now check live lookup and CLI output,
+read-only behavior, restart recovery, and rejection of malformed frames and
+disallowed directions/roles. Run them with `make test-status`.

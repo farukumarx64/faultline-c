@@ -10,7 +10,8 @@ Real workers execute one assignment at a time while continuing heartbeats. They
 send STARTED, then COMPLETED with a result or FAILED with the TASK reason. The
 coordinator stores and logs completed results and schedules the next queued job.
 See [built-in task execution](tasks.md) for algorithms, inputs, and thread ownership.
-CLI result/status queries remain later work. [Persistence](persistence.md) now
+The [CLI status command](status.md) reads job state and saved results.
+[Persistence](persistence.md) now
 wraps scheduler operations with durable commit ordering.
 
 ## Try it
@@ -109,9 +110,10 @@ The coordinator queues a success ACK only after WAL sync and publication of
 the prepared job and enqueue succeed.
 Full-store or invalid submissions close the connection without a success ACK.
 Closing a submitter connection after acceptance does not cancel its job or remove
-it from the queue. A submitter may send subsequent submissions, with serialized
-ACKs, but cannot switch that connection into a registered worker. Registered
-workers cannot submit jobs. PING remains available to either role.
+it from the queue. A client may mix subsequent submissions and status queries,
+with serialized replies, but cannot switch that connection into a registered
+worker after either operation. Registered workers cannot submit or query jobs.
+PING remains available to either role.
 
 ## Available workers and FIFO dispatch
 
@@ -186,8 +188,8 @@ state across coordinator restart using the same retained WAL.
 ## Transport and the worker loop
 
 Coordinator input/output buffers now each hold the largest codec-defined frame,
-1072 bytes, including the [status response](job-status-protocol.md) whose handler
-is still pending. They use nonblocking reads/writes, retain partial progress, and
+1072 bytes, including the [status response](job-status-protocol.md).
+They use nonblocking reads/writes, retain partial progress, and
 handle one frame at a time. Headers are checked for allowed direction/connection
 role, and the codec rejects invalid outer bounds before payload collection.
 Replies and assignments share the existing per-connection output phase, so one

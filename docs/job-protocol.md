@@ -123,7 +123,8 @@ reports using its own monotonic clock.
 The coordinator uses `faultline_job_complete()` for an accepted report. STARTED must be
 accepted before COMPLETED: completion moves RUNNING → DONE. An empty result is
 valid. The result goes to the coordinator's authoritative job record; result
-retrieval by the CLI will use the status response format once query handlers are added.
+retrieval by the CLI uses the status response format through
+[`faultline status ID`](status.md).
 
 `JOB_FAILED` appends a failure code:
 

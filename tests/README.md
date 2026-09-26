@@ -7,12 +7,14 @@ make test
 make test-sanitize
 ```
 
-These run 114 protocol, registry, job, queue, scheduler, task, socket, and WAL C test groups plus process integration
+These run 114 protocol, registry, job, queue, scheduler, task, socket, and WAL C test groups plus 113 process integration
 tests using Python 3's standard library. A loopback-capable environment is
 required. You can select the Python interpreter with `PYTHON=/path/to/python3`.
 Use `make test-unit` or `make test-integration` to run one layer separately.
 Use `make test-job-status-protocol` for status codecs, or
 `make SANITIZE=1 test-job-status-protocol` for instrumented binaries.
+Use `make test-status` for the live status command, or `make SANITIZE=1 test-status`
+for instrumented binaries. `INTEGRATION_ARGS='--port 9000'` also checks its default endpoint.
 Use `make test-wal` for the WAL format suite, or `make SANITIZE=1 test-wal`
 for the same checks with AddressSanitizer/UBSan.
 Use `make test-wal-writer` for the file writer suite, or
@@ -114,8 +116,31 @@ binary also links the job model for the final identity check.
 - Mixed PING/status/not-found/request frames with exact consumption and a final
   request completed in fragments.
 
-These checks exercise codecs and the model, not live status queries. The existing
-coordinator rejection tests include the three new types until query handlers exist.
+These C checks exercise codecs and the model. The process suite below covers
+live status queries; coordinator rejection tests retain outbound-only replies.
+
+`integration/test_status.py` adds fifteen [CLI status](../docs/status.md) scenarios:
+
+- Queued/unknown lookup, default endpoint when port 9000 is selected, exact output
+  and exit codes, unchanged WAL bytes, and preserved job/worker ID allocation.
+- Assigned/running/done snapshots, a maximum binary result, escaping, and the last
+  worker's identity after disconnection.
+- Retried TASK failure and terminal TASK/WORKER_LOST, including the final allowance.
+- Worker-loss requeue followed by an empty successful result.
+- Every split of a request, coalesced query/not-found/PING frames, and submission
+  and queries on the same connection with serialized replies.
+- Invalid/truncated requests, worker query rejection, and preventing a querying
+  connection (including NOT_FOUND) from becoming a worker.
+- Queries with all 256 job slots full, preserving WAL bytes and FIFO dispatch.
+- Real workers producing all four built-in results and invalid-input failure.
+- Repeated queries while a silent worker's heartbeat expires independently.
+- CLI lookup of replayed DONE/FAILED/QUEUED jobs and a reconciled interrupted job
+  after coordinator SIGKILL, without query-induced WAL changes.
+- Full 64-bit job IDs/attempts and fragmented maximum/not-found replies.
+- Rejected arguments and ID overflow before connection attempts.
+- Malformed headers/prefixes and mismatched reply IDs, rejected without output.
+- Truncated replies at header/prefix/result boundaries and connection refusal.
+- One five-second response deadline shared by header, fixed prefix, and result.
 
 `test_wal.c` adds ten [WAL format](../docs/wal-format.md) groups:
 
