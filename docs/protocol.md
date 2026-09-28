@@ -21,6 +21,8 @@ and explicit not-found replies, now used by read-only coordinator lookup and
 the [CLI status command](status.md).
 The [listing protocol](listings.md#wire-format) adds bounded, sorted job and
 worker snapshots for `faultline jobs` and `faultline workers`.
+The [stats protocol](stats.md#wire-format) returns durable totals, current gauges,
+and session measurements through a fixed-size response.
 
 ## Header layout
 
@@ -31,7 +33,7 @@ fields use unsigned, big-endian encoding, also called network byte order.
 | --- | --- | --- | --- |
 | 0 | 4 bytes | Magic | `0x464c494e`, the ASCII bytes `FLIN` |
 | 4 | 2 bytes | Version | `1` |
-| 6 | 2 bytes | Message type | IDs `1` through `18`, listed below |
+| 6 | 2 bytes | Message type | IDs `1` through `20`, listed below |
 | 8 | 4 bytes | Payload length | `0` through `1,048,576` bytes inclusive |
 
 ```text
@@ -80,6 +82,8 @@ not be renumbered. Enum storage layout is never used as the wire representation.
 | 16 | `JOBS_RESPONSE` | Coordinator to client | Count and up to 256 job summaries | 16–9744 bytes |
 | 17 | `WORKERS_REQUEST` | Client to coordinator | Empty | 12 bytes |
 | 18 | `WORKERS_RESPONSE` | Coordinator to client | Count, heartbeat timeout, and up to 64 worker summaries | 20–1940 bytes |
+| 19 | `STATS_REQUEST` | Client to coordinator | Empty | 12 bytes |
+| 20 | `STATS_RESPONSE` | Coordinator to client | 24 unsigned 64-bit measurements | 204 bytes |
 
 See [job-protocol.md](job-protocol.md) for every job field's byte offset, acceptance
 and report semantics, retry identity, and validation rules. See
@@ -142,15 +146,16 @@ lengths, malformed frames, duplicate registration, and invalid heartbeat ownersh
 close the offending connection without a protocol error response. The CLI still
 expects one empty PONG for `ping`, a JOB_SUBMIT_ACK for `submit`, or a matching
 status response/not-found reply for `status`. `jobs` and `workers` each expect
-their matching bounded listing response. Nonzero PING/PONG lengths in header tests
+their matching bounded listing response. `stats` expects one validated
+STATS_RESPONSE. Nonzero PING/PONG lengths in header tests
 exercise generic length encoding, not valid complete messages.
 
 The coordinator also accepts JOB_SUBMIT from unregistered clients and STARTED,
 COMPLETED, and FAILED from registered workers. Job reports must match the
 connection, job owner, attempt, and allowed state transition. Job ACKs and
 assignments are outbound-only at the coordinator. A connection that has submitted
-or queried a job/list cannot switch to being a registered worker. Registered
-workers cannot issue listing requests. See the scheduling guide for
+or queried jobs, workers, or stats cannot switch to being a registered worker. Registered
+workers cannot issue listing or stats requests. See the scheduling guide for
 acceptance, capacity, report rejection, and retry behavior.
 
 ## Byte order and examples
@@ -268,7 +273,7 @@ Header validation proceeds in the following order and returns the first error:
 | `FAULTLINE_PROTOCOL_BUFFER_TOO_SMALL` | Fewer than 12 input bytes or output bytes of capacity. |
 | `FAULTLINE_PROTOCOL_BAD_MAGIC` | Magic does not match `FLIN`. |
 | `FAULTLINE_PROTOCOL_UNSUPPORTED_VERSION` | Version is not 1. |
-| `FAULTLINE_PROTOCOL_UNKNOWN_MESSAGE_TYPE` | Type is not one of the eighteen defined message IDs. |
+| `FAULTLINE_PROTOCOL_UNKNOWN_MESSAGE_TYPE` | Type is not one of the twenty defined message IDs. |
 | `FAULTLINE_PROTOCOL_PAYLOAD_TOO_LARGE` | Declared payload exceeds 1 MiB. |
 | `FAULTLINE_PROTOCOL_OK` | Header was successfully encoded or decoded. |
 
@@ -296,6 +301,7 @@ The complete-message functions have these additional errors:
 | `FAULTLINE_PROTOCOL_INVALID_LIST_ORDER` | Listing IDs are duplicated or not strictly increasing. |
 | `FAULTLINE_PROTOCOL_INVALID_WORKER_STATE` | A worker row has a state other than ALIVE or DEAD. |
 | `FAULTLINE_PROTOCOL_INVALID_HEARTBEAT_TIMEOUT` | A worker list has a zero heartbeat timeout. |
+| `FAULTLINE_PROTOCOL_INVALID_STATS` | Stats counts, partitions, durations, or timeout violate the statistics contract. |
 
 Job summary rows follow the status rules above. A worker row also requires job
 ID and attempt to be either both zero or both nonzero; DEAD rows cannot carry
@@ -376,3 +382,5 @@ model transitions, counter consistency, results, and partial frames; see
 Seven listing groups cover exact bytes, bounded counts, row validation and order,
 maximum frames, partial input, and output preservation. Thirteen process scenarios
 exercise the [listing commands](listings.md#verification).
+Seven statistics groups validate codecs, counter scopes, and aggregation; eleven
+process scenarios exercise [stats and restart behavior](stats.md#verification).

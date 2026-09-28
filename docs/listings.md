@@ -18,6 +18,8 @@ look like a complete listing. It does not automatically retry or poll.
 
 ## Jobs
 
+For aggregate counters and their restart scopes, use [`faultline stats`](stats.md).
+
 For example (spacing shortened here):
 
 ```text
@@ -163,12 +165,12 @@ reorder no queue entries, and refresh no heartbeat times. Startup replay and
 reconciliation complete before queries are served. Job state and results retain
 their existing [durability guarantees](durability.md).
 
-Unregistered client connections may mix listings, status, submissions, and PING
+Unregistered client connections may mix listings, status, stats, submissions, and PING
 with serialized replies. After any valid job/list query or submission, the
 connection cannot become a worker. Registered worker connections cannot submit
 listing requests. Response types are outbound-only at the coordinator.
 
-The CLI shares its query receiver with `status`: one five-second response
+The CLI shares its query receiver with `status` and `stats`: one five-second response
 deadline covers header, fixed prefix, and every row. Connect and send have their
 own five-second budgets. Oversized declarations, inconsistent counts, invalid
 rows, unexpected reply types, and premature EOF fail without partial tables.

@@ -50,6 +50,8 @@ lookup uses the [job-status protocol](docs/job-status-protocol.md), including an
 explicit not-found reply, and works with jobs recovered from the WAL.
 [`jobs` and `workers`](docs/listings.md) now list retained job summaries and
 worker liveness, heartbeat age, and active assignments in ID order.
+[`stats`](docs/stats.md) reports retained job totals, current worker gauges,
+session activity, throughput, and completion latency with explicit restart scopes.
 
 ## Build and run
 
@@ -206,6 +208,17 @@ an empty one. Jobs include completed and failed records. Workers include retaine
 dead registrations until slot reuse; the live registry starts empty after restart.
 See [the listing guide](docs/listings.md) for table columns and snapshot semantics.
 
+Read aggregate statistics:
+
+```sh
+./build/debug/faultline stats
+```
+
+It also accepts `--coordinator IPv4:PORT`. Job totals are reconstructed from the
+WAL; current worker gauges and session measurements reset on restart. Startup
+recovery outcomes are included in retained totals and reported separately from
+runtime session activity. See [counter definitions and performance limits](docs/stats.md).
+
 [Worker recovery checks](docs/recovery.md) kill a busy worker with SIGKILL or
 pause it with SIGSTOP until its heartbeat expires. In both cases, an
 already-connected worker completes the same job on attempt 2 and remains
@@ -257,6 +270,8 @@ Use `make test-status` for live CLI queries, read-only checks, and recovered res
 add `SANITIZE=1` for instrumentation.
 Use `make test-list-protocol` for listing codecs and `make test-listings` for live
 job/worker snapshots; add `SANITIZE=1` for instrumentation.
+Use `make test-stats-protocol` for statistics codecs and aggregation, and
+`make test-stats` for live counter/restart checks; both accept `SANITIZE=1`.
 Use `make test-wal` for WAL format checks, or `make SANITIZE=1 test-wal`
 for the same checks with AddressSanitizer/UBSan.
 Use `make test-wal-writer` for real-file appends, sync ordering, storage-error
@@ -298,6 +313,7 @@ faultline/
 │   ├── job-status-protocol.md
 │   ├── status.md
 │   ├── listings.md
+│   ├── stats.md
 │   ├── networking.md
 │   ├── workers.md
 │   ├── jobs.md
@@ -318,7 +334,7 @@ faultline/
 │   ├── common/          Shared protocol, networking, and logging code
 │   ├── coordinator/     Event loop, registry, job store, scheduler, and WAL modules
 │   ├── worker/          Registration, heartbeats, and assignment reception
-│   └── cli/             PING, submission, status, jobs, and workers
+│   └── cli/             PING, submission, status, jobs, workers, and stats
 └── tests/               C unit/storage tests and TCP integration tests
 ```
 

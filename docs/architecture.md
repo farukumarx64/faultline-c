@@ -28,6 +28,8 @@ without changing jobs or the WAL. Execution deadlines independent of heartbeats
 remain future work.
 The [jobs/workers commands](listings.md) return bounded snapshots of retained
 jobs and live/dead registry entries, sorted by identity.
+The [stats command](stats.md) aggregates durable job totals and current worker
+gauges, with session activity measured against a baseline captured after recovery.
 
 ## Components and ownership
 
@@ -45,7 +47,7 @@ CLI client ───── submit over TCP ────────> Coordinator
 ```
 
 The **CLI** submits a supported task and its arguments and receives a job ID.
-Queries for jobs, workers, and statistics are planned. It does not decide which
+It also queries status, jobs, workers, and statistics. It does not decide which
 worker runs a job.
 
 The **coordinator** owns the authoritative job state, FIFO queue, worker registry,
@@ -123,8 +125,8 @@ heartbeat handlers support partial headers and the fixed worker ID payload; see
 The shared message representation supports bounded variable job payloads.
 Coordinator transport buffers now fit 9744-byte frames, including full
 [job listings](listings.md). Coordinator lookup copies a
-consistent published snapshot for CLI display. Runtime handlers accept status
-and listing requests, submissions, and worker reports, and workers receive assignments with partial-frame
+consistent published snapshot for CLI display. Runtime handlers accept status,
+listing and stats requests, submissions, and worker reports, and workers receive assignments with partial-frame
 buffering while keeping heartbeats active.
 
 Workers use one task pthread while the main thread owns the socket and heartbeats.

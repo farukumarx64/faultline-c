@@ -7,7 +7,7 @@ make test
 make test-sanitize
 ```
 
-These run 121 protocol, registry, job, queue, scheduler, task, socket, and WAL C test groups plus 126 process integration
+These run 128 protocol, registry, job, queue, scheduler, task, socket, and WAL C test groups plus 137 process integration
 tests using Python 3's standard library. A loopback-capable environment is
 required. You can select the Python interpreter with `PYTHON=/path/to/python3`.
 Use `make test-unit` or `make test-integration` to run one layer separately.
@@ -18,6 +18,9 @@ for instrumented binaries. `INTEGRATION_ARGS='--port 9000'` also checks its defa
 Use `make test-list-protocol` for listing codecs and `make test-listings` for
 live job/worker inspection. Both accept `SANITIZE=1`; the process target accepts
 `INTEGRATION_ARGS='--port 9000'` to check both commands' default endpoint.
+Use `make test-stats-protocol` for statistics codecs/aggregation, and `make test-stats`
+for live counts, restart scopes, and CLI behavior. Both accept `SANITIZE=1`;
+the latter accepts `INTEGRATION_ARGS='--port 9000'` for its default endpoint.
 Use `make test-wal` for the WAL format suite, or `make SANITIZE=1 test-wal`
 for the same checks with AddressSanitizer/UBSan.
 Use `make test-wal-writer` for the file writer suite, or
@@ -163,6 +166,22 @@ fragmented/coalesced requests and connection roles; real worker busy/idle change
 heartbeat expiry despite listing polls; recovered jobs and reset registry after a
 restart; fragmented maximum replies and integer limits; malformed replies; invalid
 options, truncation and refused connections; and one deadline per full response.
+
+`test_stats.c` adds seven [statistics](../docs/stats.md#verification) groups:
+
+- Independent literal bytes, unaligned buffers, empty counts, and owned snapshots.
+- Every incomplete response prefix, short outputs, invalid lengths, and mixed streams.
+- Invalid partitions, counts, durations, timeouts, and unchanged outputs on failure.
+- Durable aggregates and session baselines after startup reconciliation.
+- Maximum retained counts, wide attempt/retry totals, and overflow-safe latency means.
+- Exact heartbeat expiry boundaries and separate busy/idle activity.
+- Invalid time, store, and pointer inputs without output mutation.
+
+`integration/test_stats.py` adds eleven scenarios: empty/default-endpoint queries,
+all job states and worker activity, retries versus terminal failure, full-store
+rejection, fragmented/coalesced requests and roles, expiry despite polling,
+repeated crash recovery and session reset, fragmented large values, malformed
+replies, CLI options/EOF/refused connections, and a whole-response deadline.
 
 `test_wal.c` adds ten [WAL format](../docs/wal-format.md) groups:
 

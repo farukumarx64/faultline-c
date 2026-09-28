@@ -170,7 +170,9 @@ stats commands, clearer logs, and basic metrics. At persistence phase completion
 the CLI exposed ping and submission. The [status command](status.md) has since
 added read-only access to saved state and results, including recovered jobs.
 The [jobs/workers listings](listings.md) now expose retained job summaries and
-the current worker registry. The verification record above remains the historical
+the current worker registry. [Stats](stats.md) adds retained job totals, current
+gauges, and session measurements with explicit restart scopes.
+The verification record above remains the historical
 persistence-phase result.
 [Request deduplication](request-deduplication.md) is recorded
 as an optional later enhancement, with proposed semantics, open decisions, and

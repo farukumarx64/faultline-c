@@ -110,7 +110,7 @@ can independently change the job before the next query. Startup replay and
 interrupted-attempt reconciliation finish before the coordinator starts serving
 queries; no old TCP connection is restored.
 
-A connection may mix status requests, submissions, and PING, with serialized
+A connection may mix status, listings, stats, submissions, and PING, with serialized
 replies. After its first valid submission or query, it cannot become a worker.
 Registered worker connections cannot query jobs. Status responses and NOT_FOUND
 are outbound-only at the coordinator. Invalid direction, role, ID, or length
