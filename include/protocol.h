@@ -32,6 +32,7 @@
 #define FAULTLINE_JOB_SUMMARY_SIZE 38u
 #define FAULTLINE_WORKERS_PREFIX_SIZE 8u
 #define FAULTLINE_WORKER_SUMMARY_SIZE 30u
+#define FAULTLINE_STATS_PAYLOAD_SIZE 192u
 #define FAULTLINE_MESSAGE_MAX_FRAME_SIZE \
     (FAULTLINE_HEADER_SIZE + FAULTLINE_JOBS_PREFIX_SIZE + FAULTLINE_JOBS_MAX_ENTRIES * FAULTLINE_JOB_SUMMARY_SIZE)
 
@@ -53,7 +54,9 @@ enum faultline_message_type {
     FAULTLINE_MSG_JOBS_REQUEST = 15,
     FAULTLINE_MSG_JOBS_RESPONSE = 16,
     FAULTLINE_MSG_WORKERS_REQUEST = 17,
-    FAULTLINE_MSG_WORKERS_RESPONSE = 18
+    FAULTLINE_MSG_WORKERS_RESPONSE = 18,
+    FAULTLINE_MSG_STATS_REQUEST = 19,
+    FAULTLINE_MSG_STATS_RESPONSE = 20
 };
 
 /* Host-order values only. Never send this struct directly over a socket. */
@@ -151,6 +154,35 @@ struct faultline_workers_payload {
     struct faultline_worker_summary entries[FAULTLINE_WORKERS_MAX_ENTRIES];
 };
 
+/* Retained job totals, current worker gauges, and current-session measurements.
+ * See docs/stats.md for scopes, units, and the fixed wire offsets. */
+struct faultline_stats_payload {
+    uint64_t jobs_submitted_total;
+    uint64_t jobs_queued;
+    uint64_t jobs_assigned;
+    uint64_t jobs_running;
+    uint64_t jobs_completed_total;
+    uint64_t jobs_failed_total;
+    uint64_t job_attempts_total;
+    uint64_t job_retries_total;
+    uint64_t completed_latency_avg_ms;
+    uint64_t workers_retained;
+    uint64_t workers_alive;
+    uint64_t workers_expired;
+    uint64_t workers_dead;
+    uint64_t workers_busy;
+    uint64_t workers_idle;
+    uint64_t session_uptime_ms;
+    uint64_t session_jobs_submitted;
+    uint64_t session_jobs_completed;
+    uint64_t session_jobs_failed;
+    uint64_t session_job_retries;
+    uint64_t startup_jobs_recovered;
+    uint64_t startup_interrupted_jobs;
+    uint64_t startup_duration_ms;
+    uint64_t heartbeat_timeout_ms;
+};
+
 /*
  * Host-order tagged union: initialize/read only the member named by message_type.
  * Empty messages use payload.worker_id = 0; worker ACK/HEARTBEAT use a nonzero ID.
@@ -173,6 +205,7 @@ struct faultline_message {
         uint64_t job_status_not_found; /* Echoes the nonzero requested ID. */
         struct faultline_jobs_payload jobs;
         struct faultline_workers_payload workers;
+        struct faultline_stats_payload stats;
     } payload;
 };
 
@@ -195,7 +228,8 @@ enum faultline_protocol_result {
     FAULTLINE_PROTOCOL_INVALID_LIST_COUNT,
     FAULTLINE_PROTOCOL_INVALID_LIST_ORDER,
     FAULTLINE_PROTOCOL_INVALID_WORKER_STATE,
-    FAULTLINE_PROTOCOL_INVALID_HEARTBEAT_TIMEOUT
+    FAULTLINE_PROTOCOL_INVALID_HEARTBEAT_TIMEOUT,
+    FAULTLINE_PROTOCOL_INVALID_STATS
 };
 
 /*

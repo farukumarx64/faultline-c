@@ -17,6 +17,7 @@ static void usage(FILE *stream)
           "       faultline status ID [--coordinator IPv4:PORT]\n"
           "       faultline jobs [--coordinator IPv4:PORT]\n"
           "       faultline workers [--coordinator IPv4:PORT]\n"
+          "       faultline stats [--coordinator IPv4:PORT]\n"
           "Tasks: sleep, prime_count, fibonacci, hash. Arguments: at most 1024 bytes.\n"
           "sleep: milliseconds 0..86400000; prime_count: inclusive bound 0..100000000.\n"
           "fibonacci: index 0..93; hash: raw bytes, FNV-1a 64-bit checksum.\n"
@@ -277,6 +278,9 @@ static int receive_query(int fd, uint16_t expected_type, const char *name, struc
     } else if (header.message_type == FAULTLINE_MSG_JOBS_RESPONSE) {
         prefix = FAULTLINE_JOBS_PREFIX_SIZE;
         maximum = prefix + FAULTLINE_JOBS_MAX_ENTRIES * FAULTLINE_JOB_SUMMARY_SIZE;
+    } else if (header.message_type == FAULTLINE_MSG_STATS_RESPONSE) {
+        prefix = FAULTLINE_STATS_PAYLOAD_SIZE;
+        maximum = prefix;
     } else {
         prefix = FAULTLINE_WORKERS_PREFIX_SIZE;
         maximum = prefix + FAULTLINE_WORKERS_MAX_ENTRIES * FAULTLINE_WORKER_SUMMARY_SIZE;
@@ -430,23 +434,59 @@ static int print_listing(const struct faultline_message *reply)
     return EXIT_SUCCESS;
 }
 
-static int run_listing(int argc, char **argv)
+static int print_stats(const struct faultline_stats_payload *stats)
+{
+    printf("jobs_submitted_total=%" PRIu64 "\n", stats->jobs_submitted_total);
+    printf("jobs_queued=%" PRIu64 "\n", stats->jobs_queued);
+    printf("jobs_assigned=%" PRIu64 "\n", stats->jobs_assigned);
+    printf("jobs_running=%" PRIu64 "\n", stats->jobs_running);
+    printf("jobs_completed_total=%" PRIu64 "\n", stats->jobs_completed_total);
+    printf("jobs_failed_total=%" PRIu64 "\n", stats->jobs_failed_total);
+    printf("job_attempts_total=%" PRIu64 "\n", stats->job_attempts_total);
+    printf("job_retries_total=%" PRIu64 "\n", stats->job_retries_total);
+    printf("completed_latency_avg_ms=%" PRIu64 "\n", stats->completed_latency_avg_ms);
+    printf("workers_retained=%" PRIu64 "\n", stats->workers_retained);
+    printf("workers_alive=%" PRIu64 "\n", stats->workers_alive);
+    printf("workers_expired=%" PRIu64 "\n", stats->workers_expired);
+    printf("workers_dead=%" PRIu64 "\n", stats->workers_dead);
+    printf("workers_busy=%" PRIu64 "\n", stats->workers_busy);
+    printf("workers_idle=%" PRIu64 "\n", stats->workers_idle);
+    printf("session_uptime_ms=%" PRIu64 "\n", stats->session_uptime_ms);
+    printf("session_jobs_submitted=%" PRIu64 "\n", stats->session_jobs_submitted);
+    printf("session_jobs_completed=%" PRIu64 "\n", stats->session_jobs_completed);
+    printf("session_jobs_failed=%" PRIu64 "\n", stats->session_jobs_failed);
+    printf("session_job_retries=%" PRIu64 "\n", stats->session_job_retries);
+    printf("startup_jobs_recovered=%" PRIu64 "\n", stats->startup_jobs_recovered);
+    printf("startup_interrupted_jobs=%" PRIu64 "\n", stats->startup_interrupted_jobs);
+    printf("startup_duration_ms=%" PRIu64 "\n", stats->startup_duration_ms);
+    printf("heartbeat_timeout_ms=%" PRIu64 "\n", stats->heartbeat_timeout_ms);
+    double rate = stats->session_uptime_ms == 0 ? 0.0 :
+        (double)stats->session_jobs_completed * 1000.0 / (double)stats->session_uptime_ms;
+    printf("session_completed_per_second=%.3f\n", rate);
+    if (fflush(stdout) == EOF || ferror(stdout)) { perror("faultline: write stats"); return EXIT_FAILURE; }
+    return EXIT_SUCCESS;
+}
+
+static int run_inspection(int argc, char **argv)
 {
     char host[INET_ADDRSTRLEN] = FAULTLINE_DEFAULT_HOST;
     uint16_t port = FAULTLINE_DEFAULT_PORT;
-    int jobs = strcmp(argv[1], "jobs") == 0;
+    uint16_t request_type = strcmp(argv[1], "jobs") == 0 ? FAULTLINE_MSG_JOBS_REQUEST :
+        strcmp(argv[1], "workers") == 0 ? FAULTLINE_MSG_WORKERS_REQUEST : FAULTLINE_MSG_STATS_REQUEST;
+    uint16_t response_type = request_type == FAULTLINE_MSG_JOBS_REQUEST ? FAULTLINE_MSG_JOBS_RESPONSE :
+        request_type == FAULTLINE_MSG_WORKERS_REQUEST ? FAULTLINE_MSG_WORKERS_RESPONSE : FAULTLINE_MSG_STATS_RESPONSE;
     if ((argc != 2 && argc != 4) ||
         (argc == 4 && (strcmp(argv[2], "--coordinator") != 0 ||
                       faultline_parse_endpoint(argv[3], host, sizeof(host), &port) < 0))) {
         usage(stderr);
         return EXIT_FAILURE;
     }
-    struct faultline_message request = {.message_type = jobs ? FAULTLINE_MSG_JOBS_REQUEST : FAULTLINE_MSG_WORKERS_REQUEST};
+    struct faultline_message request = {.message_type = request_type};
     struct faultline_message reply;
     uint8_t wire[FAULTLINE_HEADER_SIZE];
     size_t written;
     if (faultline_message_encode(wire, sizeof(wire), &request, &written) != FAULTLINE_PROTOCOL_OK) {
-        fputs("faultline: could not encode listing request\n", stderr);
+        fputs("faultline: could not encode inspection request\n", stderr);
         return EXIT_FAILURE;
     }
     if (faultline_ignore_sigpipe() < 0) { perror("faultline: configure SIGPIPE"); return EXIT_FAILURE; }
@@ -454,10 +494,9 @@ static int run_listing(int argc, char **argv)
     if (fd < 0) { perror("faultline: connect"); return EXIT_FAILURE; }
     int status = EXIT_FAILURE;
     if (faultline_send_all(fd, wire, written, FAULTLINE_IO_TIMEOUT_MS) < 0) {
-        perror("faultline: send listing request");
-    } else if (receive_query(fd, jobs ? FAULTLINE_MSG_JOBS_RESPONSE : FAULTLINE_MSG_WORKERS_RESPONSE,
-                             argv[1], &reply) == 0) {
-        status = print_listing(&reply);
+        perror("faultline: send inspection request");
+    } else if (receive_query(fd, response_type, argv[1], &reply) == 0) {
+        status = response_type == FAULTLINE_MSG_STATS_RESPONSE ? print_stats(&reply.payload.stats) : print_listing(&reply);
     }
     (void)close(fd);
     return status;
@@ -467,8 +506,9 @@ int main(int argc, char **argv)
 {
     if (argc >= 2 && strcmp(argv[1], "submit") == 0) { return run_submit(argc, argv); }
     if (argc >= 2 && strcmp(argv[1], "status") == 0) { return run_status(argc, argv); }
-    if (argc >= 2 && (strcmp(argv[1], "jobs") == 0 || strcmp(argv[1], "workers") == 0)) {
-        return run_listing(argc, argv);
+    if (argc >= 2 && (strcmp(argv[1], "jobs") == 0 || strcmp(argv[1], "workers") == 0 ||
+                      strcmp(argv[1], "stats") == 0)) {
+        return run_inspection(argc, argv);
     }
     return run_ping(argc, argv);
 }

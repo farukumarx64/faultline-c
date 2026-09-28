@@ -283,7 +283,7 @@ class CoordinatorTests(CoordinatorTestCase):
         with self.connect() as healthy:
             worker_id = self.register_worker(healthy)
             for message_type, length in ((7, 8), (8, 26), (9, 20), (10, 24), (11, 22), (8, 1050),
-                                         (13, 36), (13, 1060), (14, 8), (16, 4), (18, 8)):
+                                         (13, 36), (13, 1060), (14, 8), (16, 4), (18, 8), (20, 192)):
                 with self.subTest(message_type=message_type), self.connect() as connection:
                     connection.sendall(struct.pack("!IHHI", 0x464c494e, 1, message_type, length))
                     self.assert_closed(connection)

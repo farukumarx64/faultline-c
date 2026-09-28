@@ -27,14 +27,17 @@ WAL_FORMAT_OBJECT := $(BUILD_DIR)/coordinator/wal_format.o
 WAL_WRITER_OBJECT := $(BUILD_DIR)/coordinator/wal_writer.o
 WAL_REPLAY_OBJECT := $(BUILD_DIR)/coordinator/wal_replay.o
 STORE_OBJECT := $(BUILD_DIR)/coordinator/coordinator_store.o
-COORDINATOR_OBJECTS := $(COMMON_OBJECTS) $(REGISTRY_OBJECT) $(JOB_OBJECT) $(QUEUE_OBJECT) $(SCHEDULER_OBJECT) $(WAL_FORMAT_OBJECT) $(WAL_WRITER_OBJECT) $(WAL_REPLAY_OBJECT) $(STORE_OBJECT)
+STATS_OBJECT := $(BUILD_DIR)/coordinator/coordinator_stats.o
+COORDINATOR_OBJECTS := $(COMMON_OBJECTS) $(REGISTRY_OBJECT) $(JOB_OBJECT) $(QUEUE_OBJECT) $(SCHEDULER_OBJECT) $(WAL_FORMAT_OBJECT) $(WAL_WRITER_OBJECT) $(WAL_REPLAY_OBJECT) $(STORE_OBJECT) $(STATS_OBJECT)
 CRASH_TEST_OBJECTS := $(BUILD_DIR)/tests/crash_coordinator_main.o $(BUILD_DIR)/tests/crash_coordinator_io.o
 TASK_OBJECT := $(BUILD_DIR)/worker/task.o
 MAIN_OBJECTS := $(BUILD_DIR)/coordinator/main.o \
 	$(BUILD_DIR)/worker/main.o $(BUILD_DIR)/cli/main.o
 TEST_NAMES := test_protocol test_messages test_net test_worker_registry test_jobs test_job_queue test_job_messages test_job_status test_list_messages test_scheduler test_tasks test_wal test_wal_writer test_wal_replay test_coordinator_store
+TEST_NAMES += test_stats
 TEST_OBJECTS := $(addprefix $(BUILD_DIR)/tests/,$(addsuffix .o,$(TEST_NAMES)))
 OBJECTS := $(COMMON_OBJECTS) $(MAIN_OBJECTS) $(TEST_OBJECTS) $(REGISTRY_OBJECT) $(JOB_OBJECT) $(QUEUE_OBJECT) $(SCHEDULER_OBJECT) $(TASK_OBJECT) $(WAL_FORMAT_OBJECT) $(WAL_WRITER_OBJECT) $(WAL_REPLAY_OBJECT) $(STORE_OBJECT)
+OBJECTS += $(STATS_OBJECT)
 PROGRAMS := $(BUILD_DIR)/faultline-coordinator \
 	$(BUILD_DIR)/faultline-worker $(BUILD_DIR)/faultline
 TEST_PROGRAMS := $(addprefix $(BUILD_DIR)/tests/,$(TEST_NAMES))
@@ -42,6 +45,13 @@ TEST_PROGRAMS := $(addprefix $(BUILD_DIR)/tests/,$(TEST_NAMES))
 .PHONY: all sanitize test test-unit test-integration test-failures test-scheduling test-execution test-recovery test-wal test-wal-writer test-wal-replay test-persistence test-startup-recovery test-coordinator-crashes test-job-status-protocol test-status test-list-protocol test-listings test-sanitize clean
 
 all: $(PROGRAMS)
+
+.PHONY: test-stats-protocol test-stats
+test-stats-protocol: $(BUILD_DIR)/tests/test_stats
+	./$(BUILD_DIR)/tests/test_stats
+
+test-stats: all
+	$(PYTHON) tests/integration/test_stats.py --bin-dir $(BUILD_DIR) $(INTEGRATION_ARGS)
 
 sanitize:
 	$(MAKE) SANITIZE=1 all
@@ -58,6 +68,7 @@ test-unit: $(TEST_PROGRAMS)
 	./$(BUILD_DIR)/tests/test_job_messages
 	./$(BUILD_DIR)/tests/test_job_status
 	./$(BUILD_DIR)/tests/test_list_messages
+	./$(BUILD_DIR)/tests/test_stats
 	./$(BUILD_DIR)/tests/test_scheduler
 	./$(BUILD_DIR)/tests/test_tasks
 	./$(BUILD_DIR)/tests/test_wal
@@ -110,6 +121,7 @@ test-integration: all $(BUILD_DIR)/tests/crash-coordinator
 	$(PYTHON) tests/integration/test_status.py --bin-dir $(BUILD_DIR) $(INTEGRATION_ARGS)
 	$(PYTHON) tests/integration/test_listings.py --bin-dir $(BUILD_DIR) $(INTEGRATION_ARGS)
 	$(PYTHON) tests/integration/test_ping.py --bin-dir $(BUILD_DIR) $(INTEGRATION_ARGS)
+	$(PYTHON) tests/integration/test_stats.py --bin-dir $(BUILD_DIR) $(INTEGRATION_ARGS)
 	$(PYTHON) tests/integration/test_worker.py --bin-dir $(BUILD_DIR) $(INTEGRATION_ARGS)
 	$(PYTHON) tests/integration/test_heartbeat.py --bin-dir $(BUILD_DIR) $(INTEGRATION_ARGS)
 
@@ -154,6 +166,8 @@ $(BUILD_DIR)/tests/test_jobs $(BUILD_DIR)/tests/test_job_messages $(BUILD_DIR)/t
 $(BUILD_DIR)/tests/test_job_queue: $(JOB_OBJECT) $(QUEUE_OBJECT)
 
 $(BUILD_DIR)/tests/test_scheduler: $(JOB_OBJECT) $(QUEUE_OBJECT) $(SCHEDULER_OBJECT)
+
+$(BUILD_DIR)/tests/test_stats: $(STATS_OBJECT) $(JOB_OBJECT) $(QUEUE_OBJECT) $(SCHEDULER_OBJECT) $(REGISTRY_OBJECT)
 
 $(BUILD_DIR)/tests/test_tasks: $(TASK_OBJECT)
 

@@ -1,6 +1,10 @@
 #include "protocol.h"
 
 #include <string.h>
+#include <limits.h>
+
+_Static_assert(FAULTLINE_HEADER_SIZE + FAULTLINE_STATS_PAYLOAD_SIZE <= FAULTLINE_MESSAGE_MAX_FRAME_SIZE,
+               "maximum frame size must fit statistics");
 
 _Static_assert(FAULTLINE_HEADER_SIZE + FAULTLINE_JOB_STATUS_RESPONSE_PREFIX_SIZE +
                FAULTLINE_JOB_MAX_RESULT_SIZE <= FAULTLINE_MESSAGE_MAX_FRAME_SIZE,
@@ -68,6 +72,7 @@ static enum faultline_protocol_result message_payload_bounds(
     case FAULTLINE_MSG_WORKER_REGISTER:
     case FAULTLINE_MSG_JOBS_REQUEST:
     case FAULTLINE_MSG_WORKERS_REQUEST:
+    case FAULTLINE_MSG_STATS_REQUEST:
         *minimum = 0;
         break;
     case FAULTLINE_MSG_WORKER_REGISTER_ACK:
@@ -112,6 +117,9 @@ static enum faultline_protocol_result message_payload_bounds(
     case FAULTLINE_MSG_WORKERS_RESPONSE:
         *minimum = FAULTLINE_WORKERS_PREFIX_SIZE;
         extra = FAULTLINE_WORKERS_MAX_ENTRIES * FAULTLINE_WORKER_SUMMARY_SIZE;
+        break;
+    case FAULTLINE_MSG_STATS_RESPONSE:
+        *minimum = FAULTLINE_STATS_PAYLOAD_SIZE;
         break;
     default:
         return FAULTLINE_PROTOCOL_UNKNOWN_MESSAGE_TYPE;
@@ -286,6 +294,41 @@ static enum faultline_protocol_result validate_workers(const struct faultline_wo
     return FAULTLINE_PROTOCOL_OK;
 }
 
+static enum faultline_protocol_result validate_stats(const struct faultline_stats_payload *s)
+{
+    /* Bound operands before arithmetic: malicious uint64 values must not wrap. */
+    if (s->jobs_submitted_total > FAULTLINE_JOBS_MAX_ENTRIES ||
+        s->jobs_queued > s->jobs_submitted_total || s->jobs_assigned > s->jobs_submitted_total ||
+        s->jobs_running > s->jobs_submitted_total || s->jobs_completed_total > s->jobs_submitted_total ||
+        s->jobs_failed_total > s->jobs_submitted_total ||
+        s->job_retries_total > s->jobs_submitted_total * UINT32_MAX ||
+        s->workers_retained > FAULTLINE_WORKERS_MAX_ENTRIES ||
+        s->workers_alive > s->workers_retained || s->workers_expired > s->workers_retained ||
+        s->workers_dead > s->workers_retained || s->workers_busy > s->workers_alive ||
+        s->workers_idle > s->workers_alive) {
+        return FAULTLINE_PROTOCOL_INVALID_STATS;
+    }
+    if (s->jobs_queued + s->jobs_assigned + s->jobs_running + s->jobs_completed_total +
+        s->jobs_failed_total != s->jobs_submitted_total ||
+        s->job_attempts_total != s->job_retries_total + s->jobs_submitted_total - s->jobs_queued ||
+        s->workers_alive + s->workers_expired + s->workers_dead != s->workers_retained ||
+        s->workers_busy + s->workers_idle != s->workers_alive ||
+        s->workers_busy > s->jobs_assigned + s->jobs_running ||
+        s->startup_jobs_recovered > s->jobs_submitted_total ||
+        s->startup_interrupted_jobs > s->startup_jobs_recovered ||
+        s->session_jobs_submitted != s->jobs_submitted_total - s->startup_jobs_recovered ||
+        s->session_jobs_completed > s->jobs_completed_total ||
+        s->session_jobs_failed > s->jobs_failed_total ||
+        s->session_job_retries > s->job_retries_total ||
+        s->completed_latency_avg_ms > INT64_MAX ||
+        (s->jobs_completed_total == 0 && s->completed_latency_avg_ms != 0) ||
+        s->session_uptime_ms > INT64_MAX || s->startup_duration_ms > INT64_MAX ||
+        s->heartbeat_timeout_ms == 0 || s->heartbeat_timeout_ms > INT_MAX) {
+        return FAULTLINE_PROTOCOL_INVALID_STATS;
+    }
+    return FAULTLINE_PROTOCOL_OK;
+}
+
 /* Validate host values and derive the exact length before touching output bytes. */
 static enum faultline_protocol_result validate_message(
     const struct faultline_message *message, uint32_t *payload_size)
@@ -305,6 +348,7 @@ static enum faultline_protocol_result validate_message(
     case FAULTLINE_MSG_WORKER_REGISTER:
     case FAULTLINE_MSG_JOBS_REQUEST:
     case FAULTLINE_MSG_WORKERS_REQUEST:
+    case FAULTLINE_MSG_STATS_REQUEST:
         if (message->payload.worker_id != 0) {
             return FAULTLINE_PROTOCOL_INVALID_WORKER_ID;
         }
@@ -366,6 +410,10 @@ static enum faultline_protocol_result validate_message(
         result = validate_workers(&message->payload.workers);
         if (result != FAULTLINE_PROTOCOL_OK) { return result; }
         data_size = message->payload.workers.count * FAULTLINE_WORKER_SUMMARY_SIZE;
+        break;
+    case FAULTLINE_MSG_STATS_RESPONSE:
+        result = validate_stats(&message->payload.stats);
+        if (result != FAULTLINE_PROTOCOL_OK) { return result; }
         break;
     default:
         return FAULTLINE_PROTOCOL_UNKNOWN_MESSAGE_TYPE;
@@ -514,6 +562,34 @@ enum faultline_protocol_result faultline_message_encode(
             write_u64_be(out + 22, entry->attempt);
         }
         break;
+    case FAULTLINE_MSG_STATS_RESPONSE: {
+        const struct faultline_stats_payload *stats = &message->payload.stats;
+        write_u64_be(payload + 0, stats->jobs_submitted_total);
+        write_u64_be(payload + 8, stats->jobs_queued);
+        write_u64_be(payload + 16, stats->jobs_assigned);
+        write_u64_be(payload + 24, stats->jobs_running);
+        write_u64_be(payload + 32, stats->jobs_completed_total);
+        write_u64_be(payload + 40, stats->jobs_failed_total);
+        write_u64_be(payload + 48, stats->job_attempts_total);
+        write_u64_be(payload + 56, stats->job_retries_total);
+        write_u64_be(payload + 64, stats->completed_latency_avg_ms);
+        write_u64_be(payload + 72, stats->workers_retained);
+        write_u64_be(payload + 80, stats->workers_alive);
+        write_u64_be(payload + 88, stats->workers_expired);
+        write_u64_be(payload + 96, stats->workers_dead);
+        write_u64_be(payload + 104, stats->workers_busy);
+        write_u64_be(payload + 112, stats->workers_idle);
+        write_u64_be(payload + 120, stats->session_uptime_ms);
+        write_u64_be(payload + 128, stats->session_jobs_submitted);
+        write_u64_be(payload + 136, stats->session_jobs_completed);
+        write_u64_be(payload + 144, stats->session_jobs_failed);
+        write_u64_be(payload + 152, stats->session_job_retries);
+        write_u64_be(payload + 160, stats->startup_jobs_recovered);
+        write_u64_be(payload + 168, stats->startup_interrupted_jobs);
+        write_u64_be(payload + 176, stats->startup_duration_ms);
+        write_u64_be(payload + 184, stats->heartbeat_timeout_ms);
+        break;
+    }
     default: /* Validated empty messages have nothing to write. */
         break;
     }
@@ -644,6 +720,34 @@ enum faultline_protocol_result faultline_message_decode(
                 };
             }
         }
+        break;
+    }
+    case FAULTLINE_MSG_STATS_RESPONSE: {
+        struct faultline_stats_payload *stats = &decoded.payload.stats;
+        stats->jobs_submitted_total = read_u64_be(payload + 0);
+        stats->jobs_queued = read_u64_be(payload + 8);
+        stats->jobs_assigned = read_u64_be(payload + 16);
+        stats->jobs_running = read_u64_be(payload + 24);
+        stats->jobs_completed_total = read_u64_be(payload + 32);
+        stats->jobs_failed_total = read_u64_be(payload + 40);
+        stats->job_attempts_total = read_u64_be(payload + 48);
+        stats->job_retries_total = read_u64_be(payload + 56);
+        stats->completed_latency_avg_ms = read_u64_be(payload + 64);
+        stats->workers_retained = read_u64_be(payload + 72);
+        stats->workers_alive = read_u64_be(payload + 80);
+        stats->workers_expired = read_u64_be(payload + 88);
+        stats->workers_dead = read_u64_be(payload + 96);
+        stats->workers_busy = read_u64_be(payload + 104);
+        stats->workers_idle = read_u64_be(payload + 112);
+        stats->session_uptime_ms = read_u64_be(payload + 120);
+        stats->session_jobs_submitted = read_u64_be(payload + 128);
+        stats->session_jobs_completed = read_u64_be(payload + 136);
+        stats->session_jobs_failed = read_u64_be(payload + 144);
+        stats->session_job_retries = read_u64_be(payload + 152);
+        stats->startup_jobs_recovered = read_u64_be(payload + 160);
+        stats->startup_interrupted_jobs = read_u64_be(payload + 168);
+        stats->startup_duration_ms = read_u64_be(payload + 176);
+        stats->heartbeat_timeout_ms = read_u64_be(payload + 184);
         break;
     }
     default: /* Validated empty messages keep worker_id zero. */

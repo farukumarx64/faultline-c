@@ -2,6 +2,7 @@
 #include "protocol.h"
 #include "worker_registry.h"
 #include "coordinator_store.h"
+#include "coordinator_stats.h"
 
 #include <errno.h>
 #include <inttypes.h>
@@ -215,7 +216,8 @@ static void queue_listing(struct client *client, struct faultline_coordinator_st
 
 static void handle_message(struct client *client,
                             struct faultline_coordinator_store *store,
-                            const struct faultline_message *message, int64_t now, int heartbeat_timeout_ms)
+                            const struct faultline_message *message, int64_t now, int heartbeat_timeout_ms,
+                            const struct faultline_stats_session *session)
 {
     struct faultline_worker_registry *registry = &store->workers;
     struct faultline_scheduler *jobs = &store->jobs;
@@ -325,6 +327,17 @@ static void handle_message(struct client *client,
     case FAULTLINE_MSG_WORKERS_REQUEST:
         queue_listing(client, store, message->message_type, heartbeat_timeout_ms);
         break;
+    case FAULTLINE_MSG_STATS_REQUEST: {
+        struct faultline_message reply = {.message_type = FAULTLINE_MSG_STATS_RESPONSE};
+        client->job_client = 1;
+        if (faultline_stats_snapshot(session, store, faultline_monotonic_ms(),
+                                    heartbeat_timeout_ms, &reply.payload.stats) < 0) {
+            close_client(client, store, "stats_snapshot_error");
+            return;
+        }
+        queue_message(client, store, &reply, now);
+        break;
+    }
     default:
         close_client(client, store, "unexpected_message");
         break;
@@ -332,7 +345,8 @@ static void handle_message(struct client *client,
 }
 
 static void read_message(struct client *client,
-                          struct faultline_coordinator_store *store, int64_t now, int heartbeat_timeout_ms)
+                          struct faultline_coordinator_store *store, int64_t now, int heartbeat_timeout_ms,
+                          const struct faultline_stats_session *session)
 {
     ssize_t count = recv(client->fd, client->input + client->received,
                             client->expected - client->received, 0);
@@ -372,7 +386,8 @@ static void read_message(struct client *client,
             ((header.message_type == FAULTLINE_MSG_JOB_SUBMIT ||
               header.message_type == FAULTLINE_MSG_JOB_STATUS_REQUEST ||
               header.message_type == FAULTLINE_MSG_JOBS_REQUEST ||
-              header.message_type == FAULTLINE_MSG_WORKERS_REQUEST) && client->worker_id == 0) ||
+              header.message_type == FAULTLINE_MSG_WORKERS_REQUEST ||
+              header.message_type == FAULTLINE_MSG_STATS_REQUEST) && client->worker_id == 0) ||
             ((header.message_type == FAULTLINE_MSG_HEARTBEAT ||
               header.message_type == FAULTLINE_MSG_JOB_STARTED ||
               header.message_type == FAULTLINE_MSG_JOB_COMPLETED ||
@@ -402,7 +417,7 @@ static void read_message(struct client *client,
         close_client(client, store, "invalid_message");
         return;
     }
-    handle_message(client, store, &message, now, heartbeat_timeout_ms);
+    handle_message(client, store, &message, now, heartbeat_timeout_ms, session);
 }
 
 static void write_reply(struct client *client,
@@ -534,6 +549,11 @@ static int run_coordinator(int listener, int heartbeat_timeout_ms,
     struct client clients[MAX_CLIENTS];
     struct pollfd descriptors[MAX_CLIENTS + 1];
     int status = EXIT_SUCCESS;
+    struct faultline_stats_session session;
+    if (faultline_stats_begin(&session, store, faultline_monotonic_ms()) < 0) {
+        fputs("[ERROR] coordinator stats_initialization_failed\n", stderr);
+        return EXIT_FAILURE;
+    }
 
     for (size_t i = 0; i < MAX_CLIENTS; ++i) {
         clients[i] = (struct client){.fd = -1};
@@ -599,7 +619,7 @@ static int run_coordinator(int listener, int heartbeat_timeout_ms,
             }
             if (clients[i].phase == READING_MESSAGE &&
                 (events & (POLLIN | POLLHUP | POLLERR)) != 0) {
-                read_message(&clients[i], store, now, heartbeat_timeout_ms);
+                read_message(&clients[i], store, now, heartbeat_timeout_ms, &session);
             } else if (clients[i].phase == WRITING_REPLY &&
                        (events & (POLLOUT | POLLHUP | POLLERR)) != 0) {
                 write_reply(&clients[i], store, now);
