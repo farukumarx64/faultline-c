@@ -1,5 +1,8 @@
 # Batch baseline harness
 
+For the seeded crash/replacement mode, see [chaos experiments](chaos-testing.md).
+This guide describes the no-fault baseline, which remains independently runnable.
+
 `tests/chaos/run_batch.py` implements the no-fault baseline of the
 [chaos-test contract](chaos.md). It starts real executables, submits through the
 CLI, and independently checks the coordinator's retained results. It uses Python
@@ -54,7 +57,7 @@ you want to retain before cleaning.
 | `--sleep-ms` | 3000 | 0–86400000; valid built-in sleep input |
 | `--max-retries` | 3 | 0–4294967295 |
 | `--seed` | 42 | 0–4294967295; recorded, unused in baseline |
-| `--fault-duration-ms` | 0 | **Only zero**; nonzero is an argument error |
+| `--fault-duration-ms` | 0 | **Only zero** here; use `run_chaos.py` for faults |
 | `--deadline-ms` | 180000 | 10001–2147483647; includes cleanup |
 | `--bin-dir` | `build/debug` | Directory containing all three executable binaries |
 | `--output-dir` | unique directory under `build/chaos/` | A new directory |
@@ -85,7 +88,7 @@ Invalid arguments or unavailable executables fail before any child starts.
    still alive and idle.
 6. Stop and reap all owned processes before publishing `BASELINE_PASS`.
 
-No fault clock or random candidate plan is used yet. The seed is retained as
+No fault clock or random candidate plan is used in baseline mode. The seed is retained as
 configuration, and the manifest explicitly records `candidate_plan=[]` and
 `seed_used=false`. `BASELINE_PASS` demonstrates healthy batch execution and the
 harness's accounting; it does not demonstrate worker-crash recovery.
@@ -186,9 +189,9 @@ the verifier; these are harness regression tests, not baseline workload faults.
 
 Both targets are explicit opt-in checks. They are not part of `make test`,
 `make test-integration`, or Linux CI yet, so the existing 131 C groups and 143
-integration-test counts remain unchanged. Next comes the saved random fault
-plan, bounded SIGKILL/replacement cycle, and recovery-coverage assertions from
-the [contract](chaos.md).
+integration-test counts remain unchanged. The [chaos mode](chaos-testing.md) now
+implements the saved random fault plan, bounded SIGKILL/replacement cycle, and
+recovery-coverage assertions as separate targets.
 
 ## Verification record — 2026-09-29
 

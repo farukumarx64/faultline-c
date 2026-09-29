@@ -1,9 +1,11 @@
 # Chaos-test contract
 
-Status: **baseline batch harness implemented; worker-crash injection is planned.**
+Status: **baseline and seeded worker-crash harnesses implemented.**
 This defines the first worker-crash experiment for the Testing & chaos phase.
 The [baseline harness](batch-testing.md) runs with `make test-batch`, using the
 profile below with fault duration **zero**. No CI chaos job is added yet.
+The [crash harness](chaos-testing.md) runs with `make test-chaos`, using the
+30-second window, saved candidate plan, replacements, and recovery checks.
 
 The experiment must show that deliberately killing workers does not silently
 lose acknowledged jobs, that eligible work finishes after faults stop, and that
@@ -294,8 +296,8 @@ Handled SIGINT/SIGTERM perform cleanup and exit 130/143 respectively. Never
 silently skip unavailable binaries/platform facilities or convert a partial
 experiment into success.
 
-The baseline harness now creates these artifacts for no-fault runs. Random
-candidate plans, fault/replacement events, and CHAOS_PASS remain future work.
+Both modes now create these artifacts. Chaos mode also saves the candidate plan,
+actual crash/replacement events, and coverage behind CHAOS_PASS.
 Logging is diagnostic evidence; durable
 state and execution limits remain defined by the
 [recovery](recovery.md) and [persistence](persistence.md) contracts.
@@ -304,10 +306,11 @@ state and execution limits remain defined by the
 
 1. **Implemented:** the [batch harness and baseline mode](batch-testing.md),
    including ownership, deadlines, artifacts, exact results, and cleanup checks.
-2. Add the saved fault plan and bounded SIGKILL/replacement cycle.
-3. Enforce coverage and per-ID invariants, exercise the seed set, and only then
+2. **Implemented:** the [saved fault plan and bounded SIGKILL/replacement cycle](chaos-testing.md),
+   including per-ID accounting and coverage checks.
+3. Review coverage and per-ID invariants across the planned seed set, and only then
    add an appropriately bounded chaos run to [Linux CI](ci.md).
 4. Review results before the separate scaling and failure-recovery benchmarks.
 
-Baseline runs and harness regression checks have explicit Make targets. Neither
-is part of `make test` or Linux CI yet.
+Baseline/chaos runs and their regression suites have explicit Make targets.
+They are not part of `make test` or Linux CI yet.

@@ -282,8 +282,10 @@ The [batch baseline harness](docs/batch-testing.md) now runs five workers and
 `make test-batch` (or `make SANITIZE=1 test-batch`). Use
 `BATCH_ARGS='--workers 3 --jobs 9 --sleep-ms 25'` for a small run and
 `make test-batch-harness` for the harness's own regression checks. These are
-separate opt-in targets. The [chaos-test contract](docs/chaos.md) defines the
-next step: seeded worker crashes and recovery-coverage checks.
+separate opt-in targets. The [seeded chaos harness](docs/chaos-testing.md) now
+runs with `make test-chaos` (also `SANITIZE=1`), killing busy workers and starting
+replacements while retaining the plan, actions, and recovery evidence. Use
+`CHAOS_ARGS` to configure it and `make test-chaos-harness` for its regression suite.
 Use `make test-unit` or `make test-integration` to run either layer separately.
 Use `make test-job-status-protocol` for status payloads and validation, or add
 `SANITIZE=1` for AddressSanitizer/UBSan.
@@ -344,6 +346,7 @@ faultline/
 │   ├── ci.md
 │   ├── chaos.md
 │   ├── batch-testing.md
+│   ├── chaos-testing.md
 │   ├── networking.md
 │   ├── workers.md
 │   ├── jobs.md

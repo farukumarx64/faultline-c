@@ -160,10 +160,13 @@ the committed and pushed revision provide that evidence. Action checkout,
 artifact upload, triggers, and cancellation were configured and statically
 validated, but were not executed by GitHub during this local validation.
 
-This adds Linux CI to the Testing & chaos phase. The random worker-kill/restart
-harness and later scaling/recovery benchmarks remain separate steps. The
+This adds Linux CI to the Testing & chaos phase. The worker-crash harness
+and later scaling/recovery benchmarks have separate targets and review steps. The
 [chaos-test contract](chaos.md) now defines the harness defaults and acceptance
 rules; it does not add a chaos job to this workflow yet.
 The [batch baseline harness](batch-testing.md) is now available through explicit
 `test-batch` and `test-batch-harness` targets. They are not invoked by this workflow;
-CI still runs the existing unit and integration suites.
+CI still runs the existing unit and integration suites. The
+[seeded crash harness](chaos-testing.md) is also available through `test-chaos`
+and `test-chaos-harness`, with seed/action evidence and replacements; neither
+new target is invoked by this workflow yet.

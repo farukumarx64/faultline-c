@@ -21,8 +21,10 @@ five workers, 100 three-second sleep jobs, exact per-ID results, artifacts, and
 bounded cleanup. `BATCH_ARGS='--workers 3 --jobs 9 --sleep-ms 25'` selects a small
 run. `make test-batch-harness` checks the harness's success and failure paths.
 Both accept `SANITIZE=1`; both remain outside `make test`, CI, and the suite counts
-above. The [chaos-test contract](../docs/chaos.md) also defines the future seeded
-crash/replacement cycle and recovery coverage.
+above. Use `make test-chaos` for the [seeded crash/replacement experiment](../docs/chaos-testing.md)
+and `make test-chaos-harness` for its 18 regression checks. Both accept `SANITIZE=1`;
+`CHAOS_ARGS` configures the experiment. These targets also remain opt-in, outside
+the default suite and CI. The [contract](../docs/chaos.md) defines recovery coverage.
 Use `make test-job-status-protocol` for status codecs, or
 `make SANITIZE=1 test-job-status-protocol` for instrumented binaries.
 Use `make test-status` for the live status command, or `make SANITIZE=1 test-status`
