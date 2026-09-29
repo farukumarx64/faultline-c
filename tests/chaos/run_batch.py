@@ -97,17 +97,22 @@ class Child:
     exit_ms: object = None
     group_retired: bool = False
     shutdown_requested: bool = False
+    intentional_crash: bool = False
     signals: list = field(default_factory=list)
     offsets: dict = field(default_factory=dict)
     pending: dict = field(default_factory=dict)
 
 
 class BatchRun:
+    mode = 'baseline'
+
     def __init__(self, args, directory):
         self.args = args
         self.directory = directory
         self.children = []
         self.workers = {}
+        self.pool = {}
+        self.all_worker_ids = set()
         self.coordinator = None
         self.ledger = []
         self.observations = {}
@@ -156,7 +161,8 @@ class BatchRun:
         for child in self.children:
             if child.role == 'coordinator' or child.role.startswith('worker-'):
                 self.poll(child)
-                require(child.process.returncode is None,
+                require(child.process.returncode is None or
+                        (child.intentional_crash and child.process.returncode == -signal.SIGKILL),
                         f'unexpected {child.role} exit: {child.process.returncode}')
                 self.inspect_runtime(child)
 
@@ -173,13 +179,17 @@ class BatchRun:
             complete, _, child.pending[path] = data.rpartition(b'\n')
             text = complete.decode('utf-8', errors='replace')
             require(not SANITIZER.search(text), f'sanitizer diagnostic in {path.name}')
-            require(not re.search(r'\[(WARN|ERROR)\]', text), f'unexpected runtime diagnostic in {path.name}')
+            for line in text.splitlines():
+                self.runtime_line(child, line, path)
+
+    def runtime_line(self, child, line, path):
+        require(not re.search(r'\[(WARN|ERROR)\]', line), f'unexpected runtime diagnostic in {path.name}')
 
     def poll(self, child):
         code = child.process.poll()  # waitpid(WNOHANG) reaps a finished direct child.
         if code is not None and child.exit_ms is None:
             child.exit_ms = self.elapsed()
-            if (self.cleaning and not child.shutdown_requested and
+            if (self.cleaning and not child.shutdown_requested and not child.intentional_crash and
                     (child.role == 'coordinator' or child.role.startswith('worker-'))):
                 self.cleanup_errors.append(f'unexpected {child.role} exit before shutdown request: {code}')
             self.cleanup_event('exit_reaped', role=child.role, pid=child.process.pid, returncode=code)
@@ -252,7 +262,7 @@ class BatchRun:
                 for chunk in iter(lambda: stream.read(1024 * 1024), b''):
                     digest.update(chunk)
             identities[name] = dict(path=str(path), sha256=digest.hexdigest(), size=path.stat().st_size)
-        return dict(contract=CONTRACT, mode='baseline', created_utc=datetime.now(timezone.utc).isoformat(),
+        return dict(contract=CONTRACT, mode=self.mode, created_utc=datetime.now(timezone.utc).isoformat(),
                     configuration={key: str(value) if isinstance(value, Path) else value
                                    for key, value in vars(self.args).items()},
                     cleanup_reserve_ms=10000, polling_interval_ms=200,
@@ -280,26 +290,37 @@ class BatchRun:
             self.pause(ready)
         require(self.cli('ping', deadline=ready) == 'PONG\n', 'readiness PING did not return PONG')
         ready = time.monotonic() + 10
-        pool = [self.spawn(f'worker-{slot}-g0', [self.binaries['faultline-worker'],
-                '--coordinator', self.endpoint, '--heartbeat-interval-ms', '2000'])
-                for slot in range(self.args.workers)]
-        while len(self.workers) != len(pool):
+        for slot in range(self.args.workers):
+            self.spawn_worker(slot, 0)
+        while len(self.workers) != len(self.pool):
             self.check(ready)
-            for slot, child in enumerate(pool):
+            for slot, child in self.pool.items():
                 if slot in self.workers:
                     continue
-                registrations = re.findall(r'worker registered worker_id=([0-9]+) coordinator=' +
-                    re.escape(self.endpoint) + r' heartbeat_interval_ms=2000 pid=' +
-                    str(child.process.pid) + r' ', child.stdout.read_text(encoding='utf-8'))
-                require(len(registrations) <= 1, f'duplicate registration for {child.role}')
-                if registrations:
-                    wid = unsigned(registrations[0], 'worker ID', (1 << 32) - 1)
-                    require(wid and wid not in self.workers.values(), 'zero or duplicate worker ID')
-                    self.workers[slot] = wid
-                    self.event('registered', slot=slot, generation=0, pid=child.process.pid, worker_id=wid)
-            if len(self.workers) != len(pool):
+                self.read_registration(slot, child, 0)
+            if len(self.workers) != len(self.pool):
                 self.pause(ready)
         self.verify_workers(table(self.cli('workers', deadline=ready), 'workers'), idle=True)
+
+    def spawn_worker(self, slot, generation):
+        child = self.spawn(f'worker-{slot}-g{generation}', [self.binaries['faultline-worker'],
+                           '--coordinator', self.endpoint, '--heartbeat-interval-ms', '2000'])
+        self.pool[slot] = child
+        return child
+
+    def read_registration(self, slot, child, generation):
+        registrations = re.findall(r'worker registered worker_id=([0-9]+) coordinator=' +
+            re.escape(self.endpoint) + r' heartbeat_interval_ms=2000 pid=' +
+            str(child.process.pid) + r' ', child.stdout.read_text(encoding='utf-8'))
+        require(len(registrations) <= 1, f'duplicate registration for {child.role}')
+        if not registrations:
+            return False
+        wid = unsigned(registrations[0], 'worker ID', (1 << 32) - 1)
+        require(wid and wid not in self.all_worker_ids, 'zero or duplicate worker ID')
+        self.workers[slot] = wid
+        self.all_worker_ids.add(wid)
+        self.event('registered', slot=slot, generation=generation, pid=child.process.pid, worker_id=wid)
+        return True
 
     def verify_workers(self, rows, idle=False):
         require(set(rows) == set(self.workers.values()), 'worker listing does not match the owned pool')
@@ -372,21 +393,34 @@ class BatchRun:
         result = pairs(output, STATS_FIELDS)
         stats = {key: unsigned(value, key) for key, value in result.items() if key != 'session_completed_per_second'}
         expected = dict.fromkeys(STATS_FIELDS[:-1], 0)
-        for key in ('jobs_submitted_total', 'jobs_completed_total', 'job_attempts_total',
-                    'session_jobs_submitted', 'session_jobs_completed'):
-            expected[key] = self.args.jobs
-        for key in ('workers_retained', 'workers_alive', 'workers_idle'):
-            expected[key] = self.args.workers
-        expected['heartbeat_timeout_ms'] = 6000
+        expected.update(self.expected_stats())
         for key, value in expected.items():
             if key not in ('session_uptime_ms', 'startup_duration_ms', 'completed_latency_avg_ms'):
                 require(stats[key] == value, f'stats disagreement: {key}={stats[key]}, expected {value}')
         require(re.fullmatch(r'[0-9]+\.[0-9]{3}', result['session_completed_per_second']) is not None,
                 'malformed throughput')
         rate = float(result['session_completed_per_second'])
-        expected_rate = self.args.jobs * 1000 / stats['session_uptime_ms'] if stats['session_uptime_ms'] else 0
+        expected_rate = stats['session_jobs_completed'] * 1000 / stats['session_uptime_ms'] if stats['session_uptime_ms'] else 0
         require(math.isfinite(rate) and abs(rate - expected_rate) <= .00051, 'inconsistent throughput')
         return {**stats, 'session_completed_per_second': rate}
+
+    def expected_stats(self):
+        expected = {key: self.args.jobs for key in ('jobs_submitted_total', 'jobs_completed_total',
+                    'job_attempts_total', 'session_jobs_submitted', 'session_jobs_completed')}
+        expected.update({key: self.args.workers for key in ('workers_retained', 'workers_alive', 'workers_idle')})
+        return {**expected, 'heartbeat_timeout_ms': 6000}
+
+    def after_admission(self):
+        """Baseline proceeds directly to drain; chaos overrides this phase."""
+
+    def verify_coverage(self):
+        pass
+
+    def coverage(self):
+        return dict(injected_faults=0, recovery_demonstrated=False)
+
+    def summary_details(self):
+        return {}
 
     def drain_and_verify(self):
         while True:
@@ -408,7 +442,9 @@ class BatchRun:
         self.check()
         self.snapshots = dict(jobs=final_rows, statuses=statuses, workers=workers, stats=stats)
         self.save('final-snapshots.json', self.snapshots)
-        self.event('verified', submitted=self.args.jobs, completed=self.args.jobs, attempts=self.args.jobs, retries=0)
+        self.verify_coverage()
+        self.event('verified', submitted=self.args.jobs, completed=stats['jobs_completed_total'],
+                   failed=stats['jobs_failed_total'], attempts=stats['job_attempts_total'], retries=stats['job_retries_total'])
 
     def signal_child(self, child, signum):
         try:
@@ -471,7 +507,8 @@ class BatchRun:
         remaining = [dict(role=c.role, pid=c.process.pid) for c in self.children
                      if c.process.returncode is None or not c.group_retired]
         for child in self.children:
-            if (child.role == 'coordinator' or child.role.startswith('worker-')) and child.process.returncode not in (None, 0):
+            expected_exit = -signal.SIGKILL if child.intentional_crash else 0
+            if (child.role == 'coordinator' or child.role.startswith('worker-')) and child.process.returncode not in (None, expected_exit):
                 self.cleanup_errors.append(f'{child.role} exited {child.process.returncode}')
         if remaining:
             self.cleanup_errors.append(f'unreaped children or remaining owned groups: {remaining}')
@@ -502,6 +539,7 @@ class BatchRun:
                                           dirty=bool(dirty) if dirty_code == 0 else None)
             self.save('manifest.json', manifest)
             self.submit()
+            self.after_admission()
             self.drain_and_verify()
         except Exception as error:
             failure = f'{type(error).__name__}: {error}'
@@ -522,16 +560,17 @@ class BatchRun:
             if self.stop_signal is not None:
                 failure = failure or f'interrupted by signal {self.stop_signal}'
             code = 128 + self.stop_signal if self.stop_signal else (1 if failure else 0)
-            summary = dict(contract=CONTRACT, mode='baseline', verdict='BASELINE_PASS' if code == 0 else 'FAIL',
+            summary = dict(contract=CONTRACT, mode=self.mode, verdict=self.mode.upper() + '_PASS' if code == 0 else 'FAIL',
                            exit_code=code, first_failure=failure, configuration=manifest.get('configuration'),
                            acknowledged=sum(entry['job_id'] is not None for entry in self.ledger),
-                           verified_completed=len(self.snapshots.get('statuses', {})),
+                           verified_completed=sum(s['state'] == 'DONE' for s in self.snapshots.get('statuses', {}).values()),
+                           verified_failed=sum(s['state'] == 'FAILED' for s in self.snapshots.get('statuses', {}).values()),
                            totals=self.snapshots.get('stats'), elapsed_ms=self.elapsed(),
-                           coverage=dict(injected_faults=0, recovery_demonstrated=False), cleanup=cleanup,
+                           coverage=self.coverage(), cleanup=cleanup, **self.summary_details(),
                            children=[dict(role=c.role, pid=c.process.pid, argv=c.argv,
                                           started_ms=c.started_ms, exit_ms=c.exit_ms, returncode=c.process.returncode,
                                           reaped=c.exit_ms is not None, group_retired=c.group_retired,
-                                          signals=c.signals) for c in self.children])
+                                          intentional_crash=c.intentional_crash, signals=c.signals) for c in self.children])
             try:
                 self.save('submissions.json', self.ledger)
                 self.event('verdict', verdict=summary['verdict'], exit_code=code, first_failure=failure)
@@ -549,7 +588,7 @@ class BatchRun:
         return code
 
 
-def parse_args(argv=None):
+def parse_args(argv=None, *, chaos=False):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--bin-dir', type=Path, default=ROOT / 'build/debug')
     parser.add_argument('--output-dir', type=Path, help='new directory; refuses an existing path')
@@ -557,15 +596,19 @@ def parse_args(argv=None):
     parser.add_argument('--jobs', type=int, default=100)
     parser.add_argument('--sleep-ms', type=int, default=3000)
     parser.add_argument('--max-retries', type=int, default=3)
-    parser.add_argument('--seed', type=int, default=42, help='recorded for future chaos runs; baseline makes no random choices')
-    parser.add_argument('--fault-duration-ms', type=int, default=0, help='must be zero; fault injection is not implemented')
+    parser.add_argument('--seed', type=int, default=42, help='private generator seed; baseline makes no random choices')
+    parser.add_argument('--fault-duration-ms', type=int, default=30000 if chaos else 0,
+                        help='fault window; zero selects baseline' if chaos else 'must be zero; use run_chaos.py for faults')
     parser.add_argument('--deadline-ms', type=int, default=180000, help='total budget including 10000 ms cleanup reserve')
     args = parser.parse_args(argv)
     for name, lower, upper in [('workers', 1, 16), ('jobs', 1, 256), ('sleep_ms', 0, 86400000),
                                ('max_retries', 0, (1 << 32) - 1), ('seed', 0, (1 << 32) - 1),
-                               ('deadline_ms', 10001, (1 << 31) - 1), ('fault_duration_ms', 0, 0)]:
+                               ('deadline_ms', 10001, (1 << 31) - 1),
+                               ('fault_duration_ms', 0, 20000000 if chaos else 0)]:
         if not lower <= getattr(args, name) <= upper:
             parser.error(f'--{name.replace("_", "-")} must be in {lower}..{upper}')
+    if args.deadline_ms <= args.fault_duration_ms + CLEANUP_SECONDS * 1000:
+        parser.error('--deadline-ms must exceed the fault window plus the 10000 ms cleanup reserve')
     if os.name != 'posix' or not hasattr(os, 'killpg'):
         parser.error('POSIX process groups are required (macOS or Linux)')
     args.bin_dir = args.bin_dir.resolve()
@@ -580,7 +623,7 @@ def parse_args(argv=None):
         else:
             parent = ROOT / 'build/chaos'
             parent.mkdir(parents=True, exist_ok=True)
-            args.output_dir = Path(tempfile.mkdtemp(prefix='baseline-', dir=parent))
+            args.output_dir = Path(tempfile.mkdtemp(prefix='chaos-' if args.fault_duration_ms else 'baseline-', dir=parent))
     except OSError as error:
         parser.error(f'cannot create fresh output directory: {error}')
     return args

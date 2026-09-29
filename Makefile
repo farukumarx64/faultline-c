@@ -2,6 +2,7 @@ CC ?= cc
 PYTHON ?= python3
 INTEGRATION_ARGS ?=
 BATCH_ARGS ?=
+CHAOS_ARGS ?=
 SANITIZE ?= 0
 
 CPPFLAGS += -Iinclude -D_POSIX_C_SOURCE=200809L
@@ -47,13 +48,19 @@ TEST_PROGRAMS := $(addprefix $(BUILD_DIR)/tests/,$(TEST_NAMES))
 
 all: $(PROGRAMS)
 
-.PHONY: test-batch test-batch-harness
+.PHONY: test-batch test-batch-harness test-chaos test-chaos-harness
 # Explicit targets: the full baseline takes roughly a minute before overhead.
 test-batch: all
 	$(PYTHON) tests/chaos/run_batch.py --bin-dir $(BUILD_DIR) $(BATCH_ARGS)
 
 test-batch-harness: all
 	$(PYTHON) tests/chaos/test_batch.py --bin-dir $(BUILD_DIR)
+
+test-chaos: all
+	$(PYTHON) tests/chaos/run_chaos.py --bin-dir $(BUILD_DIR) $(CHAOS_ARGS)
+
+test-chaos-harness: all
+	$(PYTHON) tests/chaos/test_chaos.py --bin-dir $(BUILD_DIR)
 
 .PHONY: test-stats-protocol test-stats test-logs test-observability
 test-logs: $(BUILD_DIR)/tests/test_log

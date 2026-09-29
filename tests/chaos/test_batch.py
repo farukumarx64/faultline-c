@@ -70,7 +70,9 @@ class OutputTests(unittest.TestCase):
                 run.events.close()
 
 
-class HarnessTests(unittest.TestCase):
+class HarnessCase(unittest.TestCase):
+    RUNNER = Path(batch.__file__)
+
     def setUp(self):
         # The test runner owns this parent; individual runs still create fresh dirs.
         parent = batch.ROOT / 'build/chaos'
@@ -101,7 +103,7 @@ class HarnessTests(unittest.TestCase):
     def launch(self, *extra, binary_dir=None):
         self.run_index += 1
         output = self.directory / f'run-{self.run_index}'
-        argv = [sys.executable, str(Path(batch.__file__)), '--bin-dir', str(binary_dir or BIN_DIR),
+        argv = [sys.executable, str(self.RUNNER), '--bin-dir', str(binary_dir or BIN_DIR),
                 '--workers', '3', '--jobs', '9', '--sleep-ms', '25', '--deadline-ms', '30000',
                 '--output-dir', str(output), *extra]
         with (self.directory / f'harness-{self.run_index}.stdout').open('w+') as out, \
@@ -145,6 +147,8 @@ class HarnessTests(unittest.TestCase):
             time.sleep(.02)
         self.fail(f'event deadline: {output}')
 
+
+class HarnessTests(HarnessCase):
     def test_real_pool_results_identity_accounting_and_artifacts(self):
         with self.launch() as (process, output):
             summary = self.summary(process, output)
