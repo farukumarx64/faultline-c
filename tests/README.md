@@ -11,6 +11,11 @@ These run 131 protocol, registry, job, queue, scheduler, task, socket, logging, 
 tests using Python 3's standard library. A loopback-capable environment is
 required. You can select the Python interpreter with `PYTHON=/path/to/python3`.
 Use `make test-unit` or `make test-integration` to run one layer separately.
+The [Linux CI workflow](../.github/workflows/linux-ci.yml) runs both layers on
+Ubuntu 24.04 with GCC 13 and with Clang 18 + AddressSanitizer/UBSan. Both jobs
+enable the default-port checks and reject compiler warnings. Available environment,
+build, unit, and integration logs are uploaded after success or failure. See
+[Linux CI](../docs/ci.md) for reproduction commands and validation scope.
 Use `make test-job-status-protocol` for status codecs, or
 `make SANITIZE=1 test-job-status-protocol` for instrumented binaries.
 Use `make test-status` for the live status command, or `make SANITIZE=1 test-status`

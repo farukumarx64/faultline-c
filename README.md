@@ -271,6 +271,12 @@ make test-sanitize
 
 Both commands build and run C unit tests and Python integration tests against
 the real executables. `test-sanitize` instruments all C programs under test.
+The [Linux CI workflow](.github/workflows/linux-ci.yml) runs the full suite on
+Ubuntu 24.04 for pushes and pull requests: GCC 13 for a normal build and Clang 18
+with AddressSanitizer/UBSan. Both treat compiler warnings as errors and include
+the port 9000 default-endpoint checks. See [the CI guide](docs/ci.md) for triggers,
+logs, reproduction commands, and the distinction between local validation and
+GitHub-hosted results.
 Use `make test-unit` or `make test-integration` to run either layer separately.
 Use `make test-job-status-protocol` for status payloads and validation, or add
 `SANITIZE=1` for AddressSanitizer/UBSan.
@@ -316,6 +322,7 @@ See [the test guide](tests/README.md) for coverage and failure diagnostics.
 
 ```text
 faultline/
+├── .github/workflows/linux-ci.yml
 ├── Makefile
 ├── docs/
 │   ├── architecture.md
@@ -327,6 +334,7 @@ faultline/
 │   ├── stats.md
 │   ├── logging.md
 │   ├── observability-review.md
+│   ├── ci.md
 │   ├── networking.md
 │   ├── workers.md
 │   ├── jobs.md
