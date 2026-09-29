@@ -161,4 +161,6 @@ artifact upload, triggers, and cancellation were configured and statically
 validated, but were not executed by GitHub during this local validation.
 
 This adds Linux CI to the Testing & chaos phase. The random worker-kill/restart
-harness and later scaling/recovery benchmarks remain separate steps.
+harness and later scaling/recovery benchmarks remain separate steps. The
+[chaos-test contract](chaos.md) now defines the harness defaults and acceptance
+rules; it does not add a chaos job to this workflow yet.

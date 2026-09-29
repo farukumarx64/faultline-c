@@ -277,6 +277,9 @@ with AddressSanitizer/UBSan. Both treat compiler warnings as errors and include
 the port 9000 default-endpoint checks. See [the CI guide](docs/ci.md) for triggers,
 logs, reproduction commands, and the distinction between local validation and
 GitHub-hosted results.
+The [chaos-test contract](docs/chaos.md) defines the next experiment: five workers,
+100 jobs, seeded worker crashes, bounded retries, a shared deadline, and required
+process cleanup. It is a design contract; the harness is not implemented yet.
 Use `make test-unit` or `make test-integration` to run either layer separately.
 Use `make test-job-status-protocol` for status payloads and validation, or add
 `SANITIZE=1` for AddressSanitizer/UBSan.
@@ -335,6 +338,7 @@ faultline/
 │   ├── logging.md
 │   ├── observability-review.md
 │   ├── ci.md
+│   ├── chaos.md
 │   ├── networking.md
 │   ├── workers.md
 │   ├── jobs.md
