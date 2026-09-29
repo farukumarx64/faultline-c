@@ -503,7 +503,7 @@ static void accept_clients(int listener, struct client clients[MAX_CLIENTS],
             }
         }
         if (slot == MAX_CLIENTS) {
-            (void)faultline_log(stderr, "WARN", "coordinator", "client_limit_reached", "");
+            (void)faultline_log(stderr, "WARN", "coordinator", "client_limit_reached", NULL);
             (void)close(fd);
         } else if (faultline_set_nonblocking(fd) < 0) {
             faultline_log_error("WARN", "coordinator", "nonblocking client", errno);
@@ -563,7 +563,7 @@ static int schedule_jobs(struct client clients[MAX_CLIENTS],
         }
         struct faultline_message assignment;
         if (faultline_store_assign(store, client->worker_id, now, &assignment) != FAULTLINE_STORE_OK) {
-            (void)faultline_log(stderr, "ERROR", "coordinator", "schedule_failed", "");
+            (void)faultline_log(stderr, "ERROR", "coordinator", "schedule_failed", NULL);
             return EXIT_FAILURE;
         }
         log_job("job_assigned", faultline_scheduler_find(jobs, assignment.payload.job_assign.identity.job_id), store, 0);
@@ -581,7 +581,7 @@ static int run_coordinator(int listener, int heartbeat_timeout_ms,
     int status = EXIT_SUCCESS;
     struct faultline_stats_session session;
     if (faultline_stats_begin(&session, store, faultline_monotonic_ms()) < 0) {
-        (void)faultline_log(stderr, "ERROR", "coordinator", "stats_initialization_failed", "");
+        (void)faultline_log(stderr, "ERROR", "coordinator", "stats_initialization_failed", NULL);
         return EXIT_FAILURE;
     }
 
