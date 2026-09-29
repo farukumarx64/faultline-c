@@ -1,6 +1,9 @@
 # Chaos-test contract
 
 Status: **baseline and seeded worker-crash harnesses implemented.**
+The [per-job accounting audit](chaos-testing.md#drain-and-per-job-proof) saves
+the post-fault drain cohort and verifies the terminal ID partition, results,
+and attributed retry histories before a run can pass.
 This defines the first worker-crash experiment for the Testing & chaos phase.
 The [baseline harness](batch-testing.md) runs with `make test-batch`, using the
 profile below with fault duration **zero**. No CI chaos job is added yet.

@@ -286,6 +286,9 @@ separate opt-in targets. The [seeded chaos harness](docs/chaos-testing.md) now
 runs with `make test-chaos` (also `SANITIZE=1`), killing busy workers and starting
 replacements while retaining the plan, actions, and recovery evidence. Use
 `CHAOS_ARGS` to configure it and `make test-chaos-harness` for its regression suite.
+Each run saves its drain cohort and a per-job `accounting.json` report, proving
+that the acknowledged IDs partition into completed and terminally failed jobs,
+with exact results and valid retry histories. Matching totals alone cannot pass.
 Use `make test-unit` or `make test-integration` to run either layer separately.
 Use `make test-job-status-protocol` for status payloads and validation, or add
 `SANITIZE=1` for AddressSanitizer/UBSan.

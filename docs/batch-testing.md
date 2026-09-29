@@ -85,7 +85,8 @@ Invalid arguments or unavailable executables fail before any child starts.
    missing workers, expiry, or an unexpected runtime exit.
 5. Read every job's full `status`, then repeat the final listing and every full
    status. Compare the terminal records, pool, and `stats` while the workers are
-   still alive and idle.
+   still alive and idle. Save the per-submission accounting report with all IDs
+   in the completed partition and an empty failed partition.
 6. Stop and reap all owned processes before publishing `BASELINE_PASS`.
 
 No fault clock or random candidate plan is used in baseline mode. The seed is retained as
@@ -164,8 +165,16 @@ cases. The harness does not scan or kill unrelated processes by name.
 | `submissions.json` | Input index, task/arguments, retry limit, acknowledged ID or null for an uncertain submission |
 | Numbered `*.stdout.log` / `*.stderr.log` | Separate output for every coordinator, worker, CLI, and helper invocation; commands and PIDs are in the event ledger |
 | `coordinator.wal` | This run's coordinator state |
-| `final-snapshots.json` | Verified job listings, full statuses, workers, and stats; only written after successful verification |
-| `summary.json` | Final verdict/exit code, first failure, totals, elapsed time, cleanup errors, remaining groups, and every child's exit/reap/signal record |
+| `drain-start.json` | Initial drain listing and queued/active IDs that must complete |
+| `final-snapshots.json` | Checked job listings, full statuses, workers, and stats; written before the final history/coverage audit |
+| `accounting.json` | Verified submission/terminal ID sets, counts, drain cohort, and every input joined to its full terminal status; baseline lost-attempt lists are empty |
+| `summary.json` | Final verdict/exit code, first failure, totals, accounting report or null, elapsed time, cleanup errors, remaining groups, and every child's exit/reap/signal record |
+
+Accounting now produces an explicit `submitted = completed + terminally_failed`
+cross-check; baseline requires the last count to be zero. The shared
+[per-job audit](chaos-testing.md#drain-and-per-job-proof) checks identity sets as
+well as counts. A report confirms job accounting, while the final summary verdict
+also depends on successful cleanup (and recovery coverage in chaos mode).
 
 Exit 0 means `BASELINE_PASS`; 1 means experiment/cleanup/artifact failure;
 2 means preflight/configuration failure. Handled SIGINT/SIGTERM exit 130/143

@@ -114,6 +114,61 @@ including full results. Status reads, listings, stats, and worker gauges must ag
 The summary separates `verified_completed` and `verified_failed`; statistics use
 actual terminal counts and sums of attempts/retries rather than baseline assumptions.
 
+### Drain and per-job proof
+
+Once the fault window expires, no more SIGKILLs are injected. Any final crash
+cycle finishes its loss accounting and replacement registration before drain.
+The first drain listing is saved in `drain-start.json`, along with the exact
+queued/active IDs that remain eligible. Those IDs must all finish DONE before
+the existing work deadline. A timeout fails the experiment; it never converts
+unfinished jobs into terminal failures to make the totals balance.
+
+After every ID is terminal, the harness reads each full status twice and checks
+the final worker pool and statistics. It then writes `accounting.json`, joining
+each original submission to its checked terminal status and coordinator-confirmed
+lost attempts. The report contains:
+
+- `counts`: submitted, completed, and terminally_failed.
+- `submitted_ids`, `completed_ids`, and `terminally_failed_ids`: exact ID sets,
+  sorted for readability. Completed and failed sets must be disjoint, and their
+  union must equal the ledger's distinct acknowledged IDs.
+- `drain_eligible_ids`: the cohort saved at the start of drain, all now DONE.
+- `jobs`: entries in submission order, each with its original input/ACK,
+  full terminal status, and lost-attempt records including worker ID, attempt,
+  REQUEUED/FAILED outcome, and WAL sequence.
+
+For example, acknowledging IDs `{101, 205, 309}` and later observing
+`{101, 205, 999}` must fail even though both sets contain three jobs. The error
+names `missing=[309]` and `unexpected=[999]`. IDs need not be consecutive or
+ordered by submission. Duplicate IDs are rejected rather than silently collapsed
+when comparing identity sets.
+
+Only after that identity check does the numeric equation provide a useful
+cross-check:
+
+```text
+submitted = completed + terminally_failed
+```
+
+DONE also requires the exact expected result text, not just its length. For
+this profile, `sleep --args 3000` must produce `slept_ms=3000`. Each terminal
+job must have `attempt = retry_count + 1`, with retries bounded by its allowance.
+A FAILED job must exhaust that allowance, report WORKER_LOST, and contain no
+result. A three-retry allowance permits four total attempts, not three.
+
+The attempt history is checked separately from the final counters: every retry
+needs a matching REQUEUED loss for the same job and attempt, and an exhausted
+failure needs one FAILED loss for its last attempt. Gaps, duplicates, extra
+losses, and losses naming an unacknowledged ID fail accounting. This catches a
+plausible final counter that is unsupported by the recorded experiment.
+
+The report is copied into `summary.json` under `accounting` and a successful
+audit emits `accounting_verified` in `events.jsonl`. If accounting is not reached
+or fails, that summary field is null and no verified report is written. Earlier
+CLI logs, observations, and the submission ledger remain available to diagnose
+the failure. A valid accounting report can coexist with a failed experiment:
+coverage or process cleanup may still fail, so use the final summary verdict.
+
 CHAOS_PASS requires at least one killed worker and a coordinator-confirmed
 interrupted attempt. With positive retries, at least one interrupted job must
 finish DONE on a higher attempt. With zero retries, an attributable terminal
@@ -135,7 +190,9 @@ with these additions:
 | `manifest.json` | Mode, seed usage, complete candidate plan, generator/Python version |
 | `events.jsonl` | Scheduled candidates, selections, skips, signals, actual losses/deaths/closes, transport diagnostics, replacements, window settling, drain cohort |
 | `fault-actions.json` | Completed cycles, rewritten after each replacement is ready |
-| `summary.json` | All actions including an incomplete last cycle, seed, window times, unused suffix, drain IDs, coverage, completed/failed counts |
+| `drain-start.json` | First post-fault listing, elapsed time, and exact eligible IDs |
+| `accounting.json` | Verified terminal partition and per-submission result/retry evidence |
+| `summary.json` | All actions including an incomplete last cycle, seed, window times, unused suffix, drain IDs, coverage, completed/failed counts, accounting report or null |
 | Worker logs | Separate files for every slot/generation; earlier generations remain |
 | Child ledger | `intentional_crash` distinguishes expected fault-phase SIGKILL from an unexpected exit or cleanup escalation |
 
@@ -160,14 +217,54 @@ make test-batch-harness
 make SANITIZE=1 test-batch-harness
 ```
 
-The 18 chaos checks cover seed plans/private RNG state, snapshot races, loss/death
+The 32 chaos checks cover seed plans/private RNG state, snapshot races, loss/death
 correlation, warnings, retry/exhaustion accounting, real SIGKILL and replacement,
 zero retries, insufficient coverage, zero-window baseline, failed replacement,
 SIGTERM during replacement, window-fit validation, and reaping all generations.
-The 20 baseline checks remain a separate suite.
+The accounting checks include equal-sized but different ID sets, duplicated ACK
+ledgers, missing/swapped status IDs, wrong same-length results, invalid retry
+limits, incomplete/duplicated loss histories, unknown loss IDs, and drain-time
+failures. Real-process fixtures substitute a listing ID after faults stop,
+return an unknown status, and force drain to miss its deadline; each must fail
+and still reap every owned process. Successful live runs check the saved report
+against submissions, final snapshots, and actual fault actions, including zero
+retries with one allowed terminal failure.
+The 20 baseline checks remain a separate suite and also verify the new artifacts.
 
 Next comes review across the planned seeds `42, 7, 2026` and remaining phase
 acceptance cases before adding a bounded chaos run to Linux CI.
+
+## Accounting verification record — 2026-09-30
+
+Local macOS/Python 3.9.6 checks passed with normal and AddressSanitizer/UBSan
+binaries. The updated suites contain 20 baseline checks and 32 chaos checks
+(14 new accounting regressions). Both suites passed in both build modes.
+`caffeinate -i` again prevented idle sleep during these local Make invocations.
+
+| Default seed-42 experiment | Normal | ASan/UBSan |
+| --- | --- | --- |
+| Verdict | CHAOS_PASS | CHAOS_PASS |
+| Submitted = completed + terminally_failed | 100 = 100 + 0 | 100 = 100 + 0 |
+| Eligible IDs at drain start, all completed | 51 | 43 |
+| Confirmed interrupted attempts / replacements | 5 / 5 | 5 / 5 |
+| Total attempts / retries | 105 / 5 | 105 / 5 |
+| Cleanup | All 568 children reaped; groups retired | All 482 children reaped; groups retired |
+
+The full runs are retained in `build/chaos/chaos-eai_7cah/` (69.996 seconds)
+and `build/chaos/chaos-l4uwm3qi/` (79.936 seconds). These durations are
+observations, not performance guarantees. Every default job retained exactly
+`slept_ms=3000`. The live zero-retry regression separately verified the valid
+mixed outcome `6 = 5 + 1`, with an attributed WORKER_LOST terminal failure.
+
+An independent artifact pass checked the new reports against original
+submissions, full statuses, drain cohorts, actual lost attempts, retry/attempt
+sums, fault cutoffs, child exits, and reaping in both full runs. The final
+artifact assertions also passed for 16 regression runs with verified accounting,
+including runs that correctly failed the separate coverage requirement.
+Focused accounting/evidence checks, Python syntax, changed Markdown links/fences,
+and `git diff --check` passed. The changes affect the Python harness and docs;
+the C runtime and Linux CI configuration are unchanged. This record claims local
+execution only.
 
 ## Verification record — 2026-09-29
 
