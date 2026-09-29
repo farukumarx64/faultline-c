@@ -16,9 +16,13 @@ Ubuntu 24.04 with GCC 13 and with Clang 18 + AddressSanitizer/UBSan. Both jobs
 enable the default-port checks and reject compiler warnings. Available environment,
 build, unit, and integration logs are uploaded after success or failure. See
 [Linux CI](../docs/ci.md) for reproduction commands and validation scope.
-The [chaos-test contract](../docs/chaos.md) specifies the planned batch/crash
-harness, default profile, pass criteria, shared deadline, and process ownership.
-It is not yet a runnable test or part of the current suite counts.
+Use `make test-batch` for the [batch baseline harness](../docs/batch-testing.md):
+five workers, 100 three-second sleep jobs, exact per-ID results, artifacts, and
+bounded cleanup. `BATCH_ARGS='--workers 3 --jobs 9 --sleep-ms 25'` selects a small
+run. `make test-batch-harness` checks the harness's success and failure paths.
+Both accept `SANITIZE=1`; both remain outside `make test`, CI, and the suite counts
+above. The [chaos-test contract](../docs/chaos.md) also defines the future seeded
+crash/replacement cycle and recovery coverage.
 Use `make test-job-status-protocol` for status codecs, or
 `make SANITIZE=1 test-job-status-protocol` for instrumented binaries.
 Use `make test-status` for the live status command, or `make SANITIZE=1 test-status`

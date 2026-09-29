@@ -1,8 +1,9 @@
 # Chaos-test contract
 
-Status: **design contract; the harness is not implemented yet.**
+Status: **baseline batch harness implemented; worker-crash injection is planned.**
 This defines the first worker-crash experiment for the Testing & chaos phase.
-It does not add a runnable command, Make target, or CI chaos job.
+The [baseline harness](batch-testing.md) runs with `make test-batch`, using the
+profile below with fault duration **zero**. No CI chaos job is added yet.
 
 The experiment must show that deliberately killing workers does not silently
 lose acknowledged jobs, that eligible work finishes after faults stop, and that
@@ -44,7 +45,7 @@ can be added as separate named profiles after this harness works.
 
 ## Configuration and preflight
 
-The future harness must expose/record worker count, job count, retry allowance,
+The harness must expose/record worker count, job count, retry allowance,
 fault duration, seed, overall deadline, and build/binary selection. Baseline mode
 uses the same workload with a zero fault duration.
 
@@ -293,18 +294,20 @@ Handled SIGINT/SIGTERM perform cleanup and exit 130/143 respectively. Never
 silently skip unavailable binaries/platform facilities or convert a partial
 experiment into success.
 
-These files and verdicts are requirements for the future harness, not artifacts
-created by this documentation change. Logging is diagnostic evidence; durable
+The baseline harness now creates these artifacts for no-fault runs. Random
+candidate plans, fault/replacement events, and CHAOS_PASS remain future work.
+Logging is diagnostic evidence; durable
 state and execution limits remain defined by the
 [recovery](recovery.md) and [persistence](persistence.md) contracts.
 
 ## Implementation sequence
 
-1. Implement the batch harness and baseline mode, including ownership, deadlines,
-   artifacts, exact results, and cleanup failure paths.
+1. **Implemented:** the [batch harness and baseline mode](batch-testing.md),
+   including ownership, deadlines, artifacts, exact results, and cleanup checks.
 2. Add the saved fault plan and bounded SIGKILL/replacement cycle.
 3. Enforce coverage and per-ID invariants, exercise the seed set, and only then
    add an appropriately bounded chaos run to [Linux CI](ci.md).
 4. Review results before the separate scaling and failure-recovery benchmarks.
 
-No chaos run is added to `make test` or Linux CI by this contract alone.
+Baseline runs and harness regression checks have explicit Make targets. Neither
+is part of `make test` or Linux CI yet.

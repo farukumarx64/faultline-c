@@ -277,9 +277,13 @@ with AddressSanitizer/UBSan. Both treat compiler warnings as errors and include
 the port 9000 default-endpoint checks. See [the CI guide](docs/ci.md) for triggers,
 logs, reproduction commands, and the distinction between local validation and
 GitHub-hosted results.
-The [chaos-test contract](docs/chaos.md) defines the next experiment: five workers,
-100 jobs, seeded worker crashes, bounded retries, a shared deadline, and required
-process cleanup. It is a design contract; the harness is not implemented yet.
+The [batch baseline harness](docs/batch-testing.md) now runs five workers and
+100 jobs with exact result/ID accounting, shared deadlines, and process cleanup:
+`make test-batch` (or `make SANITIZE=1 test-batch`). Use
+`BATCH_ARGS='--workers 3 --jobs 9 --sleep-ms 25'` for a small run and
+`make test-batch-harness` for the harness's own regression checks. These are
+separate opt-in targets. The [chaos-test contract](docs/chaos.md) defines the
+next step: seeded worker crashes and recovery-coverage checks.
 Use `make test-unit` or `make test-integration` to run either layer separately.
 Use `make test-job-status-protocol` for status payloads and validation, or add
 `SANITIZE=1` for AddressSanitizer/UBSan.
@@ -339,6 +343,7 @@ faultline/
 │   ├── observability-review.md
 │   ├── ci.md
 │   ├── chaos.md
+│   ├── batch-testing.md
 │   ├── networking.md
 │   ├── workers.md
 │   ├── jobs.md

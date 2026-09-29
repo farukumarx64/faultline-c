@@ -164,3 +164,6 @@ This adds Linux CI to the Testing & chaos phase. The random worker-kill/restart
 harness and later scaling/recovery benchmarks remain separate steps. The
 [chaos-test contract](chaos.md) now defines the harness defaults and acceptance
 rules; it does not add a chaos job to this workflow yet.
+The [batch baseline harness](batch-testing.md) is now available through explicit
+`test-batch` and `test-batch-harness` targets. They are not invoked by this workflow;
+CI still runs the existing unit and integration suites.
