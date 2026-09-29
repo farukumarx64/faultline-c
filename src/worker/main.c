@@ -1,4 +1,5 @@
 #include "net.h"
+#include "log.h"
 #include "protocol.h"
 #include "task.h"
 
@@ -19,8 +20,7 @@ static volatile sig_atomic_t stopping = 0;
 
 static void request_stop(int signal_number)
 {
-    (void)signal_number;
-    stopping = 1;
+    stopping = signal_number;
 }
 
 static void usage(FILE *stream)
@@ -85,7 +85,7 @@ static int receive_registration_ack(int fd, uint32_t *worker_id)
     int64_t start = faultline_monotonic_ms();
 
     if (start < 0) {
-        perror("worker: clock");
+        faultline_log_error("ERROR", "worker", "clock", errno);
         return -1;
     }
     while (received < expected) {
@@ -98,21 +98,20 @@ static int receive_registration_ack(int fd, uint32_t *worker_id)
         }
         if (ready <= 0) {
             if (ready < 0) {
-                perror("worker: receive registration ACK");
+                faultline_log_error("ERROR", "worker", "receive registration ACK", errno);
             }
             return -1;
         }
         count = recv(fd, wire + received, expected - received, 0);
         if (count == 0) {
-            fprintf(stderr, "worker: coordinator closed %s registration ACK\n",
-                    received == 0 ? "before" : "during");
+            (void)faultline_log(stderr, "ERROR", "worker", "runtime_error", "message=\"worker: coordinator closed %s registration ACK\"", received == 0 ? "before" : "during");
             return -1;
         }
         if (count < 0) {
             if (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK) {
                 continue;
             }
-            perror("worker: receive registration ACK");
+            faultline_log_error("ERROR", "worker", "receive registration ACK", errno);
             return -1;
         }
         received += (size_t)count;
@@ -122,14 +121,14 @@ static int receive_registration_ack(int fd, uint32_t *worker_id)
             if (faultline_header_decode(wire, received, &header) != FAULTLINE_PROTOCOL_OK ||
                 header.message_type != FAULTLINE_MSG_WORKER_REGISTER_ACK ||
                 header.payload_length != FAULTLINE_WORKER_REGISTER_ACK_PAYLOAD_SIZE) {
-                fputs("worker: expected registration ACK with a 4-byte worker ID\n", stderr);
+                (void)faultline_log(stderr, "ERROR", "worker", "runtime_error", "message=\"worker: expected registration ACK with a 4-byte worker ID\"");
                 return -1;
             }
             expected = sizeof(wire);
         }
     }
     if (faultline_message_decode(wire, received, &message, &consumed) != FAULTLINE_PROTOCOL_OK) {
-        fputs("worker: invalid registration ACK payload\n", stderr);
+        (void)faultline_log(stderr, "ERROR", "worker", "runtime_error", "message=\"worker: invalid registration ACK payload\"");
         return -1;
     }
     *worker_id = message.payload.worker_id;
@@ -179,11 +178,11 @@ static int send_message(int fd, const struct faultline_message *message)
     uint8_t wire[FAULTLINE_MESSAGE_MAX_FRAME_SIZE];
     size_t written;
     if (faultline_message_encode(wire, sizeof(wire), message, &written) != FAULTLINE_PROTOCOL_OK) {
-        fputs("worker: could not encode job report\n", stderr);
+        (void)faultline_log(stderr, "ERROR", "worker", "runtime_error", "message=\"worker: could not encode job report\"");
         return -1;
     }
     if (faultline_send_all(fd, wire, written, FAULTLINE_IO_TIMEOUT_MS) < 0) {
-        perror("worker: send job report");
+        faultline_log_error("ERROR", "worker", "send job report", errno);
         return -1;
     }
     return 0;
@@ -211,9 +210,10 @@ static int report_execution(int fd, struct execution *execution)
         report.payload.job_failed.failure = FAULTLINE_JOB_FAILURE_TASK;
     }
     if (send_message(fd, &report) < 0) { return -1; }
-    printf("[INFO] worker %s job_id=%" PRIu64 " worker_id=%" PRIu32
-           " attempt=%" PRIu64 " task_status=%s result_bytes=%zu\n",
+    (void)faultline_log(stdout, execution->status == FAULTLINE_TASK_OK ? "INFO" : "WARN", "worker",
            execution->status == FAULTLINE_TASK_OK ? "job_completed_sent" : "job_failed_sent",
+           "job_id=%" PRIu64 " worker_id=%" PRIu32
+           " attempt=%" PRIu64 " task_status=%s result_bytes=%zu acceptance=unconfirmed",
            identity.job_id, identity.worker_id, identity.attempt, status_name,
            execution->status == FAULTLINE_TASK_OK ? execution->result.size : 0);
     return 0;
@@ -233,12 +233,12 @@ static int worker_loop(int fd, uint32_t worker_id, int interval_ms, struct execu
     int64_t next_heartbeat;
 
     if (now < 0) {
-        perror("worker: clock");
+        faultline_log_error("ERROR", "worker", "clock", errno);
         return EXIT_FAILURE;
     }
     if (faultline_message_encode(wire, sizeof(wire), &heartbeat, &written) !=
         FAULTLINE_PROTOCOL_OK) {
-        fputs("worker: could not encode heartbeat\n", stderr);
+        (void)faultline_log(stderr, "ERROR", "worker", "runtime_error", "message=\"worker: could not encode heartbeat\"");
         return EXIT_FAILURE;
     }
     next_heartbeat = now + interval_ms;
@@ -246,7 +246,7 @@ static int worker_loop(int fd, uint32_t worker_id, int interval_ms, struct execu
         if (execution->thread_created && atomic_load(&execution->done)) {
             int error = pthread_join(execution->thread, NULL);
             if (error != 0) {
-                fprintf(stderr, "worker: join task: %s\n", strerror(error));
+                faultline_log_error("ERROR", "worker", "join task", error);
                 return EXIT_FAILURE;
             }
             execution->thread_created = 0;
@@ -256,7 +256,7 @@ static int worker_loop(int fd, uint32_t worker_id, int interval_ms, struct execu
             execution->assignment.identity.job_id = 0;
         }
         now = faultline_monotonic_ms();
-        if (now < 0) { perror("worker: clock"); return EXIT_FAILURE; }
+        if (now < 0) { faultline_log_error("ERROR", "worker", "clock", errno); return EXIT_FAILURE; }
         int64_t deadline = next_heartbeat;
         /* Poll completion at most 50 ms later, without a busy loop or a second socket writer. */
         if (execution->thread_created && now + 50 < deadline) { deadline = now + 50; }
@@ -266,24 +266,24 @@ static int worker_loop(int fd, uint32_t worker_id, int interval_ms, struct execu
         int ready = wait_for_input(fd, deadline);
         if (ready == WAIT_STOP) { break; }
         if (ready == WAIT_ERROR) {
-            perror("worker: wait for coordinator");
+            faultline_log_error("ERROR", "worker", "wait for coordinator", errno);
             return EXIT_FAILURE;
         }
         now = faultline_monotonic_ms();
-        if (now < 0) { perror("worker: clock"); return EXIT_FAILURE; }
+        if (now < 0) { faultline_log_error("ERROR", "worker", "clock", errno); return EXIT_FAILURE; }
         if (frame_started >= 0 && now - frame_started >= FAULTLINE_IO_TIMEOUT_MS) {
-            fputs("worker: assignment receive timeout\n", stderr);
+            (void)faultline_log(stderr, "ERROR", "worker", "runtime_error", "message=\"worker: assignment receive timeout\"");
             return EXIT_FAILURE;
         }
         /* Input traffic and partial assignments never postpone heartbeats. */
         if (now >= next_heartbeat) {
             if (faultline_send_all(fd, wire, written, FAULTLINE_IO_TIMEOUT_MS) < 0) {
-                perror("worker: send heartbeat");
+                faultline_log_error("ERROR", "worker", "send heartbeat", errno);
                 return EXIT_FAILURE;
             }
             now = faultline_monotonic_ms();
-            if (now < 0) { perror("worker: clock"); return EXIT_FAILURE; }
-            printf("[INFO] worker heartbeat_sent worker_id=%" PRIu32 "\n", worker_id);
+            if (now < 0) { faultline_log_error("ERROR", "worker", "clock", errno); return EXIT_FAILURE; }
+            (void)faultline_log(stdout, "INFO", "worker", "heartbeat_sent", "worker_id=%" PRIu32, worker_id);
             next_heartbeat = now + interval_ms;
             continue;
         }
@@ -291,8 +291,8 @@ static int worker_loop(int fd, uint32_t worker_id, int interval_ms, struct execu
         ssize_t count = recv(fd, input + received, expected - received, 0);
         if (count < 0 && (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK)) { continue; }
         if (count <= 0) {
-            if (count < 0) { perror("worker: coordinator connection"); }
-            else { fputs("worker: coordinator disconnected\n", stderr); }
+            if (count < 0) { faultline_log_error("ERROR", "worker", "coordinator connection", errno); }
+            else { (void)faultline_log(stderr, "ERROR", "worker", "runtime_error", "message=\"worker: coordinator disconnected\""); }
             return EXIT_FAILURE;
         }
         if (received == 0) { frame_started = now; }
@@ -300,7 +300,7 @@ static int worker_loop(int fd, uint32_t worker_id, int interval_ms, struct execu
         const uint8_t prefix[] = {0x46, 0x4c, 0x49, 0x4e, 0, 1};
         size_t prefix_size = received < sizeof(prefix) ? received : sizeof(prefix);
         if (memcmp(input, prefix, prefix_size) != 0) {
-            fputs("worker: unexpected data after registration\n", stderr);
+            (void)faultline_log(stderr, "ERROR", "worker", "runtime_error", "message=\"worker: unexpected data after registration\"");
             return EXIT_FAILURE;
         }
         if (received < expected) { continue; }
@@ -310,7 +310,7 @@ static int worker_loop(int fd, uint32_t worker_id, int interval_ms, struct execu
                 header.message_type != FAULTLINE_MSG_JOB_ASSIGN ||
                 header.payload_length < FAULTLINE_JOB_ASSIGN_PREFIX_SIZE ||
                 header.payload_length > sizeof(input) - FAULTLINE_HEADER_SIZE) {
-                fputs("worker: unexpected data after registration; expected job assignment\n", stderr);
+                (void)faultline_log(stderr, "ERROR", "worker", "runtime_error", "message=\"worker: unexpected data after registration; expected job assignment\"");
                 return EXIT_FAILURE;
             }
             expected = FAULTLINE_HEADER_SIZE + (size_t)header.payload_length;
@@ -321,28 +321,33 @@ static int worker_loop(int fd, uint32_t worker_id, int interval_ms, struct execu
         if (faultline_message_decode(input, received, &message, &consumed) != FAULTLINE_PROTOCOL_OK ||
             message.payload.job_assign.identity.worker_id != worker_id ||
             execution->assignment.identity.job_id != 0) {
-            fputs("worker: invalid assignment or worker already busy\n", stderr);
+            (void)faultline_log(stderr, "ERROR", "worker", "runtime_error", "message=\"worker: invalid assignment or worker already busy\"");
             return EXIT_FAILURE;
         }
         execution->assignment = message.payload.job_assign;
         const struct faultline_job_assign_payload *active = &execution->assignment;
-        printf("[INFO] worker job_assigned job_id=%" PRIu64 " worker_id=%" PRIu32
-               " attempt=%" PRIu64 " task_type=%u argument_bytes=%zu\n",
-               active->identity.job_id, worker_id, active->identity.attempt,
-               (unsigned int)active->task_type, active->argument_size);
+        (void)faultline_log(stdout, "INFO", "worker", "job_assigned", "job_id=%" PRIu64 " worker_id=%" PRIu32
+               " attempt=%" PRIu64 " task_type=%u argument_bytes=%zu", active->identity.job_id, worker_id, active->identity.attempt, (unsigned int)active->task_type, active->argument_size);
         const struct faultline_message started = {
             .message_type = FAULTLINE_MSG_JOB_STARTED, .payload.job_started = active->identity
         };
         if (stopping) { break; }
         if (send_message(fd, &started) < 0) { return EXIT_FAILURE; }
+        (void)faultline_log(stdout, "INFO", "worker", "job_started_sent",
+            "job_id=%" PRIu64 " worker_id=%" PRIu32 " attempt=%" PRIu64 " acceptance=unconfirmed",
+            active->identity.job_id, worker_id, active->identity.attempt);
         int error = start_execution(execution);
         if (error != 0) {
-            fprintf(stderr, "worker: start task thread: %s\n", strerror(error));
+            faultline_log_error("ERROR", "worker", "start task thread", error);
             /* A mask-restore failure after creation needs cancellation before exiting. */
             if (execution->thread_created) { return EXIT_FAILURE; }
             execution->status = FAULTLINE_TASK_SYSTEM_ERROR;
             if (report_execution(fd, execution) < 0) { return EXIT_FAILURE; }
             execution->assignment.identity.job_id = 0;
+        } else {
+            (void)faultline_log(stdout, "INFO", "worker", "task_thread_started",
+                "job_id=%" PRIu64 " worker_id=%" PRIu32 " attempt=%" PRIu64,
+                active->identity.job_id, worker_id, active->identity.attempt);
         }
         received = 0;
         expected = FAULTLINE_HEADER_SIZE;
@@ -362,9 +367,13 @@ static int run_worker(int fd, uint32_t worker_id, int interval_ms)
         atomic_store(&execution.cancel, true);
         int error = pthread_join(execution.thread, NULL);
         if (error != 0) {
-            fprintf(stderr, "worker: join cancelled task: %s\n", strerror(error));
+            faultline_log_error("ERROR", "worker", "join cancelled task", error);
             return EXIT_FAILURE;
         }
+        (void)faultline_log(stdout, "INFO", "worker", "task_joined",
+            "job_id=%" PRIu64 " worker_id=%" PRIu32 " attempt=%" PRIu64
+            " cancel_requested=1 terminal_report_sent=0",
+            execution.assignment.identity.job_id, worker_id, execution.assignment.identity.attempt);
     }
     return status;
 }
@@ -407,7 +416,7 @@ int main(int argc, char **argv)
     if (sigemptyset(&action.sa_mask) < 0 ||
         sigaction(SIGINT, &action, NULL) < 0 ||
         sigaction(SIGTERM, &action, NULL) < 0 || faultline_ignore_sigpipe() < 0) {
-        perror("worker: configure signals");
+        faultline_log_error("ERROR", "worker", "configure signals", errno);
         return EXIT_FAILURE;
     }
     fd = faultline_connect(host, port, FAULTLINE_IO_TIMEOUT_MS);
@@ -415,7 +424,7 @@ int main(int argc, char **argv)
         if (stopping) {
             return EXIT_SUCCESS;
         }
-        perror("worker: connect");
+        faultline_log_error("ERROR", "worker", "connect", errno);
         return EXIT_FAILURE;
     }
     if (stopping) {
@@ -423,22 +432,26 @@ int main(int argc, char **argv)
     }
     if (faultline_message_encode(wire, sizeof(wire), &registration, &written) !=
         FAULTLINE_PROTOCOL_OK) {
-        fputs("worker: could not encode registration\n", stderr);
+        (void)faultline_log(stderr, "ERROR", "worker", "runtime_error", "message=\"worker: could not encode registration\"");
         goto done;
     }
     if (faultline_send_all(fd, wire, written, FAULTLINE_IO_TIMEOUT_MS) < 0) {
-        perror("worker: send registration");
+        faultline_log_error("ERROR", "worker", "send registration", errno);
         goto done;
     }
     if (receive_registration_ack(fd, &worker_id) < 0 || stopping) {
         goto done;
     }
-    printf("[INFO] worker registered worker_id=%" PRIu32
-           " coordinator=%s:%u heartbeat_interval_ms=%d\n",
-           worker_id, host, (unsigned int)port, interval_ms);
+    (void)faultline_log(stdout, "INFO", "worker", "registered", "worker_id=%" PRIu32
+           " coordinator=%s:%u heartbeat_interval_ms=%d", worker_id, host, (unsigned int)port, interval_ms);
     status = run_worker(fd, worker_id, interval_ms);
 
 done:
     (void)close(fd);
+    if (worker_id != FAULTLINE_WORKER_ID_UNASSIGNED) {
+        (void)faultline_log(stdout, stopping || status == EXIT_SUCCESS ? "INFO" : "ERROR", "worker", "stopped",
+            "worker_id=%" PRIu32 " exit_code=%d reason=%s signal=%d", worker_id,
+            stopping ? EXIT_SUCCESS : status, stopping ? "signal" : "error", (int)stopping);
+    }
     return stopping ? EXIT_SUCCESS : status;
 }

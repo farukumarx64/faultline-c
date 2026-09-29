@@ -22,7 +22,7 @@ class RecoveryTestCase(JobProcessTestCase):
             if not line.endswith('\n'):
                 continue
             match = re.fullmatch(
-                rf'\[INFO\] coordinator (job_\w+) job_id={job_id} ([^\n]*)\n', line)
+                rf'\S+ \[(?:INFO|WARN)\] coordinator (job_(?:submitted|assigned|started|completed|failed|worker_lost)) job_id={job_id} ([^\n]*)\n', line)
             if match:
                 fields = dict(re.findall(r'(\w+)=("[^"]*"|\S+)', match[2]))
                 events.append({'event': match[1], **fields})

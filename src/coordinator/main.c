@@ -1,4 +1,5 @@
 #include "net.h"
+#include "log.h"
 #include "protocol.h"
 #include "worker_registry.h"
 #include "coordinator_store.h"
@@ -6,6 +7,7 @@
 
 #include <errno.h>
 #include <inttypes.h>
+#include <limits.h>
 #include <poll.h>
 #include <signal.h>
 #include <stdio.h>
@@ -43,8 +45,7 @@ static volatile sig_atomic_t stopping = 0;
 
 static void request_stop(int signal_number)
 {
-    (void)signal_number;
-    stopping = 1;
+    stopping = signal_number;
 }
 
 static const char *job_state_name(enum faultline_job_state state)
@@ -59,26 +60,49 @@ static const char *job_state_name(enum faultline_job_state state)
     }
 }
 
-static void log_job(const char *event, const struct faultline_job *job,
-                    const struct faultline_scheduler *jobs)
+static const char *failure_name(enum faultline_job_failure failure)
 {
-    printf("[INFO] coordinator %s job_id=%" PRIu64 " state=%s worker_id=%" PRIu32
-           " attempt=%" PRIu64 " retry_count=%" PRIu32 " pending=%zu result_bytes=%zu",
-           event, job->id, job_state_name(job->state), job->worker_id,
-           job->attempt, job->retry_count, jobs->pending.count, job->result_size);
-    if (job->state == FAULTLINE_JOB_DONE) {
-        fputs(" result=\"", stdout);
-        for (size_t i = 0; i < job->result_size; ++i) {
-            unsigned int byte = job->result[i];
-            if (byte >= 0x20 && byte <= 0x7e && byte != '"' && byte != '\\') {
-                (void)putchar((int)byte);
-            } else {
-                printf("\\x%02x", byte);
-            }
-        }
-        (void)putchar('"');
+    switch (failure) {
+    case FAULTLINE_JOB_FAILURE_NONE: return "NONE";
+    case FAULTLINE_JOB_FAILURE_TASK: return "TASK";
+    case FAULTLINE_JOB_FAILURE_WORKER_LOST: return "WORKER_LOST";
+    default: return "INVALID";
     }
-    (void)putchar('\n');
+}
+
+static const char *task_name(enum faultline_task_type task)
+{
+    switch (task) {
+    case FAULTLINE_TASK_SLEEP: return "sleep";
+    case FAULTLINE_TASK_PRIME_COUNT: return "prime_count";
+    case FAULTLINE_TASK_FIBONACCI: return "fibonacci";
+    case FAULTLINE_TASK_HASH: return "hash";
+    default: return "INVALID";
+    }
+}
+
+static void log_job(const char *event, const struct faultline_job *job,
+                    const struct faultline_coordinator_store *store, uint32_t previous_worker_id)
+{
+    int recovered = strcmp(event, "job_recovered") == 0;
+    int failed_attempt = strcmp(event, "job_failed") == 0 || strcmp(event, "job_worker_lost") == 0;
+    const char *outcome = recovered ? "RESTORED" : failed_attempt ?
+        (job->state == FAULTLINE_JOB_QUEUED ? "REQUEUED" : "FAILED") :
+        job->state == FAULTLINE_JOB_QUEUED ? "ACCEPTED" :
+        job->state == FAULTLINE_JOB_DONE ? "COMPLETED" : job_state_name(job->state);
+    char escaped[4 * FAULTLINE_JOB_MAX_RESULT_SIZE + 1] = "";
+    int done = job->state == FAULTLINE_JOB_DONE;
+    if (done && faultline_log_escape(escaped, sizeof(escaped), job->result, job->result_size) < 0) {
+        (void)snprintf(escaped, sizeof(escaped), "<unavailable>");
+    }
+    (void)faultline_log(stdout, failed_attempt ? "WARN" : "INFO", "coordinator", event,
+        "job_id=%" PRIu64 " state=%s worker_id=%" PRIu32 " attempt=%" PRIu64
+        " retry_count=%" PRIu32 " pending=%zu result_bytes=%zu task=%s max_retries=%" PRIu32
+        " failure=%s outcome=%s previous_worker_id=%" PRIu32 " durable=1 wal_sequence=%" PRIu64 "%s%s%s",
+        job->id, job_state_name(job->state), job->worker_id, job->attempt, job->retry_count,
+        store->jobs.pending.count, job->result_size, task_name(job->task_type), job->max_retries,
+        failure_name(job->failure), outcome, previous_worker_id, store->wal.synced_sequence,
+        done ? " result=\"" : "", escaped, done ? "\"" : "");
 }
 
 static void close_client(struct client *client,
@@ -93,7 +117,7 @@ static void close_client(struct client *client,
             uint64_t job_id = active->id;
             if (faultline_store_worker_lost(store, client->worker_id, faultline_monotonic_ms()) ==
                 FAULTLINE_STORE_OK) {
-                log_job("job_worker_lost", faultline_scheduler_find(jobs, job_id), jobs);
+                log_job("job_worker_lost", faultline_scheduler_find(jobs, job_id), store, client->worker_id);
             }
             /* Any fatal failure is latched; the event loop will stop. */
         }
@@ -103,15 +127,16 @@ static void close_client(struct client *client,
         if (result == FAULTLINE_REGISTRY_OK) {
             const struct faultline_worker *worker =
                 faultline_worker_find(registry, client->worker_id);
-            printf("[INFO] coordinator worker_dead worker_id=%" PRIu32
-                   " fd=%d state=DEAD last_heartbeat_ms=%" PRId64 " reason=%s\n",
-                   worker->id, client->fd, worker->last_heartbeat_ms, reason);
+            (void)faultline_log(stdout, "WARN", "coordinator", "worker_dead", "worker_id=%" PRIu32
+                   " fd=%d state=DEAD last_heartbeat_ms=%" PRId64 " reason=%s", worker->id, client->fd, worker->last_heartbeat_ms, reason);
         } else {
-            fprintf(stderr, "[ERROR] coordinator registry_disconnect_failed code=%d\n",
-                    (int)result);
+            (void)faultline_log(stderr, "ERROR", "coordinator", "registry_disconnect_failed", "code=%d", (int)result);
         }
     }
     /* Detach the worker before close() allows the OS to reuse this descriptor. */
+    (void)faultline_log(stdout, strcmp(reason, "eof") == 0 ? "INFO" : "WARN",
+        "coordinator", "client_closed", "fd=%d worker_id=%" PRIu32 " reason=%s",
+        client->fd, client->worker_id, reason);
     (void)close(client->fd);
     client->fd = -1;
     client->worker_id = FAULTLINE_WORKER_ID_UNASSIGNED;
@@ -129,7 +154,7 @@ static void queue_message(struct client *client, struct faultline_coordinator_st
 {
     if (faultline_message_encode(client->output, sizeof(client->output), message,
                                  &client->output_size) != FAULTLINE_PROTOCOL_OK) {
-        fputs("[ERROR] coordinator could not encode message\n", stderr);
+        (void)faultline_log(stderr, "ERROR", "coordinator", "message_encode_failed", "message=\"could not encode message\"");
         close_client(client, store, "encode_error");
         return;
     }
@@ -225,7 +250,7 @@ static void handle_message(struct client *client,
 
     switch (message->message_type) {
     case FAULTLINE_MSG_PING:
-        printf("[INFO] coordinator ping_received fd=%d\n", client->fd);
+        (void)faultline_log(stdout, "INFO", "coordinator", "ping_received", "fd=%d", client->fd);
         queue_reply(client, store, FAULTLINE_MSG_PONG, 0, now);
         break;
     case FAULTLINE_MSG_WORKER_REGISTER:
@@ -237,15 +262,12 @@ static void handle_message(struct client *client,
             store, client->fd, faultline_monotonic_ms(), &client->worker_id);
         if (registered == FAULTLINE_STORE_FATAL) { return; }
         if (registered != FAULTLINE_STORE_OK) {
-            fprintf(stderr, "[WARN] coordinator registration_rejected fd=%d code=%d\n",
-                    client->fd, (int)registered);
+            (void)faultline_log(stderr, "WARN", "coordinator", "registration_rejected", "fd=%d code=%d", client->fd, (int)registered);
             close_client(client, store, "registration_rejected");
             return;
         }
-        printf("[INFO] coordinator worker_registered worker_id=%" PRIu32
-               " fd=%d state=ALIVE last_heartbeat_ms=%" PRId64 "\n",
-               client->worker_id, client->fd,
-               faultline_worker_find(registry, client->worker_id)->last_heartbeat_ms);
+        (void)faultline_log(stdout, "INFO", "coordinator", "worker_registered", "worker_id=%" PRIu32
+               " fd=%d state=ALIVE last_heartbeat_ms=%" PRId64, client->worker_id, client->fd, faultline_worker_find(registry, client->worker_id)->last_heartbeat_ms);
         queue_reply(client, store, FAULTLINE_MSG_WORKER_REGISTER_ACK, client->worker_id, now);
         break;
     case FAULTLINE_MSG_HEARTBEAT:
@@ -259,9 +281,8 @@ static void handle_message(struct client *client,
             close_client(client, store, "heartbeat_rejected");
             return;
         }
-        printf("[INFO] coordinator heartbeat_received worker_id=%" PRIu32
-               " fd=%d last_heartbeat_ms=%" PRId64 "\n",
-               client->worker_id, client->fd, now);
+        (void)faultline_log(stdout, "INFO", "coordinator", "heartbeat_received", "worker_id=%" PRIu32
+               " fd=%d last_heartbeat_ms=%" PRId64, client->worker_id, client->fd, now);
         reset_input(client);
         break;
     case FAULTLINE_MSG_JOB_SUBMIT: {
@@ -274,13 +295,12 @@ static void handle_message(struct client *client,
             store, &message->payload.job_submit, faultline_monotonic_ms(), &ack.payload.job_submit_ack);
         if (accepted == FAULTLINE_STORE_FATAL) { return; }
         if (accepted != FAULTLINE_STORE_OK) {
-            fprintf(stderr, "[WARN] coordinator submission_rejected fd=%d code=%d\n",
-                    client->fd, (int)accepted);
+            (void)faultline_log(stderr, "WARN", "coordinator", "submission_rejected", "fd=%d code=%d", client->fd, (int)accepted);
             close_client(client, store, "submission_rejected");
             return;
         }
         client->job_client = 1;
-        log_job("job_submitted", faultline_scheduler_find(jobs, ack.payload.job_submit_ack), jobs);
+        log_job("job_submitted", faultline_scheduler_find(jobs, ack.payload.job_submit_ack), store, 0);
         queue_message(client, store, &ack, now);
         break;
     }
@@ -314,12 +334,24 @@ static void handle_message(struct client *client,
             store, client->worker_id, message, faultline_monotonic_ms());
         if (reported == FAULTLINE_STORE_FATAL) { return; }
         if (reported != FAULTLINE_STORE_OK) {
+            const struct faultline_job_identity *identity = message->message_type == FAULTLINE_MSG_JOB_STARTED ?
+                &message->payload.job_started : message->message_type == FAULTLINE_MSG_JOB_COMPLETED ?
+                &message->payload.job_completed.identity : &message->payload.job_failed.identity;
+            const struct faultline_job *current = faultline_scheduler_find(jobs, identity->job_id);
+            (void)faultline_log(stdout, "WARN", "coordinator", "job_report_rejected",
+                "job_id=%" PRIu64 " worker_id=%" PRIu32 " report_worker_id=%" PRIu32
+                " report_attempt=%" PRIu64 " current_worker_id=%" PRIu32
+                " current_attempt=%" PRIu64 " current_state=%s reason=identity_or_state_mismatch",
+                identity->job_id, client->worker_id, identity->worker_id, identity->attempt,
+                current == NULL ? 0 : current->worker_id, current == NULL ? 0 : current->attempt,
+                current == NULL ? "NOT_FOUND" : job_state_name(current->state));
             close_client(client, store, "invalid_job_report");
             return;
         }
         const char *event = message->message_type == FAULTLINE_MSG_JOB_STARTED ? "job_started" :
                             message->message_type == FAULTLINE_MSG_JOB_COMPLETED ? "job_completed" : "job_failed";
-        log_job(event, faultline_scheduler_find(jobs, id), jobs);
+        log_job(event, faultline_scheduler_find(jobs, id), store,
+                message->message_type == FAULTLINE_MSG_JOB_FAILED ? client->worker_id : 0);
         reset_input(client);
         break;
     }
@@ -356,15 +388,14 @@ static void read_message(struct client *client,
 
     if (count == 0) {
         if (client->received != 0) {
-            fprintf(stderr, "[WARN] coordinator truncated_message fd=%d bytes=%zu\n",
-                    client->fd, client->received);
+            (void)faultline_log(stderr, "WARN", "coordinator", "truncated_message", "fd=%d bytes=%zu", client->fd, client->received);
         }
         close_client(client, store, client->received == 0 ? "eof" : "truncated_message");
         return;
     }
     if (count < 0) {
         if (errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR) {
-            perror("coordinator: recv");
+            faultline_log_error("WARN", "coordinator", "recv", errno);
             close_client(client, store, "recv_error");
         }
         return;
@@ -412,8 +443,7 @@ static void read_message(struct client *client,
         return;
     }
     if (result != FAULTLINE_PROTOCOL_OK) {
-        fprintf(stderr, "[WARN] coordinator invalid_message fd=%d code=%d\n",
-                client->fd, (int)result);
+        (void)faultline_log(stderr, "WARN", "coordinator", "invalid_message", "fd=%d code=%d", client->fd, (int)result);
         close_client(client, store, "invalid_message");
         return;
     }
@@ -428,7 +458,7 @@ static void write_reply(struct client *client,
 
     if (count < 0) {
         if (errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR) {
-            perror("coordinator: send");
+            faultline_log_error("WARN", "coordinator", "send", errno);
             close_client(client, store, "send_error");
         }
         return;
@@ -441,10 +471,10 @@ static void write_reply(struct client *client,
     client->last_progress_ms = now;
     if (client->sent == client->output_size) {
         if (client->reply_type == FAULTLINE_MSG_PONG) {
-            printf("[INFO] coordinator pong_sent fd=%d\n", client->fd);
+            (void)faultline_log(stdout, "INFO", "coordinator", "pong_sent", "fd=%d", client->fd);
         } else if (client->reply_type == FAULTLINE_MSG_WORKER_REGISTER_ACK) {
-            printf("[INFO] coordinator worker_register_ack_sent worker_id=%" PRIu32
-                   " fd=%d\n", client->worker_id, client->fd);
+            (void)faultline_log(stdout, "INFO", "coordinator", "worker_register_ack_sent", "worker_id=%" PRIu32
+                   " fd=%d", client->worker_id, client->fd);
         }
         reset_input(client);
     }
@@ -463,7 +493,7 @@ static void accept_clients(int listener, struct client clients[MAX_CLIENTS],
                 continue;
             }
             if (errno != EAGAIN && errno != EWOULDBLOCK) {
-                perror("coordinator: accept");
+                faultline_log_error("WARN", "coordinator", "accept", errno);
             }
             return;
         }
@@ -473,17 +503,17 @@ static void accept_clients(int listener, struct client clients[MAX_CLIENTS],
             }
         }
         if (slot == MAX_CLIENTS) {
-            fputs("[WARN] coordinator client_limit_reached\n", stderr);
+            (void)faultline_log(stderr, "WARN", "coordinator", "client_limit_reached", "");
             (void)close(fd);
         } else if (faultline_set_nonblocking(fd) < 0) {
-            perror("coordinator: nonblocking client");
+            faultline_log_error("WARN", "coordinator", "nonblocking client", errno);
             (void)close(fd);
         } else {
             clients[slot] = (struct client){
                 .fd = fd, .phase = READING_MESSAGE, .expected = FAULTLINE_HEADER_SIZE,
                 .last_progress_ms = now
             };
-            printf("[INFO] coordinator client_connected fd=%d\n", fd);
+            (void)faultline_log(stdout, "INFO", "coordinator", "client_connected", "fd=%d", fd);
         }
     }
 }
@@ -519,7 +549,7 @@ static int schedule_jobs(struct client clients[MAX_CLIENTS],
          store->failure == FAULTLINE_STORE_FAILURE_NONE; ++i) {
         now = faultline_monotonic_ms();
         if (now < 0) {
-            perror("coordinator: clock");
+            faultline_log_error("ERROR", "coordinator", "clock", errno);
             return EXIT_FAILURE;
         }
         struct client *client = &clients[i];
@@ -533,10 +563,10 @@ static int schedule_jobs(struct client clients[MAX_CLIENTS],
         }
         struct faultline_message assignment;
         if (faultline_store_assign(store, client->worker_id, now, &assignment) != FAULTLINE_STORE_OK) {
-            fputs("[ERROR] coordinator schedule_failed\n", stderr);
+            (void)faultline_log(stderr, "ERROR", "coordinator", "schedule_failed", "");
             return EXIT_FAILURE;
         }
-        log_job("job_assigned", faultline_scheduler_find(jobs, assignment.payload.job_assign.identity.job_id), jobs);
+        log_job("job_assigned", faultline_scheduler_find(jobs, assignment.payload.job_assign.identity.job_id), store, 0);
         queue_message(client, store, &assignment, now);
     }
     return store->failure == FAULTLINE_STORE_FAILURE_NONE ? EXIT_SUCCESS : EXIT_FAILURE;
@@ -551,7 +581,7 @@ static int run_coordinator(int listener, int heartbeat_timeout_ms,
     int status = EXIT_SUCCESS;
     struct faultline_stats_session session;
     if (faultline_stats_begin(&session, store, faultline_monotonic_ms()) < 0) {
-        fputs("[ERROR] coordinator stats_initialization_failed\n", stderr);
+        (void)faultline_log(stderr, "ERROR", "coordinator", "stats_initialization_failed", "");
         return EXIT_FAILURE;
     }
 
@@ -563,7 +593,7 @@ static int run_coordinator(int listener, int heartbeat_timeout_ms,
         int64_t now = faultline_monotonic_ms();
 
         if (now < 0) {
-            perror("coordinator: clock");
+            faultline_log_error("ERROR", "coordinator", "clock", errno);
             status = EXIT_FAILURE;
             break;
         }
@@ -581,13 +611,13 @@ static int run_coordinator(int listener, int heartbeat_timeout_ms,
             if (errno == EINTR) {
                 continue;
             }
-            perror("coordinator: poll");
+            faultline_log_error("ERROR", "coordinator", "poll", errno);
             status = EXIT_FAILURE;
             break;
         }
         now = faultline_monotonic_ms();
         if (now < 0) {
-            perror("coordinator: clock");
+            faultline_log_error("ERROR", "coordinator", "clock", errno);
             status = EXIT_FAILURE;
             break;
         }
@@ -605,11 +635,9 @@ static int run_coordinator(int listener, int heartbeat_timeout_ms,
             worker = faultline_worker_find(registry, clients[i].worker_id);
             /* Expire before reading: late bytes cannot revive an expired identity. */
             if (faultline_worker_timed_out(worker, now, heartbeat_timeout_ms)) {
-                printf("[INFO] coordinator heartbeat_timeout worker_id=%" PRIu32
+                (void)faultline_log(stdout, "WARN", "coordinator", "heartbeat_timeout", "worker_id=%" PRIu32
                        " fd=%d timeout_ms=%d detected_at_ms=%" PRId64
-                       " silence_ms=%" PRId64 "\n", clients[i].worker_id,
-                       clients[i].fd, heartbeat_timeout_ms, now,
-                       now - worker->last_heartbeat_ms);
+                       " silence_ms=%" PRId64, clients[i].worker_id, clients[i].fd, heartbeat_timeout_ms, now, now - worker->last_heartbeat_ms);
                 close_client(&clients[i], store, "heartbeat_timeout");
                 continue;
             }
@@ -628,8 +656,7 @@ static int run_coordinator(int listener, int heartbeat_timeout_ms,
                 (clients[i].worker_id == FAULTLINE_WORKER_ID_UNASSIGNED ||
                  clients[i].phase == WRITING_REPLY || clients[i].received != 0) &&
                 now - clients[i].last_progress_ms >= FAULTLINE_IO_TIMEOUT_MS) {
-                fprintf(stderr, "[WARN] coordinator client_timeout fd=%d\n",
-                        clients[i].fd);
+                (void)faultline_log(stderr, "WARN", "coordinator", "client_timeout", "fd=%d", clients[i].fd);
                 close_client(&clients[i], store, "io_timeout");
             }
         }
@@ -638,7 +665,7 @@ static int run_coordinator(int listener, int heartbeat_timeout_ms,
             break;
         }
         if ((descriptors[0].revents & (POLLERR | POLLHUP | POLLNVAL)) != 0) {
-            fputs("[ERROR] coordinator listener unavailable\n", stderr);
+            (void)faultline_log(stderr, "ERROR", "coordinator", "listener_unavailable", "message=\"listener unavailable\"");
             status = EXIT_FAILURE;
             break;
         }
@@ -649,7 +676,7 @@ static int run_coordinator(int listener, int heartbeat_timeout_ms,
             /* Disconnect cleanup may timestamp a retry after the poll snapshot. */
             now = faultline_monotonic_ms();
             if (now < 0) {
-                perror("coordinator: clock");
+                faultline_log_error("ERROR", "coordinator", "clock", errno);
                 status = EXIT_FAILURE;
                 break;
             }
@@ -659,6 +686,14 @@ static int run_coordinator(int listener, int heartbeat_timeout_ms,
             }
         }
     }
+    size_t active_attempts = 0;
+    for (size_t i = 0; i < store->jobs.count; ++i) {
+        if (store->jobs.jobs[i].state == FAULTLINE_JOB_ASSIGNED ||
+            store->jobs.jobs[i].state == FAULTLINE_JOB_RUNNING) { ++active_attempts; }
+    }
+    (void)faultline_log(stdout, "INFO", "coordinator", "shutdown",
+        "reason=%s signal=%d active_attempts=%zu policy=reconcile_on_restart",
+        stopping ? "signal" : "error", (int)stopping, active_attempts);
     for (size_t i = 0; i < MAX_CLIENTS; ++i) {
         if (clients[i].fd >= 0) {
             /* Shutdown leaves durable active attempts for startup reconciliation.
@@ -671,12 +706,8 @@ static int run_coordinator(int listener, int heartbeat_timeout_ms,
 
 static void log_storage_error(const struct faultline_coordinator_store *store)
 {
-    fprintf(stderr, "[ERROR] coordinator persistence_failed reason=%d operation=%s errno=%d "
-            "write_code=%d replay_code=%d offset=%" PRIu64 " format=%d history=%d\n",
-            (int)store->failure, faultline_wal_writer_operation_name(store->wal.failed_operation),
-            store->wal.system_error, (int)store->write_result, (int)store->replay_result,
-            store->replay_report.error_offset, (int)store->replay_report.format_error,
-            (int)store->replay_report.history_error);
+    (void)faultline_log(stderr, "ERROR", "coordinator", "persistence_failed", "reason=%d operation=%s errno=%d "
+            "write_code=%d replay_code=%d offset=%" PRIu64 " format=%d history=%d", (int)store->failure, faultline_wal_writer_operation_name(store->wal.failed_operation), store->wal.system_error, (int)store->write_result, (int)store->replay_result, store->replay_report.error_offset, (int)store->replay_report.format_error, (int)store->replay_report.history_error);
 }
 
 static void usage(FILE *stream)
@@ -722,29 +753,32 @@ int main(int argc, char **argv)
     if (sigemptyset(&action.sa_mask) < 0 ||
         sigaction(SIGINT, &action, NULL) < 0 ||
         sigaction(SIGTERM, &action, NULL) < 0 || faultline_ignore_sigpipe() < 0) {
-        perror("coordinator: configure signals");
+        faultline_log_error("ERROR", "coordinator", "configure signals", errno);
         return EXIT_FAILURE;
     }
     struct faultline_coordinator_store *store = malloc(sizeof(*store));
-    if (store == NULL) { perror("coordinator: allocate durable store"); return EXIT_FAILURE; }
+    if (store == NULL) { faultline_log_error("ERROR", "coordinator", "allocate durable store", errno); return EXIT_FAILURE; }
     faultline_store_init(store);
     int status = EXIT_FAILURE;
     int listener = -1;
     if (faultline_store_open(store, wal_path, initialize, faultline_monotonic_ms()) != FAULTLINE_STORE_OK) {
         log_storage_error(store);
     } else if (!stopping) {
-        printf("[INFO] coordinator wal_ready path=%s sequence=%" PRIu64
-               " jobs=%zu pending=%zu interrupted=%zu repaired_bytes=%" PRIu64 "\n",
-               wal_path, store->wal.synced_sequence, store->jobs.count, store->jobs.pending.count,
+        char escaped_path[4 * PATH_MAX + 1];
+        if (faultline_log_escape(escaped_path, sizeof(escaped_path), (const uint8_t *)wal_path, strlen(wal_path)) < 0) {
+            (void)snprintf(escaped_path, sizeof(escaped_path), "<omitted>");
+        }
+        (void)faultline_log(stdout, "INFO", "coordinator", "wal_ready", "path=\"%s\" sequence=%" PRIu64
+               " jobs=%zu pending=%zu interrupted=%zu repaired_bytes=%" PRIu64,
+               escaped_path, store->wal.synced_sequence, store->jobs.count, store->jobs.pending.count,
                store->interrupted_jobs, store->replay_report.tail_bytes);
         for (size_t i = 0; i < store->jobs.count; ++i) {
-            log_job("job_recovered", &store->jobs.jobs[i], &store->jobs);
+            log_job("job_recovered", &store->jobs.jobs[i], store, 0);
         }
         listener = faultline_listen(FAULTLINE_DEFAULT_HOST, port, MAX_CLIENTS);
-        if (listener < 0) { perror("coordinator: listen"); }
+        if (listener < 0) { faultline_log_error("ERROR", "coordinator", "listen", errno); }
         else {
-            printf("[INFO] coordinator listening address=%s port=%u heartbeat_timeout_ms=%d\n",
-                   FAULTLINE_DEFAULT_HOST, (unsigned int)port, heartbeat_timeout_ms);
+            (void)faultline_log(stdout, "INFO", "coordinator", "listening", "address=%s port=%u heartbeat_timeout_ms=%d", FAULTLINE_DEFAULT_HOST, (unsigned int)port, heartbeat_timeout_ms);
             status = run_coordinator(listener, heartbeat_timeout_ms, store);
             if (store->failure != FAULTLINE_STORE_FAILURE_NONE) { log_storage_error(store); }
         }
@@ -756,6 +790,7 @@ int main(int argc, char **argv)
         status = EXIT_FAILURE;
     }
     free(store);
-    puts("[INFO] coordinator stopped");
+    (void)faultline_log(stdout, status == EXIT_SUCCESS ? "INFO" : "ERROR", "coordinator", "stopped",
+                        "exit_code=%d signal=%d", status, (int)stopping);
     return status;
 }

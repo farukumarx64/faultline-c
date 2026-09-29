@@ -34,7 +34,7 @@ TASK_OBJECT := $(BUILD_DIR)/worker/task.o
 MAIN_OBJECTS := $(BUILD_DIR)/coordinator/main.o \
 	$(BUILD_DIR)/worker/main.o $(BUILD_DIR)/cli/main.o
 TEST_NAMES := test_protocol test_messages test_net test_worker_registry test_jobs test_job_queue test_job_messages test_job_status test_list_messages test_scheduler test_tasks test_wal test_wal_writer test_wal_replay test_coordinator_store
-TEST_NAMES += test_stats
+TEST_NAMES += test_stats test_log
 TEST_OBJECTS := $(addprefix $(BUILD_DIR)/tests/,$(addsuffix .o,$(TEST_NAMES)))
 OBJECTS := $(COMMON_OBJECTS) $(MAIN_OBJECTS) $(TEST_OBJECTS) $(REGISTRY_OBJECT) $(JOB_OBJECT) $(QUEUE_OBJECT) $(SCHEDULER_OBJECT) $(TASK_OBJECT) $(WAL_FORMAT_OBJECT) $(WAL_WRITER_OBJECT) $(WAL_REPLAY_OBJECT) $(STORE_OBJECT)
 OBJECTS += $(STATS_OBJECT)
@@ -46,7 +46,13 @@ TEST_PROGRAMS := $(addprefix $(BUILD_DIR)/tests/,$(TEST_NAMES))
 
 all: $(PROGRAMS)
 
-.PHONY: test-stats-protocol test-stats
+.PHONY: test-stats-protocol test-stats test-logs test-observability
+test-logs: $(BUILD_DIR)/tests/test_log
+	./$(BUILD_DIR)/tests/test_log
+
+test-observability: all
+	$(PYTHON) tests/integration/test_observability.py --bin-dir $(BUILD_DIR) $(INTEGRATION_ARGS)
+
 test-stats-protocol: $(BUILD_DIR)/tests/test_stats
 	./$(BUILD_DIR)/tests/test_stats
 
@@ -69,6 +75,7 @@ test-unit: $(TEST_PROGRAMS)
 	./$(BUILD_DIR)/tests/test_job_status
 	./$(BUILD_DIR)/tests/test_list_messages
 	./$(BUILD_DIR)/tests/test_stats
+	./$(BUILD_DIR)/tests/test_log
 	./$(BUILD_DIR)/tests/test_scheduler
 	./$(BUILD_DIR)/tests/test_tasks
 	./$(BUILD_DIR)/tests/test_wal
@@ -123,6 +130,7 @@ test-integration: all $(BUILD_DIR)/tests/crash-coordinator
 	$(PYTHON) tests/integration/test_ping.py --bin-dir $(BUILD_DIR) $(INTEGRATION_ARGS)
 	$(PYTHON) tests/integration/test_stats.py --bin-dir $(BUILD_DIR) $(INTEGRATION_ARGS)
 	$(PYTHON) tests/integration/test_worker.py --bin-dir $(BUILD_DIR) $(INTEGRATION_ARGS)
+	$(PYTHON) tests/integration/test_observability.py --bin-dir $(BUILD_DIR) $(INTEGRATION_ARGS)
 	$(PYTHON) tests/integration/test_heartbeat.py --bin-dir $(BUILD_DIR) $(INTEGRATION_ARGS)
 
 test-scheduling: all

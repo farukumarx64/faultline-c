@@ -21,8 +21,10 @@ class ExecutionTests(JobProcessTestCase):
         while time.monotonic() < deadline:
             match = re.search(rf'job_completed job_id={job_id}\b([^\n]*)', read_output(self.log))
             if match:
-                self.assertIn('state=DONE', match[1])
-                self.assertIn(f'result_bytes={len(expected)} result="{expected}"', match[1])
+                fields = dict(re.findall(r'(\w+)=("[^"]*"|\S+)', match[1]))
+                self.assertEqual(fields['state'], 'DONE')
+                self.assertEqual(fields['result_bytes'], str(len(expected)))
+                self.assertEqual(fields['result'], f'"{expected}"')
                 return match[1]
             time.sleep(0.01)
         self.fail(f'Job {job_id} did not complete: {read_output(self.log)}')
