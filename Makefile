@@ -1,6 +1,7 @@
 CC ?= cc
 PYTHON ?= python3
 INTEGRATION_ARGS ?=
+BATCH_ARGS ?=
 SANITIZE ?= 0
 
 CPPFLAGS += -Iinclude -D_POSIX_C_SOURCE=200809L
@@ -45,6 +46,14 @@ TEST_PROGRAMS := $(addprefix $(BUILD_DIR)/tests/,$(TEST_NAMES))
 .PHONY: all sanitize test test-unit test-integration test-failures test-scheduling test-execution test-recovery test-wal test-wal-writer test-wal-replay test-persistence test-startup-recovery test-coordinator-crashes test-job-status-protocol test-status test-list-protocol test-listings test-sanitize clean
 
 all: $(PROGRAMS)
+
+.PHONY: test-batch test-batch-harness
+# Explicit targets: the full baseline takes roughly a minute before overhead.
+test-batch: all
+	$(PYTHON) tests/chaos/run_batch.py --bin-dir $(BUILD_DIR) $(BATCH_ARGS)
+
+test-batch-harness: all
+	$(PYTHON) tests/chaos/test_batch.py --bin-dir $(BUILD_DIR)
 
 .PHONY: test-stats-protocol test-stats test-logs test-observability
 test-logs: $(BUILD_DIR)/tests/test_log
