@@ -1,0 +1,91 @@
+name: Linux CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  test:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      # Keep the other compiler's evidence if one configuration fails.
+      fail-fast: false
+      matrix:
+        include:
+          - name: GCC 13
+            cc: gcc-13
+            sanitize: "0"
+            artifact: gcc
+          - name: Clang 18 + ASan/UBSan
+            cc: clang-18
+            sanitize: "1"
+            artifact: clang-sanitizers
+
+    env:
+      CC: ${{ matrix.cc }}
+      SANITIZE: ${{ matrix.sanitize }}
+      CFLAGS: -O0 -g -Werror
+      ASAN_OPTIONS: detect_leaks=1:halt_on_error=1
+      UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
+      ASAN_SYMBOLIZER_PATH: /usr/bin/llvm-symbolizer-18
+      PYTHONUNBUFFERED: "1"
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Record toolchain
+        run: |
+          mkdir -p "$RUNNER_TEMP/faultline-ci"
+          {
+            uname -a
+            cat /etc/os-release
+            "$CC" --version
+            make --version
+            python3 --version
+            if [[ "$SANITIZE" == "1" ]]; then
+              "$ASAN_SYMBOLIZER_PATH" --version
+            fi
+          } 2>&1 | tee "$RUNNER_TEMP/faultline-ci/environment.log"
+
+      - name: Build executables
+        run: |
+          make --jobs=2 CC="$CC" SANITIZE="$SANITIZE" CFLAGS="$CFLAGS" all \
+            2>&1 | tee "$RUNNER_TEMP/faultline-ci/build.log"
+
+      - name: Run C unit tests
+        run: |
+          make CC="$CC" SANITIZE="$SANITIZE" CFLAGS="$CFLAGS" test-unit \
+            2>&1 | tee "$RUNNER_TEMP/faultline-ci/unit.log"
+
+      - name: Run process integration tests
+        # Suites share port 9000, so keep them sequential within each runner.
+        run: |
+          make CC="$CC" SANITIZE="$SANITIZE" CFLAGS="$CFLAGS" \
+            test-integration INTEGRATION_ARGS='--port 9000' \
+            2>&1 | tee "$RUNNER_TEMP/faultline-ci/integration.log"
+
+      - name: Upload build and test logs
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: linux-${{ matrix.artifact }}-logs
+          path: ${{ runner.temp }}/faultline-ci/*.log
+          if-no-files-found: warn
+          retention-days: 7
