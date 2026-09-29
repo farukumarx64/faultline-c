@@ -118,6 +118,8 @@ class BatchRun:
         self.observations = {}
         self.terminal = {}
         self.snapshots = {}
+        self.drain_eligible = set()
+        self.accounting = None
         self.started = None
         self.work_deadline = None
         self.run_deadline = None
@@ -354,10 +356,18 @@ class BatchRun:
             self.event('acknowledged', **entry)
             self.save('submissions.json', self.ledger)
 
-    def observe_jobs(self, rows):
+    def require_job_ids(self, identities, source):
         expected = {entry['job_id'] for entry in self.ledger}
-        require(len(self.ledger) == self.args.jobs and None not in expected and set(rows) == expected,
-                'job listing differs from acknowledged ID set')
+        require(len(self.ledger) == len(expected) == self.args.jobs and
+                all(isinstance(job_id, int) and job_id > 0 for job_id in expected),
+                'submission ledger is incomplete or contains duplicate IDs')
+        actual = set(identities)
+        require(actual == expected, f'{source} differs from acknowledged ID set: '
+                f'missing={sorted(expected - actual)}, unexpected={sorted(actual - expected)}')
+        return expected
+
+    def observe_jobs(self, rows):
+        self.require_job_ids(rows, 'job listing')
         for job_id, row in rows.items():
             require(row['TASK'] == 'sleep' and row['FAILURE'] == 'NONE', f'unexpected task/failure for job {job_id}')
             require(row['RETRIES'] == f'0/{self.args.max_retries}', f'job {job_id} consumed a retry in baseline')
@@ -416,6 +426,33 @@ class BatchRun:
     def verify_coverage(self):
         pass
 
+    def verify_job_history(self):
+        # Baseline observations already require attempt 1 and zero retries.
+        return {job_id: [] for job_id in self.terminal}
+
+    def verify_accounting(self, rows, statuses):
+        """Audit identity/history after repeated status, result, and stats checks."""
+        submitted = self.require_job_ids(rows, 'final listing')
+        self.require_job_ids(statuses, 'final statuses')
+        self.require_job_ids(self.terminal, 'terminal observations')
+        completed = {job_id for job_id, row in rows.items() if row['STATE'] == 'DONE'}
+        failed = {job_id for job_id, row in rows.items() if row['STATE'] == 'FAILED'}
+        require(completed.isdisjoint(failed) and (completed | failed) == submitted,
+                'terminal ID sets do not partition the submissions')
+        require(self.drain_eligible <= completed, 'eligible drain jobs did not all complete')
+        history = self.verify_job_history()
+        counts = dict(submitted=len(submitted), completed=len(completed), terminally_failed=len(failed))
+        require(counts['submitted'] == counts['completed'] + counts['terminally_failed'],
+                'submitted != completed + terminally_failed')
+        report = dict(verified=True, counts=counts, submitted_ids=sorted(submitted),
+                      completed_ids=sorted(completed), terminally_failed_ids=sorted(failed),
+                      drain_eligible_ids=sorted(self.drain_eligible),
+                      jobs=[dict(submission=entry, terminal_status=statuses[entry['job_id']],
+                                 lost_attempts=history[entry['job_id']]) for entry in self.ledger])
+        self.save('accounting.json', report)
+        self.accounting = report
+        self.event('accounting_verified', **counts)
+
     def coverage(self):
         return dict(injected_faults=0, recovery_demonstrated=False)
 
@@ -423,10 +460,18 @@ class BatchRun:
         return {}
 
     def drain_and_verify(self):
+        starting_drain = True
         while True:
             rows = table(self.cli('jobs'), 'jobs')
             self.observe_jobs(rows)
             self.verify_workers(table(self.cli('workers'), 'workers'))
+            if starting_drain:
+                self.drain_eligible = {job_id for job_id, row in rows.items()
+                                       if row['STATE'] not in ('DONE', 'FAILED')}
+                self.save('drain-start.json', dict(elapsed_ms=self.elapsed(), jobs=rows,
+                                                 eligible_job_ids=sorted(self.drain_eligible)))
+                self.event('drain_started', eligible_job_ids=sorted(self.drain_eligible))
+                starting_drain = False
             if len(self.terminal) == self.args.jobs:
                 break
             self.pause(self.work_deadline)
@@ -442,6 +487,7 @@ class BatchRun:
         self.check()
         self.snapshots = dict(jobs=final_rows, statuses=statuses, workers=workers, stats=stats)
         self.save('final-snapshots.json', self.snapshots)
+        self.verify_accounting(final_rows, statuses)
         self.verify_coverage()
         self.event('verified', submitted=self.args.jobs, completed=stats['jobs_completed_total'],
                    failed=stats['jobs_failed_total'], attempts=stats['job_attempts_total'], retries=stats['job_retries_total'])
@@ -566,6 +612,7 @@ class BatchRun:
                            verified_completed=sum(s['state'] == 'DONE' for s in self.snapshots.get('statuses', {}).values()),
                            verified_failed=sum(s['state'] == 'FAILED' for s in self.snapshots.get('statuses', {}).values()),
                            totals=self.snapshots.get('stats'), elapsed_ms=self.elapsed(),
+                           accounting=self.accounting,
                            coverage=self.coverage(), cleanup=cleanup, **self.summary_details(),
                            children=[dict(role=c.role, pid=c.process.pid, argv=c.argv,
                                           started_ms=c.started_ms, exit_ms=c.exit_ms, returncode=c.process.returncode,
@@ -579,7 +626,8 @@ class BatchRun:
                 self.events.close()
                 for sig, handler in original_handlers.items():
                     signal.signal(sig, handler)
-        print(f"{summary['verdict']}: acknowledged={summary['acknowledged']} verified_completed={summary['verified_completed']}")
+        print(f"{summary['verdict']}: acknowledged={summary['acknowledged']} "
+              f"verified_completed={summary['verified_completed']} verified_failed={summary['verified_failed']}")
         print(f'Artifacts: {self.directory}')
         if failure:
             print(failure, file=sys.stderr)

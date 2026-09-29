@@ -137,6 +137,50 @@ class HarnessCase(unittest.TestCase):
         # The final line can be in flight while the harness is running.
         return [json.loads(line) for line in path.read_text().splitlines(keepends=True) if line.endswith('\n')]
 
+    def assert_accounted(self, output, summary):
+        ledger = json.loads((output / 'submissions.json').read_text())
+        report = json.loads((output / 'accounting.json').read_text())
+        snapshots = json.loads((output / 'final-snapshots.json').read_text())
+        drain = json.loads((output / 'drain-start.json').read_text())
+        submitted = {entry['job_id'] for entry in ledger}
+        completed, failed = set(report['completed_ids']), set(report['terminally_failed_ids'])
+        self.assertEqual(report, summary['accounting'])
+        self.assertTrue(report['verified'])
+        self.assertEqual(completed | failed, submitted)
+        self.assertFalse(completed & failed)
+        self.assertEqual(report['submitted_ids'], sorted(submitted))
+        self.assertEqual(report['counts'], dict(submitted=len(submitted), completed=len(completed),
+                                               terminally_failed=len(failed)))
+        self.assertEqual(report['drain_eligible_ids'], drain['eligible_job_ids'])
+        self.assertLessEqual(set(drain['eligible_job_ids']), completed)
+        self.assertEqual([job['submission'] for job in report['jobs']], ledger)
+        for job in report['jobs']:
+            entry, status = job['submission'], job['terminal_status']
+            self.assertEqual(status, snapshots['statuses'][str(entry['job_id'])])
+            retries, allowance = map(int, status['retries'].split('/'))
+            self.assertEqual(allowance, entry['max_retries'])
+            self.assertLessEqual(retries, allowance)
+            self.assertEqual(int(status['attempt']), retries + 1)
+            if status['state'] == 'DONE':
+                self.assertEqual(status['result'], '"slept_ms=' + entry['arguments'] + '"')
+                self.assertEqual(status['failure'], 'NONE')
+            else:
+                self.assertEqual(status['state'], 'FAILED')
+                self.assertEqual(retries, allowance)
+                self.assertEqual((status['failure'], status['result_bytes']), ('WORKER_LOST', '0'))
+                self.assertNotIn('result', status)
+            expected_losses = [dict(worker_id=action['worker_id'], **action['loss'])
+                               for action in summary.get('fault_actions', [])
+                               if action['loss'] and action['loss']['job_id'] == entry['job_id']]
+            self.assertEqual(job['lost_attempts'], expected_losses)
+        events = self.events(output)
+        drain_start = next(i for i, e in enumerate(events) if e['event'] == 'drain_started')
+        self.assertFalse(any(e['event'] == 'fault_signal' for e in events[drain_start:]))
+        self.assertTrue(all(action['completed_elapsed_ms'] <= drain['elapsed_ms']
+                            for action in summary.get('fault_actions', [])))
+        self.assertEqual(sum(e['event'] == 'accounting_verified' for e in events), 1)
+        return report
+
     def wait_event(self, process, output, predicate):
         deadline = time.monotonic() + 12
         while time.monotonic() < deadline:
@@ -156,6 +200,7 @@ class HarnessTests(HarnessCase):
         self.assertEqual((summary['acknowledged'], summary['verified_completed']), (9, 9))
         self.assertEqual(summary['coverage'], dict(injected_faults=0, recovery_demonstrated=False))
         self.assertTrue(summary['cleanup']['ok'])
+        self.assert_accounted(output, summary)
         manifest = json.loads((output / 'manifest.json').read_text())
         self.assertEqual((manifest['candidate_plan'], manifest['seed_used']), ([], False))
         self.assertEqual(len(manifest['binaries']['faultline']['sha256']), 64)

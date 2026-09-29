@@ -47,7 +47,6 @@ class ChaosRun(BatchRun):
         self.transport_warnings = []
         self.window = None
         self.unused_plan_from = None
-        self.drain_eligible = set()
         self.insufficient_coverage = False
 
     def manifest(self):
@@ -167,9 +166,7 @@ class ChaosRun(BatchRun):
                         1 <= attempt <= self.args.max_retries + 1, 'unexpected worker lease')
 
     def observe_jobs(self, rows):
-        expected = {entry['job_id'] for entry in self.ledger}
-        require(len(self.ledger) == self.args.jobs and None not in expected and set(rows) == expected,
-                'job listing differs from acknowledged ID set')
+        self.require_job_ids(rows, 'job listing')
         for job_id, row in rows.items():
             state = row['STATE']
             require(row['TASK'] == 'sleep' and state in ('QUEUED', 'ASSIGNED', 'RUNNING', 'DONE', 'FAILED'),
@@ -309,11 +306,6 @@ class ChaosRun(BatchRun):
             self.wait_until(deadline)
         self.window['settled_elapsed_ms'] = self.elapsed()
         self.event('fault_window_settled', **self.window)
-        rows = table(self.cli('jobs'), 'jobs')
-        self.observe_jobs(rows)
-        self.verify_workers(table(self.cli('workers'), 'workers'))
-        self.drain_eligible = {job_id for job_id, row in rows.items() if row['STATE'] not in ('DONE', 'FAILED')}
-        self.event('drain_started', eligible_job_ids=sorted(self.drain_eligible))
 
     def coverage(self):
         lost = [action['loss'] for action in self.actions if action['loss']]
@@ -327,10 +319,17 @@ class ChaosRun(BatchRun):
                     recovery_demonstrated=bool(resumed),
                     sufficient=bool(self.actions and lost and (resumed if self.args.max_retries else exhausted)))
 
-    def verify_coverage(self):
+    def verify_job_history(self):
         # Account for every retry and terminal failure, not only one lucky job.
+        history = {job_id: [] for job_id in self.terminal}
+        for action in self.actions:
+            loss = action['loss']
+            if loss is not None:
+                require(loss['job_id'] in history, 'worker loss references an unacknowledged job')
+                require(loss['outcome'] in ('REQUEUED', 'FAILED'), 'unknown worker-loss outcome')
+                history[loss['job_id']].append(dict(worker_id=action['worker_id'], **loss))
         for job_id, row in self.terminal.items():
-            losses = [a['loss'] for a in self.actions if a['loss'] and a['loss']['job_id'] == job_id]
+            losses = history[job_id]
             requeues = [loss for loss in losses if loss['outcome'] == 'REQUEUED']
             require(len(requeues) == int(row['RETRIES'].split('/')[0]), 'retry without attributed worker loss')
             require({loss['attempt'] for loss in requeues} == set(range(1, len(requeues) + 1)),
@@ -339,6 +338,9 @@ class ChaosRun(BatchRun):
                     'terminal failure without attributed worker loss')
             require(all(loss['attempt'] == int(row['ATTEMPT']) for loss in losses if loss['outcome'] == 'FAILED'),
                     'terminal failure has a different interrupted attempt')
+        return history
+
+    def verify_coverage(self):
         self.insufficient_coverage = not self.coverage()['sufficient']
         require(not self.insufficient_coverage, 'INSUFFICIENT_COVERAGE: no qualifying interrupted attempt outcome')
 
