@@ -11,6 +11,10 @@ and recovery of interrupted attempts. Both full regression runs passed; no
 runtime or test-code fixes were needed. This completes the persistence phase,
 not the entire MVP or the later testing/chaos and benchmarking phases.
 
+This is the historical persistence review. The later
+[CLI and observability review](observability-review.md) records the current full
+regression and inspection of durable/recovered state through commands and logs.
+
 ## The recovery promise
 
 After a client receives a valid `JOB_SUBMIT_ACK`, the job's identity, definition,

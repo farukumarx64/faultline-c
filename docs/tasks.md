@@ -28,7 +28,8 @@ Use three terminals from the project root after running `make`:
 ```
 
 On a fresh coordinator, its log includes these events (worker ID depends on
-registration order):
+registration order). These abbreviated excerpts omit timestamps, process metadata,
+and the extra outcome/durability fields documented in [runtime logging](logging.md):
 
 ```text
 [INFO] coordinator job_assigned job_id=1 state=ASSIGNED worker_id=1 attempt=1 retry_count=0 pending=0 result_bytes=0

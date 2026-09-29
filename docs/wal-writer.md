@@ -198,7 +198,8 @@ simulate power loss or reconstruct coordinator job state.
 The eleven writer groups are joined by twelve [replay groups](wal-replay.md#verification),
 plus seven coordinator-store groups. With seven [status protocol groups](job-status-protocol.md#verification),
 seven [listing protocol groups](listings.md#verification), and seven
-[stats codec/aggregation groups](stats.md#verification), the current C unit total is 128. Replay
+[stats codec/aggregation groups](stats.md#verification), plus three
+[logging groups](logging.md#verification), the current C unit total is 131. Replay
 validates history, reconstructs state,
 handles only permissible incomplete tails, syncs the recovered prefix, and safely
 resumes appending. [Coordinator integration](persistence.md) applies this boundary

@@ -241,10 +241,11 @@ it does not fill the disk. Diagnostics use pipes. There are no production fault
 switches. C tests inject sync failures through an internal I/O seam while checking
 that outputs, live jobs, and allocation counters remain unpublished during I/O.
 
-The suite now contains 128 C groups and 137 process scenarios (two default-port
+The suite now contains 131 C groups and 143 process scenarios (two default-port
 checks are skipped with automatic ports). Existing process fixtures each create
 their own temporary WAL. The persistence scenarios establish concrete restart
 and ordering behavior, including selected crashes before/during/after WAL writes
 and flushes. The [phase review](persistence-review.md) records the full regression
-results and precise guarantees. These checks do not simulate
+results and precise guarantees; the [CLI and observability review](observability-review.md)
+records the current regression and command/WAL/log cross-checks. These checks do not simulate
 power loss, prove exactly-once side effects, or benchmark flush latency.

@@ -30,6 +30,10 @@ The [jobs/workers commands](listings.md) return bounded snapshots of retained
 jobs and live/dead registry entries, sorted by identity.
 The [stats command](stats.md) aggregates durable job totals and current worker
 gauges, with session activity measured against a baseline captured after recovery.
+The shared [runtime logger](logging.md) emits timestamped lifecycle and diagnostic
+events, distinguishing local sends from durable acceptance and restored snapshots.
+The [CLI and observability review](observability-review.md) records cross-checks
+between command snapshots, logs, and durable job records.
 
 ## Components and ownership
 

@@ -7,7 +7,7 @@ make test
 make test-sanitize
 ```
 
-These run 128 protocol, registry, job, queue, scheduler, task, socket, and WAL C test groups plus 137 process integration
+These run 131 protocol, registry, job, queue, scheduler, task, socket, logging, and WAL C test groups plus 143 process integration
 tests using Python 3's standard library. A loopback-capable environment is
 required. You can select the Python interpreter with `PYTHON=/path/to/python3`.
 Use `make test-unit` or `make test-integration` to run one layer separately.
@@ -21,6 +21,11 @@ live job/worker inspection. Both accept `SANITIZE=1`; the process target accepts
 Use `make test-stats-protocol` for statistics codecs/aggregation, and `make test-stats`
 for live counts, restart scopes, and CLI behavior. Both accept `SANITIZE=1`;
 the latter accepts `INTEGRATION_ARGS='--port 9000'` for its default endpoint.
+Use `make test-logs` for the shared logger and `make test-observability` for
+command/log/WAL agreement through execution, failures, and restart. Both accept
+`SANITIZE=1`; the process target also accepts `INTEGRATION_ARGS='--port 9000'`.
+The [CLI and observability review](../docs/observability-review.md#verification-record)
+records the current full regression and the interpretation limits of each command.
 Use `make test-wal` for the WAL format suite, or `make SANITIZE=1 test-wal`
 for the same checks with AddressSanitizer/UBSan.
 Use `make test-wal-writer` for the file writer suite, or
@@ -182,6 +187,30 @@ all job states and worker activity, retries versus terminal failure, full-store
 rejection, fragmented/coalesced requests and roles, expiry despite polling,
 repeated crash recovery and session reset, fragmented large values, malformed
 replies, CLI options/EOF/refused connections, and a whole-response deadline.
+
+`test_log.c` adds three [logging](../docs/logging.md) groups:
+
+- All 256 byte values, embedded NUL/control bytes, quotes/backslashes, capacity
+  and size overflow, and unchanged output on rejected escaping calls.
+- UTC millisecond timestamp, PID, monotonic metadata, errno preservation,
+  and a record without additional fields.
+- Output failure and invalid required arguments.
+
+`integration/test_observability.py` adds six scenarios combining all four
+inspection commands with independent CRC-checked WAL decoding and runtime logs:
+
+- All job states, binary results, unknown IDs, rejected reports, and owner leases.
+- Worker-loss/task-error requeueing, exhausted retries, and eventual completion.
+- Mixed-state SIGKILL/restart, durable outcomes, fresh workers, and session resets.
+- Escaped WAL paths, malformed clients, structured system errors, and failed startup.
+- Heartbeat expiry while a peer's TCP connection stays open.
+- Real execution, invalid input, interrupted sleep, local-send uncertainty, and
+  orderly worker cancellation/join cleanup.
+
+The suite compares exact states, identities, attempts, retries, results, worker
+gauges, job counters, and logical completion latency with durable records at
+stable observation points. Querying those snapshots leaves WAL bytes unchanged.
+Recovery snapshots use RESTORED rather than announcing new terminal outcomes.
 
 `test_wal.c` adds ten [WAL format](../docs/wal-format.md) groups:
 
@@ -666,7 +695,7 @@ The focused command prints each detected reason and elapsed observation time or
 heartbeat silence duration. The full integration target includes this suite once.
 
 By default, suites select available ports. The original coordinator and worker
-suites each skip one default-endpoint check. To run all 98 scenarios, stop any existing
+suites each skip one default-endpoint check. To run all 143 scenarios, stop any existing
 coordinator on port 9000 and run:
 
 ```sh
@@ -678,6 +707,6 @@ make test-sanitize INTEGRATION_ARGS='--port 9000'
 When 9000 is selected, the harness starts the coordinator without `--port` and
 also invokes `faultline ping` and `faultline-worker` without `--coordinator`
 to test all defaults. Processes started by the harness are stopped afterward.
-With automatic port selection, the suite discovers 98 scenarios: 96 run and two
+With automatic port selection, the suite discovers 143 scenarios: 141 run and two
 default-port checks are skipped. The 21 persistence/startup/crash scenarios always use
 automatic ports independently of the legacy suites' optional port 9000 checks.

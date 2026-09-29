@@ -230,3 +230,8 @@ Eleven integration scenarios cover all job states, retries versus terminal
 failure, dead-slot reuse, full stores, read-only WAL/ID behavior, fragmented and
 coalesced requests, connection roles, heartbeat expiry, repeated crash recovery,
 CLI validation, and response deadlines.
+
+The [CLI and observability review](observability-review.md) adds cross-command
+checks against independently decoded WAL records and lifecycle logs. It also
+distinguishes startup timing and recovery-event intervals from a full recovery
+latency benchmark.

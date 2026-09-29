@@ -226,16 +226,20 @@ adjustments affecting timeouts.
 PING, PONG, and WORKER_REGISTER require empty payloads. Registration ACK and
 HEARTBEAT require exactly four ID bytes. Incorrect types, malformed frames,
 wrong lengths, and invalid registration/heartbeat state close the affected
-connection without an error frame. Every registered-client close path marks its
-worker DEAD and detaches the descriptor before calling `close()`, including
-EOF, I/O errors, protocol rejection, stalled transfers, heartbeat expiry, and coordinator shutdown.
+connection without an error frame. During normal operation, each registered-client
+close marks its worker DEAD and detaches the descriptor before calling `close()`, including
+EOF, I/O errors, protocol rejection, stalled transfers, and heartbeat expiry.
+Coordinator shutdown closes sockets without appending extra job-loss transitions;
+active durable attempts are reconciled on restart.
 
 The coordinator currently listens only on IPv4 loopback. The CLI and worker accept a
 numeric IPv4 address. There is no hostname resolution, IPv6, automatic worker
 reconnection yet. [Coordinator persistence](persistence.md) now supplies durable
 ACK/assignment/result ordering without changing the network frame format.
-Logs provide basic event
-visibility; full timestamped structured logging remains future work.
+[Runtime logs](logging.md) include UTC and monotonic timestamps, severity,
+identity, close reasons, and durable job outcomes. The
+[observability review](observability-review.md) cross-checks these events against
+command snapshots and the WAL through execution, failure, and restart.
 
 `make test` runs protocol unit tests, socket unit tests, and TCP integration
 tests. `make test-sanitize` instruments the C binaries for the same checks. The

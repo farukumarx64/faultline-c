@@ -183,10 +183,11 @@ make SANITIZE=1 test-unit all
 ```
 
 The twelve new groups in [`tests/test_wal_replay.c`](../tests/test_wal_replay.c)
-join the existing suites. The current C total is 128, including seven
+join the existing suites. The current C total is 131, including seven
 coordinator-store groups, seven [status protocol groups](job-status-protocol.md#verification),
 seven [listing protocol groups](listings.md#verification), and seven
-[stats codec/aggregation groups](stats.md#verification).
+[stats codec/aggregation groups](stats.md#verification), plus three
+[logging groups](logging.md#verification).
 Coverage includes mixed terminal/queued/active jobs, binary inputs/results,
 retries, FIFO, sparse and exhausted identities, timestamps, and store capacity.
 Repeated replay preserves the same state and consumes no extra retries.

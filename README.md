@@ -100,7 +100,8 @@ With the coordinator running, start a worker in each of two additional terminals
 ```
 
 Each prints its assigned ID and stays running. On a fresh coordinator, the first
-two registrations get IDs 1 and 2 (process scheduling determines which gets 1):
+two registrations get IDs 1 and 2 (process scheduling determines which gets 1).
+These excerpts omit the UTC timestamp and process/monotonic metadata:
 
 ```text
 [INFO] worker registered worker_id=1 coordinator=127.0.0.1:9000 heartbeat_interval_ms=2000
@@ -219,6 +220,13 @@ WAL; current worker gauges and session measurements reset on restart. Startup
 recovery outcomes are included in retained totals and reported separately from
 runtime session activity. See [counter definitions and performance limits](docs/stats.md).
 
+Coordinator and worker logs include UTC time, severity, component, event, and
+identity fields. Job events distinguish requeued attempts, terminal failures,
+durably accepted results, and restored state. Worker sends explicitly leave
+coordinator acceptance unconfirmed. See [the logging guide](docs/logging.md) and
+[CLI and observability phase review](docs/observability-review.md) for how to
+interpret commands and logs together.
+
 [Worker recovery checks](docs/recovery.md) kill a busy worker with SIGKILL or
 pause it with SIGSTOP until its heartbeat expires. In both cases, an
 already-connected worker completes the same job on attempt 2 and remains
@@ -272,6 +280,9 @@ Use `make test-list-protocol` for listing codecs and `make test-listings` for li
 job/worker snapshots; add `SANITIZE=1` for instrumentation.
 Use `make test-stats-protocol` for statistics codecs and aggregation, and
 `make test-stats` for live counter/restart checks; both accept `SANITIZE=1`.
+Use `make test-logs` for log formatting/escaping and `make test-observability`
+for command, WAL, and log agreement across execution/failure/restart; both accept
+`SANITIZE=1`.
 Use `make test-wal` for WAL format checks, or `make SANITIZE=1 test-wal`
 for the same checks with AddressSanitizer/UBSan.
 Use `make test-wal-writer` for real-file appends, sync ordering, storage-error
@@ -314,6 +325,8 @@ faultline/
 │   ├── status.md
 │   ├── listings.md
 │   ├── stats.md
+│   ├── logging.md
+│   ├── observability-review.md
 │   ├── networking.md
 │   ├── workers.md
 │   ├── jobs.md
@@ -366,4 +379,6 @@ The [persistence phase review](docs/persistence-review.md) consolidates the
 durable-state promise, repeat-execution rules, evidence, and remaining scope.
 The [deferred request-deduplication proposal](docs/request-deduplication.md)
 records a future enhancement for safely repeating submissions after a lost ACK.
-It is not implemented; the CLI and observability phase is underway.
+It is not implemented. The [CLI and observability review](docs/observability-review.md)
+records this phase's command semantics, logging guarantees, verification, and
+handoff to testing and chaos experiments.

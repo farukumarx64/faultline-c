@@ -18,8 +18,9 @@ the acknowledgment, and sends periodic heartbeats. The coordinator expires
 registrations that miss their heartbeat deadline. The [scheduler](scheduling.md)
 now assigns queued jobs to idle workers and retries interrupted assignments.
 Workers execute one [built-in task](tasks.md) while heartbeating and report its
-result or failure. Persistent recovery remains future work. Integration tests cover both real workers
-and controlled peers.
+result or failure. [Persistent recovery](persistence.md) restores jobs after a
+coordinator restart; workers need fresh connections and registrations.
+Integration tests cover both real workers and controlled peers.
 
 ## Run two workers
 
@@ -36,7 +37,9 @@ Build with `make`, then start the coordinator and two workers in separate termin
 ./build/debug/faultline-worker
 ```
 
-The first two registrations on a fresh coordinator receive distinct IDs:
+The first two registrations on a fresh coordinator receive distinct IDs.
+These excerpts omit the UTC timestamp and process/monotonic metadata; see
+[runtime logging](logging.md) for the complete format:
 
 ```text
 [INFO] worker registered worker_id=1 coordinator=127.0.0.1:9000 heartbeat_interval_ms=2000
