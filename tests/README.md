@@ -27,6 +27,8 @@ terminal accounting, exact results, retry histories, and drain failures.
 Both accept `SANITIZE=1`;
 `CHAOS_ARGS` configures the experiment. These targets also remain opt-in, outside
 the default suite and CI. The [contract](../docs/chaos.md) defines recovery coverage.
+The [phase review](../docs/chaos-review.md) records the three-seed normal/sanitizer
+matrix, harness regression results, reproducible commands, and evidence limits.
 Use `make test-job-status-protocol` for status codecs, or
 `make SANITIZE=1 test-job-status-protocol` for instrumented binaries.
 Use `make test-status` for the live status command, or `make SANITIZE=1 test-status`

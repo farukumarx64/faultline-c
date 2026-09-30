@@ -231,8 +231,9 @@ against submissions, final snapshots, and actual fault actions, including zero
 retries with one allowed terminal failure.
 The 20 baseline checks remain a separate suite and also verify the new artifacts.
 
-Next comes review across the planned seeds `42, 7, 2026` and remaining phase
-acceptance cases before adding a bounded chaos run to Linux CI.
+The [phase review](chaos-review.md) records the full `42, 7, 2026` seed matrix,
+sanitizer/regression evidence, reproduction commands, and limits. A bounded
+chaos run in Linux CI remains a separate follow-up.
 
 ## Accounting verification record — 2026-09-30
 

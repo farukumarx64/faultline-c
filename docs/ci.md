@@ -170,3 +170,7 @@ CI still runs the existing unit and integration suites. The
 [seeded crash harness](chaos-testing.md) is also available through `test-chaos`
 and `test-chaos-harness`, with seed/action evidence and replacements; neither
 new target is invoked by this workflow yet.
+The [local chaos phase review](chaos-review.md) records all three planned seeds
+under normal and sanitizer builds. It supplies local macOS evidence; adding a
+bounded chaos step, retaining its artifacts, and validating actual Linux runs
+remain the next CI follow-up.

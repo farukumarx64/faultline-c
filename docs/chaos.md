@@ -169,9 +169,10 @@ eligibility, or accepted-result races. Preserve both the plan and actual events.
 Reproducing a failure requires its configuration, code/binary versions, and
 event trace as well as the seed; this is not deterministic execution replay.
 
-The planned seed set for later phase review is `42, 7, 2026`. Each is a separate
-run with a fresh WAL and the same default profile. Do not change seeds or
-automatically rerun a failing seed until it happens to pass.
+The phase-review seed set is `42, 7, 2026`. Each is a separate run with a fresh
+WAL and the same default profile. The [review record](chaos-review.md) documents
+the completed normal/sanitizer matrix. Do not change seeds or automatically
+rerun a failing seed until it happens to pass.
 
 ## Job accounting and pass criteria
 
@@ -311,9 +312,12 @@ state and execution limits remain defined by the
    including ownership, deadlines, artifacts, exact results, and cleanup checks.
 2. **Implemented:** the [saved fault plan and bounded SIGKILL/replacement cycle](chaos-testing.md),
    including per-ID accounting and coverage checks.
-3. Review coverage and per-ID invariants across the planned seed set, and only then
-   add an appropriately bounded chaos run to [Linux CI](ci.md).
-4. Review results before the separate scaling and failure-recovery benchmarks.
+3. **Reviewed:** coverage and per-ID invariants across the planned seed set;
+   see [evidence and limits](chaos-review.md).
+4. Add an appropriately bounded chaos run to [Linux CI](ci.md) and validate
+   it on Linux; this integration remains pending.
+5. Proceed to the separate scaling and controlled failure-recovery benchmarks,
+   with measurements defined independently from these correctness experiments.
 
 Baseline/chaos runs and their regression suites have explicit Make targets.
 They are not part of `make test` or Linux CI yet.

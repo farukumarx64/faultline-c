@@ -289,6 +289,9 @@ replacements while retaining the plan, actions, and recovery evidence. Use
 Each run saves its drain cohort and a per-job `accounting.json` report, proving
 that the acknowledged IDs partition into completed and terminally failed jobs,
 with exact results and valid retry histories. Matching totals alone cannot pass.
+The [Testing and chaos review](docs/chaos-review.md) records seeds 42, 7, and
+2026 under normal and sanitizer builds: 600 jobs accounted for, 27 interrupted
+attempts recovered, and the remaining coverage and platform limits.
 Use `make test-unit` or `make test-integration` to run either layer separately.
 Use `make test-job-status-protocol` for status payloads and validation, or add
 `SANITIZE=1` for AddressSanitizer/UBSan.
@@ -350,6 +353,7 @@ faultline/
 │   ├── chaos.md
 │   ├── batch-testing.md
 │   ├── chaos-testing.md
+│   ├── chaos-review.md
 │   ├── networking.md
 │   ├── workers.md
 │   ├── jobs.md
