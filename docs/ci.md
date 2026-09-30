@@ -171,6 +171,9 @@ CI still runs the existing unit and integration suites. The
 and `test-chaos-harness`, with seed/action evidence and replacements; neither
 new target is invoked by this workflow yet.
 The [local chaos phase review](chaos-review.md) records all three planned seeds
-under normal and sanitizer builds. It supplies local macOS evidence; adding a
-bounded chaos step, retaining its artifacts, and validating actual Linux runs
-remain the next CI follow-up.
+under normal and sanitizer builds. It supplies local macOS evidence. The
+[Linux harness regression follow-up](chaos-testing.md#linux-harness-regression-verification)
+also passed all 20 baseline and 32 chaos checks with GCC 13 and Clang 18 +
+ASan/UBSan, with leak detection enabled, in local Ubuntu ARM64 containers.
+Adding a bounded chaos step, retaining its artifacts, and validating the full
+experiment and GitHub-hosted execution remain the next CI follow-up.

@@ -29,6 +29,9 @@ Both accept `SANITIZE=1`;
 the default suite and CI. The [contract](../docs/chaos.md) defines recovery coverage.
 The [phase review](../docs/chaos-review.md) records the three-seed normal/sanitizer
 matrix, harness regression results, reproducible commands, and evidence limits.
+The [Linux harness verification](../docs/chaos-testing.md#linux-harness-regression-verification)
+records both suites passing with GCC and Clang sanitizers in local Ubuntu ARM64
+containers, with leak detection enabled; CI integration remains pending.
 Use `make test-job-status-protocol` for status codecs, or
 `make SANITIZE=1 test-job-status-protocol` for instrumented binaries.
 Use `make test-status` for the live status command, or `make SANITIZE=1 test-status`

@@ -235,6 +235,60 @@ The [phase review](chaos-review.md) records the full `42, 7, 2026` seed matrix,
 sanitizer/regression evidence, reproduction commands, and limits. A bounded
 chaos run in Linux CI remains a separate follow-up.
 
+## Linux harness regression verification
+
+Verified on 2026-09-30 against committed source
+`a3557199abd57571e6db957686f840f234ce6413`. Both harness suites passed unchanged
+in separate local Ubuntu 24.04.5 ARM64 containers, running as UID/GID 1000 with
+external networking disabled. Tests used loopback, fresh builds, and the CI
+compiler selections. Host Linux kernel: `6.12.76-linuxkit`; GNU Make 4.3;
+Python 3.12.3.
+
+| Suite | GCC 13.3.0 | Clang 18.1.3 + ASan/UBSan |
+| --- | --- | --- |
+| `test-batch-harness` | 20 passed (28.770 s) | 20 passed (28.423 s) |
+| `test-chaos-harness` | 32 passed (58.055 s) | 32 passed (58.020 s) |
+
+All **104 test executions passed**, with zero skips, compiler warnings, or
+unexpected sanitizer findings. Both builds used `CFLAGS='-O0 -g -Werror'`.
+The sanitizer run enabled leak detection and fail-fast diagnostics:
+
+```sh
+export ASAN_OPTIONS=detect_leaks=1:halt_on_error=1
+export UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1
+export ASAN_SYMBOLIZER_PATH=/usr/bin/llvm-symbolizer-18
+```
+
+To reproduce with those toolchains installed, run in fresh Linux checkouts:
+
+```sh
+make CC=gcc-13 SANITIZE=0 CFLAGS='-O0 -g -Werror' test-batch-harness test-chaos-harness
+make CC=clang-18 SANITIZE=1 CFLAGS='-O0 -g -Werror' test-batch-harness test-chaos-harness
+```
+
+The container runner additionally bounded compilation to 180 seconds and each
+suite to 240 seconds, with a 15-second forced-stop grace. Neither bound was hit.
+Both container exits were zero. Logs, suite exit codes, and 26 run summaries per
+build were copied out before removing the stopped test containers. Every saved
+run summary had no remaining children/groups and recorded all direct children
+reaped with their groups retired. Expected failure fixtures remain preserved;
+their rejection is part of the passing regression suite.
+
+Local evidence is retained under `build/linux-harness-20260930-LHBZrF/`:
+`gcc-evidence/` and `sanitize-evidence/` contain environment/build/suite logs;
+the corresponding `*-artifacts/` directories contain raw harness evidence.
+`results.json` records the checked suite outcomes, log hashes, container image
+identity, and run-summary index. `review-configuration.json` identifies the
+source revision and archive SHA-256. The read-only source export omitted `.git`,
+so those external provenance records identify the source when per-run Git
+metadata is unavailable. The Dockerfile and runner script are retained alongside
+the logs. These files are Git-ignored and removed by `make clean`.
+
+This establishes **local Linux ARM64 harness-regression evidence**, including
+the suites' small real-process crash/replacement cases. It does not rerun the
+full 100-job three-seed matrix on Linux, run GitHub-hosted x86-64 jobs, or add
+the harness to the CI workflow. No runtime or test-code fixes were needed.
+
 ## Accounting verification record — 2026-09-30
 
 Local macOS/Python 3.9.6 checks passed with normal and AddressSanitizer/UBSan
