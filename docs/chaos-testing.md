@@ -235,6 +235,68 @@ The [phase review](chaos-review.md) records the full `42, 7, 2026` seed matrix,
 sanitizer/regression evidence, reproduction commands, and limits. A bounded
 chaos run in Linux CI remains a separate follow-up.
 
+## Linux fixed-seed experiment verification
+
+Verified on 2026-09-30 against committed source
+`3fb0581955ffbf4393304df1b9b0590a13932c47`. The full **seed-42** profile passed
+on its first invocation in both normal and ASan/UBSan builds, using separate
+local Ubuntu 24.04.5 ARM64 containers. This extends the smaller Linux regression
+cases below with the full 100-job experiment.
+
+Each run used five workers, 100 `sleep --args 3000` jobs, three permitted retries,
+a 30-second fault window, and a 180-second overall deadline including ten seconds
+for cleanup. Each had a fresh WAL, coordinator, pool, and output directory.
+
+| Result | GCC 13.3.0 | Clang 18.1.3 + ASan/UBSan |
+| --- | --- | --- |
+| Verdict | CHAOS_PASS | CHAOS_PASS |
+| Submitted / completed / terminally failed | 100 / 100 / 0 | 100 / 100 / 0 |
+| Crashes / interrupted attempts / replacements | 5 / 5 / 5 | 5 / 5 / 5 |
+| Total attempts / retries | 105 / 5 | 105 / 5 |
+| Eligible at drain start, all completed | 52 | 52 |
+| Direct children reaped; owned groups retired | 584 | 586 |
+| Elapsed seconds, including cleanup | 69.018 | 68.906 |
+
+Both builds used warnings as errors and ran as UID/GID 1000 with only loopback
+networking. The kernel was Linux `6.12.76-linuxkit`, with Python 3.12.3 and
+GNU Make 4.3. The sanitizer options were
+`ASAN_OPTIONS=detect_leaks=1:halt_on_error=1`,
+`UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1`, and
+`ASAN_SYMBOLIZER_PATH=/usr/bin/llvm-symbolizer-18`.
+There were no compiler warnings or runtime/sanitizer findings. The lanes
+overlapped, so these durations are not a performance comparison.
+
+An independent saved-artifact audit compared acknowledged IDs, full results,
+listings, retry/lost-attempt histories, statistics, drain eligibility, fault
+cutoffs, and process cleanup. Every DONE result was exactly `slept_ms=3000`;
+all injected kills occurred inside the fault window. Both runs ended with five
+ALIVE, idle workers. The candidate plans matched, while recovered job IDs
+differed: GCC `19, 26, 37, 40, 53`; sanitizers `18, 26, 37, 39, 53`.
+
+Reproduce on Linux with fresh builds and the sanitizer environment above:
+
+```sh
+make CC=gcc-13 SANITIZE=0 CFLAGS='-O0 -g -Werror' test-chaos CHAOS_ARGS='--seed 42'
+make CC=clang-18 SANITIZE=1 CFLAGS='-O0 -g -Werror' test-chaos CHAOS_ARGS='--seed 42'
+```
+
+Evidence is retained in `build/linux-chaos-20260930-Cp3on1/`: `gcc-artifacts/`
+and `sanitize-artifacts/` contain full run logs, manifests, accounting, events,
+and WALs; the corresponding `*-evidence/` directories contain toolchain/build
+logs and command exit codes. `audit.py` and `results.json` retain the independent
+checks, source revision/archive hash, image identity, outcome metrics, and
+artifact hashes. The source archive omitted `.git`, so per-run Git metadata
+is unavailable; the external source record supplies that provenance.
+Both container exits were zero. Evidence was copied and checked before the
+stopped containers were removed. The outer runner bounded the experiment command
+to 210 seconds with a 15-second forced-stop grace; no deadline was reached.
+Raw artifacts are Git-ignored and are removed by `make clean`.
+
+This is **local Linux ARM64 seed-42 evidence**, not the full three-seed Linux
+matrix or a GitHub-hosted x86-64 run. No runtime/harness changes were required,
+and the CI workflow is unchanged. CI integration and hosted execution remain
+separate follow-ups.
+
 ## Linux harness regression verification
 
 Verified on 2026-09-30 against committed source

@@ -175,5 +175,7 @@ under normal and sanitizer builds. It supplies local macOS evidence. The
 [Linux harness regression follow-up](chaos-testing.md#linux-harness-regression-verification)
 also passed all 20 baseline and 32 chaos checks with GCC 13 and Clang 18 +
 ASan/UBSan, with leak detection enabled, in local Ubuntu ARM64 containers.
-Adding a bounded chaos step, retaining its artifacts, and validating the full
-experiment and GitHub-hosted execution remain the next CI follow-up.
+The [full seed-42 experiment](chaos-testing.md#linux-fixed-seed-experiment-verification)
+also passed in both local Linux builds: 100 jobs completed after five worker
+crashes and five retries per run. Adding a bounded chaos step to this workflow,
+retaining its artifacts, and validating GitHub-hosted execution remain pending.

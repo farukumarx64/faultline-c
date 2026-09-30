@@ -15,6 +15,8 @@ The matrix below is the macOS review. The subsequent
 [Linux harness regression check](chaos-testing.md#linux-harness-regression-verification)
 passed both suites with GCC and Clang sanitizers on Ubuntu ARM64; it is separate
 from the full seed matrix and GitHub-hosted validation.
+The subsequent [full Linux seed-42 experiment](chaos-testing.md#linux-fixed-seed-experiment-verification)
+also passed in both builds. The three-seed matrix below remains macOS evidence.
 
 The phase's local acceptance question is: after deliberately crashing and
 replacing workers, does every acknowledged job remain accounted for, and does
