@@ -26,7 +26,7 @@ and `make test-chaos-harness` for its 35 regression checks, including per-ID
 terminal accounting, exact results, retry histories, and drain failures.
 Both accept `SANITIZE=1`;
 `CHAOS_ARGS` configures the experiment. These targets also remain outside
-the default suite. CI explicitly runs the 20 baseline harness checks, the 35 chaos
+the default suite. CI explicitly runs the 21 baseline harness checks, the 35 chaos
 harness checks, and one full seed-42 experiment per compiler, with deadlines and
 evidence uploads. The full no-fault `test-batch` experiment stays manual.
 `make test-ci-deadlines` runs seven Linux-only checks of the shared CI runner,
@@ -35,6 +35,11 @@ failure. It requires GNU coreutils and runs before the harness suites in CI.
 The three newest chaos fixtures verify exit 1 for a wrong same-length result,
 excess retries, and cleanup failure after valid accounting and recovery. See
 [CI rejection conditions](../docs/ci.md#conditions-that-fail-ci).
+Completed process fixtures also verify evidence retention on success and failure:
+manifest/seed, summary and final trace agreement, every process log, and a WAL
+after acknowledgment. Harness stdout/stderr now use `.log` names so CI includes
+early diagnostics. The additional baseline check injects a JSON publication error
+and requires both the prior artifact and unpublished `.json.tmp` to survive.
 The [contract](../docs/chaos.md) defines recovery coverage.
 The [phase review](../docs/chaos-review.md) records the three-seed normal/sanitizer
 matrix, harness regression results, reproducible commands, and evidence limits.

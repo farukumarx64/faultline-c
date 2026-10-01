@@ -289,7 +289,7 @@ replacements while retaining the plan, actions, and recovery evidence. Use
 Each run saves its drain cohort and a per-job `accounting.json` report, proving
 that the acknowledged IDs partition into completed and terminally failed jobs,
 with exact results and valid retry histories. Matching totals alone cannot pass.
-Linux CI explicitly runs 7 deadline/failure-propagation checks, 20 baseline and
+Linux CI explicitly runs 7 deadline/failure-propagation checks, 21 baseline and
 35 chaos harness checks, followed by the full seed-42 experiment, in each compiler
 job. The steps have deadlines and upload available logs, JSON evidence, and WALs
 after success or failure. See the
@@ -298,6 +298,9 @@ results and the remaining hosted-run check.
 The [acceptance gates](docs/ci.md#conditions-that-fail-ci) reject missing jobs,
 wrong results, invalid retries, insufficient recovery, timeouts, and cleanup
 failures, including cleanup errors after all jobs have completed.
+Both outcomes retain summaries, seed/configuration, event traces, harness and
+process logs, WALs, and any partial JSON writes. See [artifact downloads and
+limits](docs/ci.md#failure-visibility).
 The [Testing and chaos review](docs/chaos-review.md) records seeds 42, 7, and
 2026 under normal and sanitizer builds: 600 jobs accounted for, 27 interrupted
 attempts recovered, and the remaining coverage and platform limits.

@@ -164,6 +164,8 @@ cases. The harness does not scan or kill unrelated processes by name.
 | `events.jsonl` | Monotonic elapsed times for process creation, worker registration, submission attempts/ACKs, job observations, reaping, signals, cleanup, and verdict |
 | `submissions.json` | Input index, task/arguments, retry limit, acknowledged ID or null for an uncertain submission |
 | Numbered `*.stdout.log` / `*.stderr.log` | Separate output for every coordinator, worker, CLI, and helper invocation; commands and PIDs are in the event ledger |
+| Regression `harness-N.stdout.log` / `harness-N.stderr.log` | The test-owned harness process's own output, including preflight errors and tracebacks; stored beside its `run-N` directory |
+| `*.json.tmp`, if present | Unpublished JSON writes retained after an interruption or rename error; diagnostic only, potentially incomplete |
 | `coordinator.wal` | This run's coordinator state |
 | `drain-start.json` | Initial drain listing and queued/active IDs that must complete |
 | `final-snapshots.json` | Checked job listings, full statuses, workers, and stats; written before the final history/coverage audit |
@@ -180,6 +182,10 @@ Exit 0 means `BASELINE_PASS`; 1 means experiment/cleanup/artifact failure;
 2 means preflight/configuration failure. Handled SIGINT/SIGTERM exit 130/143
 after cleanup. A storage failure can prevent complete artifact recording; it
 does not bypass process cleanup or turn a failed run into a pass.
+The [CI uploads](ci.md#failure-visibility) preserve these available files after
+both success and failure. The seed is recorded in `manifest.json` configuration;
+chaos manifests also retain the candidate plan. Files are not deleted by process
+cleanup, but `make clean` removes the local `build` directory.
 
 ## Harness regression checks
 
@@ -188,17 +194,23 @@ make test-batch-harness
 make SANITIZE=1 test-batch-harness
 ```
 
-`tests/chaos/test_batch.py` contains 20 regression tests for real batch results and artifact accounting,
+`tests/chaos/test_batch.py` contains 21 regression tests for real batch results and artifact accounting,
 zero-length sleeps/retry boundaries, invalid preflight, ambiguous/duplicate
 ACKs, a hung CLI, wrong or changed results, stats disagreement, partial startup,
 deadlines, SIGINT/SIGTERM, a stopped worker, sanitizer diagnostics, owned
 descendant cleanup, forced-kill failure, and idempotent cleanup. Small wrapper
 fixtures deliberately corrupt replies or interrupt test processes to challenge
 the verifier; these are harness regression tests, not baseline workload faults.
+Every completed process fixture also checks its retained manifest/seed, summary,
+final trace event, all child and harness logs, and a nonempty WAL after admission.
+This common check covers both baseline and chaos fixtures, including rejected
+experiments, deadlines, and handled signals. A separate publication-error test
+verifies that a failed JSON rename preserves both the prior file and the new
+temporary file.
 
 Both targets remain separate from `make test` and `make test-integration`, so the
 existing 131 C groups and 143 integration-test counts remain unchanged.
-[Linux CI](ci.md) explicitly runs the 20 `test-batch-harness` checks in both
+[Linux CI](ci.md) explicitly runs the 21 `test-batch-harness` checks in both
 builds; the full no-fault `test-batch` experiment remains manual. The
 [chaos mode](chaos-testing.md) now implements the saved random fault plan,
 bounded SIGKILL/replacement cycle, and

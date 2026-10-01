@@ -41,7 +41,7 @@ remain independent.
 4. Run all C unit groups.
 5. Run all process integration suites.
 6. Run the 7 CI deadline/failure-propagation checks.
-7. Run the 20 batch-harness regression checks.
+7. Run the 21 batch-harness regression checks.
 8. Run the 35 chaos-harness regression checks.
 9. Run the full seed-42 chaos experiment.
 10. Upload available logs and chaos evidence, including after test failures.
@@ -159,7 +159,7 @@ for seven days:
 | Artifact suffix | Contents |
 | --- | --- |
 | `-logs` | `environment.log`, `build.log`, `unit.log`, `integration.log`, `deadlines.log`, `batch-harness.log`, `chaos-harness.log`, and `chaos-seed-42.log` under the runner's temporary `faultline-ci` directory. |
-| `-chaos-evidence` | All `.json`, `.jsonl`, `.log`, and `.wal` files under `build/chaos`, including regression fixtures and the full seed-42 run. |
+| `-chaos-evidence` | All `.json`, `.json.tmp`, `.jsonl`, `.log`, and `.wal` files under `build/chaos`, including regression fixtures and the full seed-42 run. |
 
 Prefixes are `linux-gcc` and `linux-clang-sanitizers`, giving four artifacts when
 both jobs reach the new checks. The chaos evidence includes configuration and
@@ -168,11 +168,36 @@ summaries, process logs, and WALs when produced. Directory hierarchy distinguish
 fixtures; fixture executables and unrelated files are excluded. This does not
 archive the core integration suites' temporary directories.
 
+Each completed run retains `summary.json` (verdict and failure details),
+`manifest.json` (seed, configuration, and the chaos candidate plan),
+`events.jsonl` (event trace), numbered child stdout/stderr logs, and the
+coordinator WAL once created. The regression harness's own output is named
+`harness-N.stdout.log` / `harness-N.stderr.log`, so errors before a final summary
+are included by the same upload rules. Empty stderr logs are preserved too.
+
+JSON updates write to a temporary file before replacing the published file.
+An interrupted write or rename may leave `*.json.tmp`; CI retains that file as
+diagnostic evidence. It may be incomplete JSON and is not a final verdict or a
+replacement for the published summary. Preserving evidence does not change a
+failed experiment's exit status.
+
 Both uploads use `always()` to attempt preservation after failures. A step skipped
 after an earlier failure produces no evidence; missing files trigger a warning,
 not fabricated results. Cancellation or loss of the runner can still prevent
 upload. The configured patterns were checked locally; actual artifact transfer
 requires GitHub-hosted execution.
+
+In the GitHub Actions run, download `linux-gcc-chaos-evidence` or
+`linux-clang-sanitizers-chaos-evidence` together with the corresponding `-logs`
+artifact. The full experiment is under `ci-seed-42`; regression output remains
+grouped under its `regression-*` directory. Read the summary first, then use the
+manifest seed and event trace to investigate the same run. Local files stay under
+`build/chaos` until explicitly removed, including by `make clean`.
+
+A preflight rejection can occur before a run directory or WAL exists. SIGKILL,
+runner loss, or storage failure can prevent a final summary from being written.
+The upload retains the files actually produced, including partial writes and
+outer logs; it cannot manufacture missing evidence or run after runner loss.
 
 The token has `contents: read`, checkout does not persist credentials, and both
 official actions are pinned to full commit IDs with release comments.
@@ -343,3 +368,38 @@ These changes affect CI infrastructure, tests, and documentation. The C runtime
 and production harness verification rules are unchanged; the existing core C
 and process integration suites were not rerun. GitHub-hosted x86-64 execution
 and actual artifact uploads remain to be verified after pushing this revision.
+
+## Evidence preservation validation
+
+Verified on 2026-10-01 against base revision
+`afe747f` plus the retention changes. Both harness suites ran through the
+workflow's deadline/logging runner in fresh unprivileged Ubuntu ARM64 containers,
+with the same GCC 13 and Clang 18 + ASan/UBSan configurations used above.
+
+| Check | GCC | Clang + ASan/UBSan |
+| --- | --- | --- |
+| Batch regression suite | 21 passed | 21 passed |
+| Chaos regression suite | 35 passed | 35 passed |
+| Completed run summaries | 6 successful, 23 deliberately rejected | Same |
+| Retained outer harness logs | 86, including 14 early-error stderr logs | Same |
+| Selected evidence files | 1732 | 1724 |
+
+All 112 regression-check executions passed without skips. An independent audit
+applied the workflow's upload patterns to the actual artifacts and checked every
+summary, manifest seed/configuration, final trace event, child/harness log, and
+WAL after admission. Empty logs were included. The publication-error fixture's
+previous JSON and unpublished `.json.tmp` were both selected, while executables
+and fixture scripts were excluded. Every completed fixture also confirmed reaped
+children and retired process groups. Actionlint 1.7.12, Python/shell syntax,
+documentation links/fences, and `git diff --check` passed.
+
+Evidence, file inventories with SHA-256 hashes, extracted workflow commands,
+source provenance, and the audit script/results are retained under Git-ignored
+`build/ci-artifacts-20261001-bgupahgb/`. The validation containers were removed
+after copying and checking their evidence. `make clean` removes the local files.
+
+This change affects artifact selection and regression checks, not the C runtime
+or production harness. The unchanged core suites, deadline suite, and full
+100-job seed-42 experiment were not rerun; their prior evidence is recorded above.
+This verifies local Linux artifact production and selection. Actual GitHub-hosted
+upload/download remains to be verified after pushing the workflow.

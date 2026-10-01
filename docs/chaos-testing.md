@@ -210,6 +210,8 @@ Exit 0 means CHAOS_PASS or explicitly selected BASELINE_PASS; 1 means experiment
 coverage, or cleanup failure; 2 means invalid configuration before spawning.
 Handled SIGINT/SIGTERM exit 130/143 after cleanup. Retain summary, manifest, events,
 logs, and WAL together when investigating an incomplete or failed experiment.
+The [CI artifact rules](ci.md#failure-visibility) retain those files for both
+outcomes, plus the regression harness's own logs and any unpublished JSON writes.
 
 ## Regression checks
 
@@ -237,7 +239,10 @@ count above its allowance after faults stop, and forced cleanup after successful
 accounting and recovery. All require process exit 1 and verified child/group
 cleanup. The last deliberately retains valid accounting with a FAIL verdict,
 proving that completed jobs alone cannot make an experiment pass.
-The 20 baseline checks remain a separate suite and also verify the new artifacts.
+The 21 baseline checks remain a separate suite and also verify retained artifacts.
+All completed baseline and chaos process fixtures check the saved seed, final
+summary/event agreement, process logs, and WAL after acknowledgment, regardless
+of whether the experiment passes or is deliberately rejected.
 The [CI acceptance gates](ci.md#conditions-that-fail-ci) propagate these failures
 through Make and a shared deadline/logging runner. Its separate Linux-only
 `make test-ci-deadlines` target contains seven regression checks.
