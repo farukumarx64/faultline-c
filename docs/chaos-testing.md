@@ -43,7 +43,10 @@ still rejects nonzero windows. Other limits match
 the window plus 10000 ms. After admission, the full window must still fit the
 remaining work budget; it is never silently shortened.
 
-These targets remain opt-in, outside `make test`, `make test-integration`, and CI.
+These targets remain separate from `make test` and `make test-integration`.
+[Linux CI](ci.md#bounded-chaos-checks) explicitly runs both harness regression
+suites and the full seed-42 experiment in normal and sanitizer builds, with
+deadlines and evidence uploads. Additional seeds remain manual checks.
 
 ## Seed and schedule
 
@@ -217,7 +220,7 @@ make test-batch-harness
 make SANITIZE=1 test-batch-harness
 ```
 
-The 32 chaos checks cover seed plans/private RNG state, snapshot races, loss/death
+The 35 chaos checks cover seed plans/private RNG state, snapshot races, loss/death
 correlation, warnings, retry/exhaustion accounting, real SIGKILL and replacement,
 zero retries, insufficient coverage, zero-window baseline, failed replacement,
 SIGTERM during replacement, window-fit validation, and reaping all generations.
@@ -229,11 +232,22 @@ return an unknown status, and force drain to miss its deadline; each must fail
 and still reap every owned process. Successful live runs check the saved report
 against submissions, final snapshots, and actual fault actions, including zero
 retries with one allowed terminal failure.
+Three additional live fixtures reject a same-length incorrect result, a retry
+count above its allowance after faults stop, and forced cleanup after successful
+accounting and recovery. All require process exit 1 and verified child/group
+cleanup. The last deliberately retains valid accounting with a FAIL verdict,
+proving that completed jobs alone cannot make an experiment pass.
 The 20 baseline checks remain a separate suite and also verify the new artifacts.
+The [CI acceptance gates](ci.md#conditions-that-fail-ci) propagate these failures
+through Make and a shared deadline/logging runner. Its separate Linux-only
+`make test-ci-deadlines` target contains seven regression checks.
+The [gate validation record](ci.md#ci-acceptance-gate-validation) records the
+expanded suites and full seed-42 experiment passing in both local Linux builds.
 
 The [phase review](chaos-review.md) records the full `42, 7, 2026` seed matrix,
-sanitizer/regression evidence, reproduction commands, and limits. A bounded
-chaos run in Linux CI remains a separate follow-up.
+sanitizer/regression evidence, reproduction commands, and limits. The subsequent
+[CI integration](ci.md#chaos-ci-integration-validation) records validation of the
+bounded workflow steps; GitHub-hosted execution remains to be verified.
 
 ## Linux fixed-seed experiment verification
 
@@ -294,8 +308,9 @@ Raw artifacts are Git-ignored and are removed by `make clean`.
 
 This is **local Linux ARM64 seed-42 evidence**, not the full three-seed Linux
 matrix or a GitHub-hosted x86-64 run. No runtime/harness changes were required,
-and the CI workflow is unchanged. CI integration and hosted execution remain
-separate follow-ups.
+and that experiment did not change the CI workflow. The subsequent
+[CI integration](ci.md#chaos-ci-integration-validation) adds the bounded steps;
+hosted execution remains to be verified after pushing them.
 
 ## Linux harness regression verification
 

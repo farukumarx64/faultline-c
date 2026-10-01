@@ -6,7 +6,7 @@ the post-fault drain cohort and verifies the terminal ID partition, results,
 and attributed retry histories before a run can pass.
 This defines the first worker-crash experiment for the Testing & chaos phase.
 The [baseline harness](batch-testing.md) runs with `make test-batch`, using the
-profile below with fault duration **zero**. No CI chaos job is added yet.
+profile below with fault duration **zero**.
 The [crash harness](chaos-testing.md) runs with `make test-chaos`, using the
 30-second window, saved candidate plan, replacements, and recovery checks.
 
@@ -314,10 +314,13 @@ state and execution limits remain defined by the
    including per-ID accounting and coverage checks.
 3. **Reviewed:** coverage and per-ID invariants across the planned seed set;
    see [evidence and limits](chaos-review.md).
-4. Add an appropriately bounded chaos run to [Linux CI](ci.md) and validate
-   it on Linux; this integration remains pending.
+4. **Implemented:** bounded seed-42 and harness regression steps in [Linux CI](ci.md),
+   with evidence uploads and local Linux validation. GitHub-hosted execution of
+   these new steps remains to be verified after pushing the workflow.
 5. Proceed to the separate scaling and controlled failure-recovery benchmarks,
    with measurements defined independently from these correctness experiments.
 
 Baseline/chaos runs and their regression suites have explicit Make targets.
-They are not part of `make test` or Linux CI yet.
+They are not part of `make test`. Linux CI explicitly runs `test-batch-harness`,
+`test-chaos-harness`, and the full seed-42 `test-chaos` experiment in both builds.
+The full no-fault `test-batch` experiment remains a manual check.

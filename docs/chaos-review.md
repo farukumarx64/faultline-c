@@ -8,8 +8,9 @@ are unchanged.
 
 **The local chaos review passes:** all six full seed experiments and both
 harness regression suites passed in normal and sanitizer builds. The local
-worker-crash acceptance criterion is met within the boundaries below. Linux
-chaos CI integration and controlled benchmarks remain separate follow-ups.
+worker-crash acceptance criterion is met within the boundaries below. The later
+[Linux CI integration](ci.md#chaos-ci-integration-validation) is locally validated;
+GitHub-hosted execution and controlled benchmarks remain separate follow-ups.
 
 The matrix below is the macOS review. The subsequent
 [Linux harness regression check](chaos-testing.md#linux-harness-regression-verification)
@@ -229,11 +230,11 @@ The tested local profile demonstrates retained job identities, bounded retries,
 correct completion after worker replacement, and reliable verifier/cleanup
 behavior across both successful and deliberately invalid experiments.
 
-The current Linux workflow runs the existing C and process-integration suites.
-The chaos experiment and its harness regressions remain explicit opt-in Make
-targets. The next CI step is a bounded chaos check with preserved artifacts on
-both success and failure, followed by actual Linux/runner validation. This
-review does not add or execute that workflow step.
+Following this review, the [Linux workflow](ci.md) adds both harness regression
+suites and a bounded seed-42 experiment alongside the existing C and process
+tests. Available logs and chaos evidence are configured for upload after success
+or failure. Its new shell steps passed local Linux validation in both builds;
+GitHub-hosted execution and actual uploads remain to be verified after pushing.
 
 The next separate MVP experiment phase is **benchmarks**: compare a fixed
 workload with 1, 2, 4, and 8 workers, then measure controlled failure-recovery

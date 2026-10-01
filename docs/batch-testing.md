@@ -196,10 +196,12 @@ descendant cleanup, forced-kill failure, and idempotent cleanup. Small wrapper
 fixtures deliberately corrupt replies or interrupt test processes to challenge
 the verifier; these are harness regression tests, not baseline workload faults.
 
-Both targets are explicit opt-in checks. They are not part of `make test`,
-`make test-integration`, or Linux CI yet, so the existing 131 C groups and 143
-integration-test counts remain unchanged. The [chaos mode](chaos-testing.md) now
-implements the saved random fault plan, bounded SIGKILL/replacement cycle, and
+Both targets remain separate from `make test` and `make test-integration`, so the
+existing 131 C groups and 143 integration-test counts remain unchanged.
+[Linux CI](ci.md) explicitly runs the 20 `test-batch-harness` checks in both
+builds; the full no-fault `test-batch` experiment remains manual. The
+[chaos mode](chaos-testing.md) now implements the saved random fault plan,
+bounded SIGKILL/replacement cycle, and
 recovery-coverage assertions as separate targets.
 
 ## Verification record — 2026-09-29

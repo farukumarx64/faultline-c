@@ -282,13 +282,22 @@ The [batch baseline harness](docs/batch-testing.md) now runs five workers and
 `make test-batch` (or `make SANITIZE=1 test-batch`). Use
 `BATCH_ARGS='--workers 3 --jobs 9 --sleep-ms 25'` for a small run and
 `make test-batch-harness` for the harness's own regression checks. These are
-separate opt-in targets. The [seeded chaos harness](docs/chaos-testing.md) now
+separate from `make test`. The [seeded chaos harness](docs/chaos-testing.md) now
 runs with `make test-chaos` (also `SANITIZE=1`), killing busy workers and starting
 replacements while retaining the plan, actions, and recovery evidence. Use
 `CHAOS_ARGS` to configure it and `make test-chaos-harness` for its regression suite.
 Each run saves its drain cohort and a per-job `accounting.json` report, proving
 that the acknowledged IDs partition into completed and terminally failed jobs,
 with exact results and valid retry histories. Matching totals alone cannot pass.
+Linux CI explicitly runs 7 deadline/failure-propagation checks, 20 baseline and
+35 chaos harness checks, followed by the full seed-42 experiment, in each compiler
+job. The steps have deadlines and upload available logs, JSON evidence, and WALs
+after success or failure. See the
+[CI validation record](docs/ci.md#ci-acceptance-gate-validation) for local Linux
+results and the remaining hosted-run check.
+The [acceptance gates](docs/ci.md#conditions-that-fail-ci) reject missing jobs,
+wrong results, invalid retries, insufficient recovery, timeouts, and cleanup
+failures, including cleanup errors after all jobs have completed.
 The [Testing and chaos review](docs/chaos-review.md) records seeds 42, 7, and
 2026 under normal and sanitizer builds: 600 jobs accounted for, 27 interrupted
 attempts recovered, and the remaining coverage and platform limits.

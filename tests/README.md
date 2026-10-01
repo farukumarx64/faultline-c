@@ -13,25 +13,36 @@ required. You can select the Python interpreter with `PYTHON=/path/to/python3`.
 Use `make test-unit` or `make test-integration` to run one layer separately.
 The [Linux CI workflow](../.github/workflows/linux-ci.yml) runs both layers on
 Ubuntu 24.04 with GCC 13 and with Clang 18 + AddressSanitizer/UBSan. Both jobs
-enable the default-port checks and reject compiler warnings. Available environment,
-build, unit, and integration logs are uploaded after success or failure. See
+enable the default-port checks and reject compiler warnings. Available build/test
+logs and chaos evidence are uploaded after success or failure. See
 [Linux CI](../docs/ci.md) for reproduction commands and validation scope.
 Use `make test-batch` for the [batch baseline harness](../docs/batch-testing.md):
 five workers, 100 three-second sleep jobs, exact per-ID results, artifacts, and
 bounded cleanup. `BATCH_ARGS='--workers 3 --jobs 9 --sleep-ms 25'` selects a small
 run. `make test-batch-harness` checks the harness's success and failure paths.
-Both accept `SANITIZE=1`; both remain outside `make test`, CI, and the suite counts
+Both accept `SANITIZE=1`; both remain outside `make test` and the suite counts
 above. Use `make test-chaos` for the [seeded crash/replacement experiment](../docs/chaos-testing.md)
-and `make test-chaos-harness` for its 32 regression checks, including per-ID
+and `make test-chaos-harness` for its 35 regression checks, including per-ID
 terminal accounting, exact results, retry histories, and drain failures.
 Both accept `SANITIZE=1`;
-`CHAOS_ARGS` configures the experiment. These targets also remain opt-in, outside
-the default suite and CI. The [contract](../docs/chaos.md) defines recovery coverage.
+`CHAOS_ARGS` configures the experiment. These targets also remain outside
+the default suite. CI explicitly runs the 20 baseline harness checks, the 35 chaos
+harness checks, and one full seed-42 experiment per compiler, with deadlines and
+evidence uploads. The full no-fault `test-batch` experiment stays manual.
+`make test-ci-deadlines` runs seven Linux-only checks of the shared CI runner,
+including a command that exits zero on timeout, forced termination, and log-write
+failure. It requires GNU coreutils and runs before the harness suites in CI.
+The three newest chaos fixtures verify exit 1 for a wrong same-length result,
+excess retries, and cleanup failure after valid accounting and recovery. See
+[CI rejection conditions](../docs/ci.md#conditions-that-fail-ci).
+The [contract](../docs/chaos.md) defines recovery coverage.
 The [phase review](../docs/chaos-review.md) records the three-seed normal/sanitizer
 matrix, harness regression results, reproducible commands, and evidence limits.
 The [Linux harness verification](../docs/chaos-testing.md#linux-harness-regression-verification)
 records both suites passing with GCC and Clang sanitizers in local Ubuntu ARM64
-containers, with leak detection enabled; CI integration remains pending.
+containers, with leak detection enabled. The subsequent
+[CI integration validation](../docs/ci.md#chaos-ci-integration-validation) checks
+the new workflow commands; GitHub-hosted execution remains to be verified.
 The [full Linux seed-42 experiment](../docs/chaos-testing.md#linux-fixed-seed-experiment-verification)
 also passed in both builds, with all 100 jobs completed after worker crashes.
 Use `make test-job-status-protocol` for status codecs, or
