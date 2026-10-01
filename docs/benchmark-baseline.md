@@ -11,42 +11,91 @@ runner and provides an initial reference. The later 1/2/4/8-worker campaign must
 collect all configurations together in the specified order, including fresh
 one-worker samples; these samples cannot substitute for that campaign's column.
 
-## Execution status: 2026-10-01
+## Results: 2026-10-01
 
-**The runner is implemented and tested; the full workload has no accepted timing
-samples yet.** The attempted series `one-worker-20261001-1850` completed its fresh
-optimized build and correctness checks, then stopped at the warmup's AC-power
-gate. The benchmark process observed `Battery Power`. No workload jobs were
-submitted, `timing_valid=false`, and the parent aggregate is null. All owned
-children were reaped and their process groups retired; an independent check also
-confirmed that those groups no longer existed.
+**The complete one-worker baseline passed.** The median batch duration was
+**59.395 seconds** for 64 jobs, with median throughput **1.078 jobs/second**.
+All **384 jobs** (64 warmup, 320 measured) returned exactly `664579`, on attempt 1,
+with zero retries or terminal failures. Every run passed cleanup and its deadline.
 
-Validation completed on this Mac:
+The [reviewed result file](../benchmarks/results/one-worker-20261001.json) retains
+unrounded metrics, per-sample machine/power snapshots, timing boundaries,
+accounting totals, build/source identity, and evidence hashes. Measurements below
+are rounded for display; aggregates exclude the warmup.
+
+| Measured sample | Batch seconds | Jobs/second | Mean accepted latency, seconds | p95 accepted latency, seconds |
+| --- | ---: | ---: | ---: | ---: |
+| 1 | 57.804 | 1.107 | 28.183 | 53.319 |
+| 2 | 58.978 | 1.085 | 28.901 | 54.475 |
+| 3 | 59.426 | 1.077 | 29.277 | 54.972 |
+| 4 | 60.086 | 1.065 | 29.539 | 55.556 |
+| 5 | 59.395 | 1.078 | 29.168 | 54.811 |
+| Median of five samples | **59.395** | **1.078** | **29.168** | **54.811** |
+
+Batch times ranged from 57.804 to 60.086 seconds. The separately verified warmup
+took 58.014 seconds. The full invocation took 734.869 seconds, including building,
+correctness tests, setup, cooldowns, verification, and cleanup. That wall time is
+not the batch metric. Accepted latency includes FIFO waiting; its p95 describes
+the 61st sorted latency among each run's 64 jobs. The table reports the median of
+the five per-run p95 values, not a percentile pooled across all runs.
+
+This series used clean source revision
+`7076a9b6b5f4085ea85fd90e0e1beab06360e113`, Clang `-O2 -g -Werror`, and
+`SANITIZE=0`. Source and binary hashes stayed unchanged throughout the series.
+Refreshed machine values were stable across all twelve before/after snapshots:
+
+| Property | Value for this series |
+| --- | --- |
+| CPU/model | Apple M4, `Mac16,12`, ARM64 |
+| Cores | 10 physical/logical: 4 Performance + 6 Efficiency |
+| Memory | 16 GiB |
+| OS | macOS 27.0.1, build 26A434; Darwin 27.0.0 |
+| Compiler | Apple Clang 21.0.0, `clang-2100.3.34.2` |
+| WAL storage | Internal APFS SSD |
+| Power | AC at every checked boundary; low-power mode off |
+| Thermal telemetry | Unavailable; absence of throttling is not established |
+
+OS/compiler values differ from the original contract inventory. These refreshed
+values describe this run. Background load varied: the recorded one-minute load
+reached 9.694 before sample 3. Its cause was not measured, and these observations
+do not isolate thermal, scheduling, or background-work effects. All five samples
+are retained. This remains a single-host development baseline; collect fresh
+one-worker samples within the later ordered matrix before making speedup claims.
+
+Raw evidence is retained in Git-ignored
+`build/benchmarks/one-worker-379xz48p/`. A separate audit recomputed batch/latency
+aggregates from timestamps and coordinator logs, checked every acknowledged ID
+and exact result, reconciled counters, verified source/binary hashes and process
+cleanup, and produced `independent-audit.json` with `AUDIT_PASS`. Its script is
+retained there as `audit_one_worker.py`. A post-run process-group check confirmed
+all 4,671 directly tracked children/helpers were reaped and their groups absent.
+
+Validation evidence:
 
 | Check | Result |
 | --- | --- |
-| Optimized C correctness tests | 131 groups passed |
-| Process integration tests | 141 passed; two default-endpoint checks skipped |
-| Benchmark verifier regressions | 18 passed |
-| Existing batch verifier regressions | 21 passed |
-| Existing chaos verifier regressions | 35 passed |
+| Optimized C correctness tests, rerun before this series | 131 groups passed |
+| Process integration tests, rerun before this series | 141 passed; two default-endpoint checks skipped |
+| Benchmark verifier regressions, prior implementation validation | 18 passed |
+| Existing batch verifier regressions, prior implementation validation | 21 passed |
+| Existing chaos verifier regressions, prior implementation validation | 35 passed |
+| Full one-worker series and independent audit | Both passed |
 
-The build recorded Apple Clang 21.0.0 (`clang-2100.3.34.2`), targeting Darwin 27,
-which differs from the initial contract inventory. Fresh per-sample machine
-snapshots remain required. These checks are correctness evidence, not measured
-benchmark repetitions or sanitizer timing results.
+Regression test timings are not benchmark samples. No new sanitizer experiment
+was run for these optimized timings.
+
+## Earlier attempts
 
 The earlier `one-worker-20261001-1840` invocation exposed an absolute build-path
 issue before any benchmark jobs ran: existing Make test recipes prefix executable
 paths with `./`. The driver now passes a path relative to its explicit Make
 working directory, and a regression exercises both compilation and execution
-with an absolute output directory. Both unsuccessful invocations remain under
-Git-ignored `build/benchmarks/`; no failed sample was replaced or averaged away.
-
-To finish this step, connect the Mac to AC power and run the command below in a
-new directory. Accept and review the complete warmup plus five measured samples
-before publishing a duration or using this baseline for comparisons. The later
-multi-worker step still needs its own complete ordered campaign.
+with an absolute output directory. The next `one-worker-20261001-1850` invocation
+passed build/correctness checks, then stopped at the warmup power gate on battery
+power with zero submissions, no accepted timing, and successful cleanup. Both
+unsuccessful invocations remain under Git-ignored `build/benchmarks/`. After AC
+power was supplied, the successful series ran afresh from the committed code in
+a new directory. No sample within a series was silently replaced or averaged away.
 
 ## Run it
 

@@ -1,0 +1,989 @@
+{
+  "report": "faultline-one-worker-baseline-v1",
+  "date": "2026-10-01",
+  "verdict": "ONE_WORKER_BASELINE_PASS",
+  "scope": "one-worker development baseline; full ordered scaling campaign is separate",
+  "reportable_scaling_campaign": false,
+  "profile": {
+    "contract": "faultline-benchmarks-v1",
+    "profile": "scaling-prime-count-v1",
+    "task": "prime_count",
+    "arguments": "10000000",
+    "expected_result": "664579",
+    "expected_result_bytes": 6,
+    "jobs": 64,
+    "worker_counts": [
+      1,
+      2,
+      4,
+      8
+    ],
+    "max_retries": 0,
+    "faults_per_run": 0,
+    "warmup_order": [
+      1,
+      2,
+      4,
+      8
+    ],
+    "measured_rounds": [
+      [
+        1,
+        2,
+        4,
+        8
+      ],
+      [
+        2,
+        4,
+        8,
+        1
+      ],
+      [
+        4,
+        8,
+        1,
+        2
+      ],
+      [
+        8,
+        1,
+        2,
+        4
+      ],
+      [
+        1,
+        4,
+        2,
+        8
+      ]
+    ],
+    "build": {
+      "cc": "clang",
+      "cflags": "-O2 -g -Werror",
+      "sanitize": 0,
+      "cpu_tuning": "compiler_default",
+      "lto": false
+    },
+    "heartbeat_interval_ms": 2000,
+    "heartbeat_timeout_ms": 6000,
+    "poll_interval_ms": 200,
+    "cooldown_ms": 30000,
+    "minimum_warmup_batch_ms": 10000,
+    "run_deadline_ms": 600000,
+    "cleanup_reserve_ms": 10000,
+    "campaign_deadline_ms": 7200000
+  },
+  "workers": 1,
+  "source": {
+    "revision": "7076a9b6b5f4085ea85fd90e0e1beab06360e113",
+    "git_status": "",
+    "source_inputs_unchanged": true
+  },
+  "build": {
+    "compiler": "/usr/bin/clang",
+    "compiler_version": "Apple clang version 21.0.0 (clang-2100.3.34.2)\nTarget: arm64-apple-darwin27.0.0\nThread model: posix\nInstalledDir: /Library/Developer/CommandLineTools/usr/bin\n",
+    "make_version": "GNU Make 3.81\nCopyright (C) 2006  Free Software Foundation, Inc.\nThis is free software; see the source for copying conditions.\nThere is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A\nPARTICULAR PURPOSE.\n\nThis program built for i386-apple-darwin11.3.0\n",
+    "cflags": "-O2 -g -Werror",
+    "sanitize": 0,
+    "binaries": {
+      "faultline": "9a3921559f8dc100a66a12b1e1c8a76b09598fedf01eb429589f87f5151216ee",
+      "faultline-worker": "ce30a0ad88a714d52e530bc37d17ea80594738d66d83ae303a460dd6b448cff2",
+      "faultline-coordinator": "90045095bb560cb17ee1e532f37dde6bd89f6e15e85f744658980527deb0779e"
+    }
+  },
+  "validation": {
+    "c_groups_passed": 131,
+    "integration_discovered": 143,
+    "integration_passed": 141,
+    "integration_skipped": 2,
+    "independent_audit": "AUDIT_PASS",
+    "all_owned_process_groups_absent": true,
+    "all_jobs": 384,
+    "measured_jobs": 320,
+    "completed": 384,
+    "terminally_failed": 0,
+    "retries": 0
+  },
+  "invocation_elapsed_ms": 734869,
+  "samples": [
+    {
+      "path": "00-warmup",
+      "stage": "warmup",
+      "metrics": {
+        "batch_elapsed_ms": 58014.242542,
+        "admission_ms": 1759.172375,
+        "completed_jobs_per_second": 1.1031773784457592,
+        "mean_accepted_latency_ms": 28559.390625,
+        "p95_accepted_latency_ms": 53558
+      },
+      "overhead": {
+        "startup_ms": 889.3540830000006,
+        "verification_ms": 4352.408708,
+        "cleanup_ms": 28
+      },
+      "children": 768,
+      "elapsed_ms": 63348,
+      "sha256": {
+        "summary.json": "81ab3678e4994a4e4c6364a1e1905aca6a72f1f5f8cbf44da3780cece522618c",
+        "accounting.json": "e016ab3f1ec7142ab9547f11ba034acd6ee5a004df7880dd2dbd9e31707fb7e4",
+        "timings.json": "9673d2d02230491c1baf5787ac2c48e09f5b2143c18072a3b355238dbd2d195f",
+        "latencies.json": "d16160f2280292f6484a89bcbe985ffb28bb1cb9274d0dde72f12c0ff9870cea",
+        "events.jsonl": "bd17991ba206f9534c1a6ba6e3bfe6f3415e82ca2eda2fb2d4238e01ab233fb0",
+        "coordinator.wal": "c8c86ecd2ca208aad7838aa6cef1610d1f1998756ceb46d4337d7c209c21af16"
+      },
+      "created_utc": "2026-10-01T18:53:00.447367+00:00",
+      "verified_counts": {
+        "submitted": 64,
+        "completed": 64,
+        "terminally_failed": 0
+      },
+      "retries": 0,
+      "attempts": 64,
+      "job_id_range": [
+        1,
+        64
+      ],
+      "all_ids_individually_verified": true,
+      "timing_valid": true,
+      "cleanup": {
+        "ok": true,
+        "errors": [],
+        "remaining": [],
+        "elapsed_ms": 28
+      },
+      "machine": {
+        "before": {
+          "observed_monotonic_ns": 199078314750,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "hardware": {
+            "machdep.cpu.brand_string": "Apple M4",
+            "hw.model": "Mac16,12",
+            "hw.physicalcpu": "10",
+            "hw.logicalcpu": "10",
+            "hw.memsize": "17179869184",
+            "hw.perflevel0.name": "Performance",
+            "hw.perflevel0.physicalcpu": "4",
+            "hw.perflevel1.name": "Efficiency",
+            "hw.perflevel1.physicalcpu": "6"
+          },
+          "os": "ProductName:\t\tmacOS\nProductVersion:\t\t27.0.1\nBuildVersion:\t\t26A434\n",
+          "kernel": {
+            "system": "Darwin",
+            "release": "27.0.0",
+            "version": "Darwin Kernel Version 27.0.0: Tue Aug 11 21:02:57 PDT 2026; root:xnu-13432.1.9~1/RELEASE_ARM64_T8132",
+            "machine": "arm64"
+          },
+          "storage": {
+            "FilesystemType": "apfs",
+            "TotalSize": 494384795648,
+            "SolidState": true,
+            "Internal": true
+          },
+          "available_bytes": 118247129088,
+          "load_average": [
+            2.5087890625,
+            2.60986328125,
+            2.63916015625
+          ],
+          "python": "3.9.6 (default, Aug 25 2026, 21:26:21) \n[Clang 21.0.0 (clang-2100.3.34.2)]"
+        },
+        "after": {
+          "observed_monotonic_ns": 261981374333,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "hardware": {
+            "machdep.cpu.brand_string": "Apple M4",
+            "hw.model": "Mac16,12",
+            "hw.physicalcpu": "10",
+            "hw.logicalcpu": "10",
+            "hw.memsize": "17179869184",
+            "hw.perflevel0.name": "Performance",
+            "hw.perflevel0.physicalcpu": "4",
+            "hw.perflevel1.name": "Efficiency",
+            "hw.perflevel1.physicalcpu": "6"
+          },
+          "os": "ProductName:\t\tmacOS\nProductVersion:\t\t27.0.1\nBuildVersion:\t\t26A434\n",
+          "kernel": {
+            "system": "Darwin",
+            "release": "27.0.0",
+            "version": "Darwin Kernel Version 27.0.0: Tue Aug 11 21:02:57 PDT 2026; root:xnu-13432.1.9~1/RELEASE_ARM64_T8132",
+            "machine": "arm64"
+          },
+          "storage": {
+            "FilesystemType": "apfs",
+            "TotalSize": 494384795648,
+            "SolidState": true,
+            "Internal": true
+          },
+          "available_bytes": 118171541504,
+          "load_average": [
+            2.9375,
+            2.68505859375,
+            2.66259765625
+          ],
+          "python": "3.9.6 (default, Aug 25 2026, 21:26:21) \n[Clang 21.0.0 (clang-2100.3.34.2)]"
+        }
+      },
+      "timing_boundaries": {
+        "t0_ns": 199643232458,
+        "t_ack_ns": 201402404833,
+        "t_done_ns": 257657475000,
+        "verified_ns": 262009883708
+      }
+    },
+    {
+      "path": "01-measured",
+      "stage": "measured",
+      "metrics": {
+        "batch_elapsed_ms": 57804.269625,
+        "admission_ms": 1758.252417,
+        "completed_jobs_per_second": 1.1071846494245883,
+        "mean_accepted_latency_ms": 28182.625,
+        "p95_accepted_latency_ms": 53319
+      },
+      "overhead": {
+        "startup_ms": 864.2113329999574,
+        "verification_ms": 4400.050792,
+        "cleanup_ms": 26
+      },
+      "children": 766,
+      "elapsed_ms": 63178,
+      "sha256": {
+        "summary.json": "9dbdd0cce5933848ddfc3d0315e8286a6a934b3439f1f8d987747e8f1fb8b54e",
+        "accounting.json": "9c7f6d75d039b426ce87248f9a02486d352178717f5cb65450cd943db376236d",
+        "timings.json": "5922b418cf1bbe9ec2e0eaed6fdd5e39cbccc2bc01776f5119b3cbb9fee1f9b0",
+        "latencies.json": "f32c30d36e01a8218acf87108deb116d19e4bd04becb8a2d56ba6525cfd3faa3",
+        "events.jsonl": "f9c225bca22e5ee04f494311943289fbf17a5eed9e998038ab67daf4ae4d4a4e",
+        "coordinator.wal": "aff4dfb81a6532e91591fc9b6046593b7963755f8e8149a05718fd9051ee0604"
+      },
+      "created_utc": "2026-10-01T18:54:33.843055+00:00",
+      "verified_counts": {
+        "submitted": 64,
+        "completed": 64,
+        "terminally_failed": 0
+      },
+      "retries": 0,
+      "attempts": 64,
+      "job_id_range": [
+        1,
+        64
+      ],
+      "all_ids_individually_verified": true,
+      "timing_valid": true,
+      "cleanup": {
+        "ok": true,
+        "errors": [],
+        "remaining": [],
+        "elapsed_ms": 26
+      },
+      "machine": {
+        "before": {
+          "observed_monotonic_ns": 292460389208,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "hardware": {
+            "machdep.cpu.brand_string": "Apple M4",
+            "hw.model": "Mac16,12",
+            "hw.physicalcpu": "10",
+            "hw.logicalcpu": "10",
+            "hw.memsize": "17179869184",
+            "hw.perflevel0.name": "Performance",
+            "hw.perflevel0.physicalcpu": "4",
+            "hw.perflevel1.name": "Efficiency",
+            "hw.perflevel1.physicalcpu": "6"
+          },
+          "os": "ProductName:\t\tmacOS\nProductVersion:\t\t27.0.1\nBuildVersion:\t\t26A434\n",
+          "kernel": {
+            "system": "Darwin",
+            "release": "27.0.0",
+            "version": "Darwin Kernel Version 27.0.0: Tue Aug 11 21:02:57 PDT 2026; root:xnu-13432.1.9~1/RELEASE_ARM64_T8132",
+            "machine": "arm64"
+          },
+          "storage": {
+            "FilesystemType": "apfs",
+            "TotalSize": 494384795648,
+            "SolidState": true,
+            "Internal": true
+          },
+          "available_bytes": 118133374976,
+          "load_average": [
+            2.8779296875,
+            2.68408203125,
+            2.66259765625
+          ],
+          "python": "3.9.6 (default, Aug 25 2026, 21:26:21) \n[Clang 21.0.0 (clang-2100.3.34.2)]"
+        },
+        "after": {
+          "observed_monotonic_ns": 355205637833,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "hardware": {
+            "machdep.cpu.brand_string": "Apple M4",
+            "hw.model": "Mac16,12",
+            "hw.physicalcpu": "10",
+            "hw.logicalcpu": "10",
+            "hw.memsize": "17179869184",
+            "hw.perflevel0.name": "Performance",
+            "hw.perflevel0.physicalcpu": "4",
+            "hw.perflevel1.name": "Efficiency",
+            "hw.perflevel1.physicalcpu": "6"
+          },
+          "os": "ProductName:\t\tmacOS\nProductVersion:\t\t27.0.1\nBuildVersion:\t\t26A434\n",
+          "kernel": {
+            "system": "Darwin",
+            "release": "27.0.0",
+            "version": "Darwin Kernel Version 27.0.0: Tue Aug 11 21:02:57 PDT 2026; root:xnu-13432.1.9~1/RELEASE_ARM64_T8132",
+            "machine": "arm64"
+          },
+          "storage": {
+            "FilesystemType": "apfs",
+            "TotalSize": 494384795648,
+            "SolidState": true,
+            "Internal": true
+          },
+          "available_bytes": 118074880000,
+          "load_average": [
+            3.4404296875,
+            2.87841796875,
+            2.73486328125
+          ],
+          "python": "3.9.6 (default, Aug 25 2026, 21:26:21) \n[Clang 21.0.0 (clang-2100.3.34.2)]"
+        }
+      },
+      "timing_boundaries": {
+        "t0_ns": 293030275541,
+        "t_ack_ns": 294788527958,
+        "t_done_ns": 350834545166,
+        "verified_ns": 355234595958
+      }
+    },
+    {
+      "path": "02-measured",
+      "stage": "measured",
+      "metrics": {
+        "batch_elapsed_ms": 58977.676791,
+        "admission_ms": 1732.454791,
+        "completed_jobs_per_second": 1.085156341895217,
+        "mean_accepted_latency_ms": 28901.453125,
+        "p95_accepted_latency_ms": 54475
+      },
+      "overhead": {
+        "startup_ms": 835.5612920000226,
+        "verification_ms": 4445.722334,
+        "cleanup_ms": 28
+      },
+      "children": 778,
+      "elapsed_ms": 64500,
+      "sha256": {
+        "summary.json": "b9a7f3e44c4886a97f705008d11352b3b9c7b2d896a18ef253f3c2d416965304",
+        "accounting.json": "e21f78ee4863a15b0f4874e6489aca46289beedc437ec507b1efff0da66a997d",
+        "timings.json": "5540bc0c3dfad1f14d46d68d5986043ddc92e08c8972447ee65ac032d7ab65e0",
+        "latencies.json": "285321913e58877dc7a98d7e6eacdcf0d566aaf54ca48ce650be5e576a354d20",
+        "events.jsonl": "dfd3f12e14df2c834978aaf4ac614ba78e07f19c9be212e62e034ab7287f4777",
+        "coordinator.wal": "f1da7513f91ed974211f06b0826b4c8dac268df0fcd8ca7cbfcc26f90f3100ea"
+      },
+      "created_utc": "2026-10-01T18:56:07.083319+00:00",
+      "verified_counts": {
+        "submitted": 64,
+        "completed": 64,
+        "terminally_failed": 0
+      },
+      "retries": 0,
+      "attempts": 64,
+      "job_id_range": [
+        1,
+        64
+      ],
+      "all_ids_individually_verified": true,
+      "timing_valid": true,
+      "cleanup": {
+        "ok": true,
+        "errors": [],
+        "remaining": [],
+        "elapsed_ms": 28
+      },
+      "machine": {
+        "before": {
+          "observed_monotonic_ns": 385668192541,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "hardware": {
+            "machdep.cpu.brand_string": "Apple M4",
+            "hw.model": "Mac16,12",
+            "hw.physicalcpu": "10",
+            "hw.logicalcpu": "10",
+            "hw.memsize": "17179869184",
+            "hw.perflevel0.name": "Performance",
+            "hw.perflevel0.physicalcpu": "4",
+            "hw.perflevel1.name": "Efficiency",
+            "hw.perflevel1.physicalcpu": "6"
+          },
+          "os": "ProductName:\t\tmacOS\nProductVersion:\t\t27.0.1\nBuildVersion:\t\t26A434\n",
+          "kernel": {
+            "system": "Darwin",
+            "release": "27.0.0",
+            "version": "Darwin Kernel Version 27.0.0: Tue Aug 11 21:02:57 PDT 2026; root:xnu-13432.1.9~1/RELEASE_ARM64_T8132",
+            "machine": "arm64"
+          },
+          "storage": {
+            "FilesystemType": "apfs",
+            "TotalSize": 494384795648,
+            "SolidState": true,
+            "Internal": true
+          },
+          "available_bytes": 118036770816,
+          "load_average": [
+            2.72021484375,
+            2.76025390625,
+            2.69677734375
+          ],
+          "python": "3.9.6 (default, Aug 25 2026, 21:26:21) \n[Clang 21.0.0 (clang-2100.3.34.2)]"
+        },
+        "after": {
+          "observed_monotonic_ns": 449630656083,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "hardware": {
+            "machdep.cpu.brand_string": "Apple M4",
+            "hw.model": "Mac16,12",
+            "hw.physicalcpu": "10",
+            "hw.logicalcpu": "10",
+            "hw.memsize": "17179869184",
+            "hw.perflevel0.name": "Performance",
+            "hw.perflevel0.physicalcpu": "4",
+            "hw.perflevel1.name": "Efficiency",
+            "hw.perflevel1.physicalcpu": "6"
+          },
+          "os": "ProductName:\t\tmacOS\nProductVersion:\t\t27.0.1\nBuildVersion:\t\t26A434\n",
+          "kernel": {
+            "system": "Darwin",
+            "release": "27.0.0",
+            "version": "Darwin Kernel Version 27.0.0: Tue Aug 11 21:02:57 PDT 2026; root:xnu-13432.1.9~1/RELEASE_ARM64_T8132",
+            "machine": "arm64"
+          },
+          "storage": {
+            "FilesystemType": "apfs",
+            "TotalSize": 494384795648,
+            "SolidState": true,
+            "Internal": true
+          },
+          "available_bytes": 117994762240,
+          "load_average": [
+            2.6787109375,
+            2.71923828125,
+            2.68115234375
+          ],
+          "python": "3.9.6 (default, Aug 25 2026, 21:26:21) \n[Clang 21.0.0 (clang-2100.3.34.2)]"
+        }
+      },
+      "timing_boundaries": {
+        "t0_ns": 386238337000,
+        "t_ack_ns": 387970791791,
+        "t_done_ns": 445216013791,
+        "verified_ns": 449661736125
+      }
+    },
+    {
+      "path": "03-measured",
+      "stage": "measured",
+      "metrics": {
+        "batch_elapsed_ms": 59425.914708,
+        "admission_ms": 1743.547667,
+        "completed_jobs_per_second": 1.0769712223105963,
+        "mean_accepted_latency_ms": 29277.359375,
+        "p95_accepted_latency_ms": 54972
+      },
+      "overhead": {
+        "startup_ms": 846.8818749999514,
+        "verification_ms": 4359.529667,
+        "cleanup_ms": 28
+      },
+      "children": 782,
+      "elapsed_ms": 64709,
+      "sha256": {
+        "summary.json": "1fa64b36afc06f0ec1d7cb87ad1737c1b7c22032a9cae721ccc0928f46a9be63",
+        "accounting.json": "c71750378637b8b31ea3524595e4c601a254e426fae69585b4126af419a47738",
+        "timings.json": "1411a28558c3d39f293aaa3b053bdc6b7f159282e688dd1f57ee7d832789ad36",
+        "latencies.json": "7ce8437c6f17f2b68a89a51c2d767ea062d092bd0991fb769b2be49ee37492e7",
+        "events.jsonl": "aca7c57b1f15de2e7c4e287fb6cb9b9b8e4ddd65d6769183ecc474add0b33e12",
+        "coordinator.wal": "082eb582bd89800f16717739da70e700522cb2b7a99003b8f686600322d8b7f5"
+      },
+      "created_utc": "2026-10-01T18:57:41.696676+00:00",
+      "verified_counts": {
+        "submitted": 64,
+        "completed": 64,
+        "terminally_failed": 0
+      },
+      "retries": 0,
+      "attempts": 64,
+      "job_id_range": [
+        1,
+        64
+      ],
+      "all_ids_individually_verified": true,
+      "timing_valid": true,
+      "cleanup": {
+        "ok": true,
+        "errors": [],
+        "remaining": [],
+        "elapsed_ms": 28
+      },
+      "machine": {
+        "before": {
+          "observed_monotonic_ns": 480301301125,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "hardware": {
+            "machdep.cpu.brand_string": "Apple M4",
+            "hw.model": "Mac16,12",
+            "hw.physicalcpu": "10",
+            "hw.logicalcpu": "10",
+            "hw.memsize": "17179869184",
+            "hw.perflevel0.name": "Performance",
+            "hw.perflevel0.physicalcpu": "4",
+            "hw.perflevel1.name": "Efficiency",
+            "hw.perflevel1.physicalcpu": "6"
+          },
+          "os": "ProductName:\t\tmacOS\nProductVersion:\t\t27.0.1\nBuildVersion:\t\t26A434\n",
+          "kernel": {
+            "system": "Darwin",
+            "release": "27.0.0",
+            "version": "Darwin Kernel Version 27.0.0: Tue Aug 11 21:02:57 PDT 2026; root:xnu-13432.1.9~1/RELEASE_ARM64_T8132",
+            "machine": "arm64"
+          },
+          "storage": {
+            "FilesystemType": "apfs",
+            "TotalSize": 494384795648,
+            "SolidState": true,
+            "Internal": true
+          },
+          "available_bytes": 117991555072,
+          "load_average": [
+            9.69384765625,
+            4.27734375,
+            3.2373046875
+          ],
+          "python": "3.9.6 (default, Aug 25 2026, 21:26:21) \n[Clang 21.0.0 (clang-2100.3.34.2)]"
+        },
+        "after": {
+          "observed_monotonic_ns": 544618377750,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "hardware": {
+            "machdep.cpu.brand_string": "Apple M4",
+            "hw.model": "Mac16,12",
+            "hw.physicalcpu": "10",
+            "hw.logicalcpu": "10",
+            "hw.memsize": "17179869184",
+            "hw.perflevel0.name": "Performance",
+            "hw.perflevel0.physicalcpu": "4",
+            "hw.perflevel1.name": "Efficiency",
+            "hw.perflevel1.physicalcpu": "6"
+          },
+          "os": "ProductName:\t\tmacOS\nProductVersion:\t\t27.0.1\nBuildVersion:\t\t26A434\n",
+          "kernel": {
+            "system": "Darwin",
+            "release": "27.0.0",
+            "version": "Darwin Kernel Version 27.0.0: Tue Aug 11 21:02:57 PDT 2026; root:xnu-13432.1.9~1/RELEASE_ARM64_T8132",
+            "machine": "arm64"
+          },
+          "storage": {
+            "FilesystemType": "apfs",
+            "TotalSize": 494384795648,
+            "SolidState": true,
+            "Internal": true
+          },
+          "available_bytes": 117906296832,
+          "load_average": [
+            5.93115234375,
+            4.19677734375,
+            3.28076171875
+          ],
+          "python": "3.9.6 (default, Aug 25 2026, 21:26:21) \n[Clang 21.0.0 (clang-2100.3.34.2)]"
+        }
+      },
+      "timing_boundaries": {
+        "t0_ns": 480861852083,
+        "t_ack_ns": 482605399750,
+        "t_done_ns": 540287766791,
+        "verified_ns": 544647296458
+      }
+    },
+    {
+      "path": "04-measured",
+      "stage": "measured",
+      "metrics": {
+        "batch_elapsed_ms": 60086.272625,
+        "admission_ms": 1714.76075,
+        "completed_jobs_per_second": 1.0651351332678876,
+        "mean_accepted_latency_ms": 29538.875,
+        "p95_accepted_latency_ms": 55556
+      },
+      "overhead": {
+        "startup_ms": 853.6612080000623,
+        "verification_ms": 4420.998542,
+        "cleanup_ms": 28
+      },
+      "children": 788,
+      "elapsed_ms": 65453,
+      "sha256": {
+        "summary.json": "27035c8835fb2b5f5be19b2398102d27f495f3002fb5ffda21b4d2ede53fa734",
+        "accounting.json": "124320d798f070a92bc176d9c2f8fbed319528c8fdcf9085546a289abf708f11",
+        "timings.json": "0b88be5e465bec9f80ae73ea49f45f05303708ac3e77840315ae528e1f6698c2",
+        "latencies.json": "bd01a5ee0b82c459e7c110832611701fef154f1fa92191efe347ab06ecb90bad",
+        "events.jsonl": "8f683b6b2cf95a4593e86ebdd8bd2927e851765ecbdc76f8328a2f93e2f4903b",
+        "coordinator.wal": "767e320d69249e9d7abe9d023e73a49a2473de38c4a2fc3f0db382328ae729f4"
+      },
+      "created_utc": "2026-10-01T18:59:16.451863+00:00",
+      "verified_counts": {
+        "submitted": 64,
+        "completed": 64,
+        "terminally_failed": 0
+      },
+      "retries": 0,
+      "attempts": 64,
+      "job_id_range": [
+        1,
+        64
+      ],
+      "all_ids_individually_verified": true,
+      "timing_valid": true,
+      "cleanup": {
+        "ok": true,
+        "errors": [],
+        "remaining": [],
+        "elapsed_ms": 28
+      },
+      "machine": {
+        "before": {
+          "observed_monotonic_ns": 575064895791,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "hardware": {
+            "machdep.cpu.brand_string": "Apple M4",
+            "hw.model": "Mac16,12",
+            "hw.physicalcpu": "10",
+            "hw.logicalcpu": "10",
+            "hw.memsize": "17179869184",
+            "hw.perflevel0.name": "Performance",
+            "hw.perflevel0.physicalcpu": "4",
+            "hw.perflevel1.name": "Efficiency",
+            "hw.perflevel1.physicalcpu": "6"
+          },
+          "os": "ProductName:\t\tmacOS\nProductVersion:\t\t27.0.1\nBuildVersion:\t\t26A434\n",
+          "kernel": {
+            "system": "Darwin",
+            "release": "27.0.0",
+            "version": "Darwin Kernel Version 27.0.0: Tue Aug 11 21:02:57 PDT 2026; root:xnu-13432.1.9~1/RELEASE_ARM64_T8132",
+            "machine": "arm64"
+          },
+          "storage": {
+            "FilesystemType": "apfs",
+            "TotalSize": 494384795648,
+            "SolidState": true,
+            "Internal": true
+          },
+          "available_bytes": 117902589952,
+          "load_average": [
+            4.5263671875,
+            4.0185546875,
+            3.24609375
+          ],
+          "python": "3.9.6 (default, Aug 25 2026, 21:26:21) \n[Clang 21.0.0 (clang-2100.3.34.2)]"
+        },
+        "after": {
+          "observed_monotonic_ns": 640108269958,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "hardware": {
+            "machdep.cpu.brand_string": "Apple M4",
+            "hw.model": "Mac16,12",
+            "hw.physicalcpu": "10",
+            "hw.logicalcpu": "10",
+            "hw.memsize": "17179869184",
+            "hw.perflevel0.name": "Performance",
+            "hw.perflevel0.physicalcpu": "4",
+            "hw.perflevel1.name": "Efficiency",
+            "hw.perflevel1.physicalcpu": "6"
+          },
+          "os": "ProductName:\t\tmacOS\nProductVersion:\t\t27.0.1\nBuildVersion:\t\t26A434\n",
+          "kernel": {
+            "system": "Darwin",
+            "release": "27.0.0",
+            "version": "Darwin Kernel Version 27.0.0: Tue Aug 11 21:02:57 PDT 2026; root:xnu-13432.1.9~1/RELEASE_ARM64_T8132",
+            "machine": "arm64"
+          },
+          "storage": {
+            "FilesystemType": "apfs",
+            "TotalSize": 494384795648,
+            "SolidState": true,
+            "Internal": true
+          },
+          "available_bytes": 117896314880,
+          "load_average": [
+            3.71923828125,
+            3.888671875,
+            3.25244140625
+          ],
+          "python": "3.9.6 (default, Aug 25 2026, 21:26:21) \n[Clang 21.0.0 (clang-2100.3.34.2)]"
+        }
+      },
+      "timing_boundaries": {
+        "t0_ns": 575627030166,
+        "t_ack_ns": 577341790916,
+        "t_done_ns": 635713302791,
+        "verified_ns": 640134301333
+      }
+    },
+    {
+      "path": "05-measured",
+      "stage": "measured",
+      "metrics": {
+        "batch_elapsed_ms": 59394.571125,
+        "admission_ms": 1744.471542,
+        "completed_jobs_per_second": 1.0775395593867922,
+        "mean_accepted_latency_ms": 29168.390625,
+        "p95_accepted_latency_ms": 54811
+      },
+      "overhead": {
+        "startup_ms": 865.0841250000667,
+        "verification_ms": 4258.352125,
+        "cleanup_ms": 25
+      },
+      "children": 782,
+      "elapsed_ms": 64625,
+      "sha256": {
+        "summary.json": "f7b2b675ac7dcd2724bcb5c2f86fa69a908303d62da8c09e9d9dcbbea65cf17a",
+        "accounting.json": "6599547985ae3561f62daeeacf9acd4f96b3a30c37726a43ac35ab39b751982f",
+        "timings.json": "89e4a7200b38b50ab4f9274623d33165b1ae6f78ae70a3587492324338f151eb",
+        "latencies.json": "bd3292af81ca19a383d4bd98aa98f80422c40d7580de986fb48aab42d759b019",
+        "events.jsonl": "c204c52359a0a8ee94821a64bb35b4278057527f0b5162c76d20025eeb7c2450",
+        "coordinator.wal": "c50e1521490994aa5136618382e7ca2af1375d6d1b2829b7b83ce5dda4b7feaa"
+      },
+      "created_utc": "2026-10-01T19:00:51.967639+00:00",
+      "verified_counts": {
+        "submitted": 64,
+        "completed": 64,
+        "terminally_failed": 0
+      },
+      "retries": 0,
+      "attempts": 64,
+      "job_id_range": [
+        1,
+        64
+      ],
+      "all_ids_individually_verified": true,
+      "timing_valid": true,
+      "cleanup": {
+        "ok": true,
+        "errors": [],
+        "remaining": [],
+        "elapsed_ms": 25
+      },
+      "machine": {
+        "before": {
+          "observed_monotonic_ns": 670579968666,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "hardware": {
+            "machdep.cpu.brand_string": "Apple M4",
+            "hw.model": "Mac16,12",
+            "hw.physicalcpu": "10",
+            "hw.logicalcpu": "10",
+            "hw.memsize": "17179869184",
+            "hw.perflevel0.name": "Performance",
+            "hw.perflevel0.physicalcpu": "4",
+            "hw.perflevel1.name": "Efficiency",
+            "hw.perflevel1.physicalcpu": "6"
+          },
+          "os": "ProductName:\t\tmacOS\nProductVersion:\t\t27.0.1\nBuildVersion:\t\t26A434\n",
+          "kernel": {
+            "system": "Darwin",
+            "release": "27.0.0",
+            "version": "Darwin Kernel Version 27.0.0: Tue Aug 11 21:02:57 PDT 2026; root:xnu-13432.1.9~1/RELEASE_ARM64_T8132",
+            "machine": "arm64"
+          },
+          "storage": {
+            "FilesystemType": "apfs",
+            "TotalSize": 494384795648,
+            "SolidState": true,
+            "Internal": true
+          },
+          "available_bytes": 117880807424,
+          "load_average": [
+            3.1220703125,
+            3.7236328125,
+            3.2138671875
+          ],
+          "python": "3.9.6 (default, Aug 25 2026, 21:26:21) \n[Clang 21.0.0 (clang-2100.3.34.2)]"
+        },
+        "after": {
+          "observed_monotonic_ns": 734773535750,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "hardware": {
+            "machdep.cpu.brand_string": "Apple M4",
+            "hw.model": "Mac16,12",
+            "hw.physicalcpu": "10",
+            "hw.logicalcpu": "10",
+            "hw.memsize": "17179869184",
+            "hw.perflevel0.name": "Performance",
+            "hw.perflevel0.physicalcpu": "4",
+            "hw.perflevel1.name": "Efficiency",
+            "hw.perflevel1.physicalcpu": "6"
+          },
+          "os": "ProductName:\t\tmacOS\nProductVersion:\t\t27.0.1\nBuildVersion:\t\t26A434\n",
+          "kernel": {
+            "system": "Darwin",
+            "release": "27.0.0",
+            "version": "Darwin Kernel Version 27.0.0: Tue Aug 11 21:02:57 PDT 2026; root:xnu-13432.1.9~1/RELEASE_ARM64_T8132",
+            "machine": "arm64"
+          },
+          "storage": {
+            "FilesystemType": "apfs",
+            "TotalSize": 494384795648,
+            "SolidState": true,
+            "Internal": true
+          },
+          "available_bytes": 117820231680,
+          "load_average": [
+            3.3466796875,
+            3.658203125,
+            3.22412109375
+          ],
+          "python": "3.9.6 (default, Aug 25 2026, 21:26:21) \n[Clang 21.0.0 (clang-2100.3.34.2)]"
+        }
+      },
+      "timing_boundaries": {
+        "t0_ns": 671147936583,
+        "t_ack_ns": 672892408125,
+        "t_done_ns": 730542507708,
+        "verified_ns": 734800859833
+      }
+    }
+  ],
+  "aggregate": {
+    "batch_elapsed_ms": {
+      "values": [
+        57804.269625,
+        58977.676791,
+        59425.914708,
+        60086.272625,
+        59394.571125
+      ],
+      "median": 59394.571125,
+      "minimum": 57804.269625,
+      "maximum": 60086.272625
+    },
+    "completed_jobs_per_second": {
+      "values": [
+        1.1071846494245883,
+        1.085156341895217,
+        1.0769712223105963,
+        1.0651351332678876,
+        1.0775395593867922
+      ],
+      "median": 1.0775395593867922,
+      "minimum": 1.0651351332678876,
+      "maximum": 1.1071846494245883
+    },
+    "mean_accepted_latency_ms": {
+      "values": [
+        28182.625,
+        28901.453125,
+        29277.359375,
+        29538.875,
+        29168.390625
+      ],
+      "median": 29168.390625,
+      "minimum": 28182.625,
+      "maximum": 29538.875
+    },
+    "p95_accepted_latency_ms": {
+      "values": [
+        53319,
+        54475,
+        54972,
+        55556,
+        54811
+      ],
+      "median": 54811,
+      "minimum": 53319,
+      "maximum": 55556
+    }
+  },
+  "evidence": {
+    "directory": "build/benchmarks/one-worker-379xz48p",
+    "git_ignored": true,
+    "removed_by_make_clean": true,
+    "sha256": {
+      "summary.json": "a7e170483f9886fcaa377643d3c6e3bc19a4d0959f8fe1e8e1952b943796d29c",
+      "independent-audit.json": "03d2ab471e71d3b95e8918f8f7523746424e186ab14de414efcbad988628f2c9",
+      "audit_one_worker.py": "8f7906768022ea78a7c8a2da0e431315bdc2825cdb39ad645ec36c0bbc98ee9a",
+      "provenance.json": "1ff70633c39de4afbca7121bcbc569dcd89b902d6094fd09e294137a0e792810",
+      "build.json": "ba70f1ae8e7c15f46b12fe7b19b52731195267b150b380ab82d82506c6c3fa9b",
+      "profile.json": "4446e0bbdae0d31629275fe1521bc392aea65c248bc21a97f881d383d673bd6d",
+      "plan.json": "61573c78f9c004cbbbd0ae33376791417817023bc0ac7fe001f5c2b33ca873a7",
+      "contract.md": "155faa4ef4f2e89706f176d73ea338930f7d3afae3374296f0b498e573c906bc"
+    }
+  },
+  "limitations": [
+    "Single-host Apple M4 baseline, not the complete 1/2/4/8-worker matrix.",
+    "Normal WAL persistence, CLI processes, polling, and logging contribute to observed batch duration.",
+    "Power and thermal conditions sampled at run boundaries; continuous AC or thermal behavior is not established.",
+    "Thermal telemetry unavailable; no claim that throttling was absent.",
+    "Background load varied; highest recorded one-minute load was 9.69384765625 before sample 3. Cause was not measured.",
+    "Five sequential samples do not establish a strong confidence interval or isolate sources of timing variation.",
+    "Full matrix must include fresh one-worker samples in its prescribed order; no speedup claim from this series."
+  ]
+}

@@ -1,7 +1,6 @@
 # Benchmark contract
 
-Status: **contract defined; the one-worker baseline runner is implemented;
-baseline measurement awaits AC power.** See
+Status: **contract defined; the one-worker baseline is implemented and verified.** See
 [baseline execution and evidence](benchmark-baseline.md). The complete
 ordered scaling campaign and controlled recovery driver remain later steps.
 Contract version: `faultline-benchmarks-v1`. The versioned
@@ -301,8 +300,10 @@ Retain on success and failure:
 Metadata fields not available on a platform are explicitly unknown, not zero.
 Preserve raw timestamps and derive rounded display values afterwards. The final
 campaign report must link each aggregate to its five source samples. Later
-publication can copy reviewed reports/plots to `benchmarks/results/`; no result
-files exist yet. `make clean` removes local build evidence, so copy evidence
+publication can copy reviewed reports/plots to `benchmarks/results/`; the
+[one-worker baseline report](../benchmarks/results/one-worker-20261001.json) is
+available, separately scoped from the full matrix. `make clean` removes local
+build evidence, so copy evidence
 before cleaning. Benchmark execution/uploads are not added to Linux CI by this
 contract; hosted correctness checks remain separate.
 
@@ -344,10 +345,9 @@ that escape their owned session remain outside this process-based guarantee.
 ## Implementation sequence
 
 1. **Defined:** these profiles, timing/acceptance rules, and initial machine record.
-2. **Implemented:** the [one-worker baseline runner](benchmark-baseline.md), with
+2. **Verified:** the [one-worker baseline](benchmark-baseline.md), with
    per-ID verification, timing, retained evidence, deadlines, and cleanup.
-   **Execution pending:** collect and review the complete series on AC power;
-   the initial attempt stopped before submitting jobs at the power gate.
+   All 384 jobs passed; median measured batch duration was 59.395 seconds.
 3. Run the complete optimized scaling campaign with the fixed worker-count matrix.
 4. Implement and verify the controlled recovery scenarios, then run their campaign.
 5. Audit all IDs/results, raw samples, and provenance; publish tables/graphs and

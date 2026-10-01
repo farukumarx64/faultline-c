@@ -312,9 +312,12 @@ settings and the initial machine inventory live under `benchmarks/`.
 `make benchmark-baseline` now builds and checks optimized binaries, then runs one
 warmup and five verified one-worker samples. See the
 [baseline guide](docs/benchmark-baseline.md) for timing, machine checks, evidence,
-and the distinction from the later complete scaling campaign. The runner's
-regressions pass; the full baseline has no accepted samples yet because the
-attempted warmup stopped at the AC-power requirement before submitting jobs.
+and the distinction from the later complete scaling campaign. The verified
+one-worker series completed all 384 jobs (including warmup) without retries or
+failures: the median measured 64-job batch took **59.395 seconds**, or
+**1.078 jobs/second**, on the recorded Apple M4 configuration. The
+[reviewed results](benchmarks/results/one-worker-20261001.json) retain all samples
+and evidence references; the full worker-count comparison remains the next step.
 Use `make test-unit` or `make test-integration` to run either layer separately.
 Use `make test-job-status-protocol` for status payloads and validation, or add
 `SANITIZE=1` for AddressSanitizer/UBSan.
@@ -365,6 +368,7 @@ faultline/
 ├── benchmarks/
 │   ├── run_baseline.py  Optimized one-worker build, verification, and timing
 │   ├── profiles/        Versioned scaling and controlled recovery settings
+│   ├── results/         Reviewed baseline measurements and evidence hashes
 │   └── machines/        Hardware, OS, toolchain, storage, and power inventory
 ├── docs/
 │   ├── architecture.md
