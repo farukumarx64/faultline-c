@@ -120,9 +120,11 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: linux-${{ matrix.artifact }}-chaos-evidence
-          # Keep run identities and diagnostics, without fixture executables.
+          # Keep completed evidence and interrupted JSON writes. Harness and
+          # child output both use .log; fixture executables stay excluded.
           path: |
             build/chaos/**/*.json
+            build/chaos/**/*.json.tmp
             build/chaos/**/*.jsonl
             build/chaos/**/*.log
             build/chaos/**/*.wal

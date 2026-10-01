@@ -106,8 +106,10 @@ class HarnessCase(unittest.TestCase):
         argv = [sys.executable, str(self.RUNNER), '--bin-dir', str(binary_dir or BIN_DIR),
                 '--workers', '3', '--jobs', '9', '--sleep-ms', '25', '--deadline-ms', '30000',
                 '--output-dir', str(output), *extra]
-        with (self.directory / f'harness-{self.run_index}.stdout').open('w+') as out, \
-             (self.directory / f'harness-{self.run_index}.stderr').open('w+') as err:
+        # Use the same .log suffix as child output so CI retains the harness's
+        # own diagnostics, including errors before a summary can be written.
+        with (self.directory / f'harness-{self.run_index}.stdout.log').open('w+') as out, \
+             (self.directory / f'harness-{self.run_index}.stderr.log').open('w+') as err:
             process = subprocess.Popen(argv, stdout=out, stderr=err, start_new_session=True)
             try:
                 yield process, output
@@ -121,6 +123,7 @@ class HarnessCase(unittest.TestCase):
         self.assertEqual(process.wait(timeout=40), expected, f'artifacts: {output}')
         summary = json.loads((output / 'summary.json').read_text())
         self.assertEqual(summary['exit_code'], expected)
+        self.assert_retained_evidence(output, summary)
         self.assertEqual(summary['cleanup']['remaining'], [])
         self.assertTrue(all(child['reaped'] and child['group_retired'] for child in summary['children']), summary)
         # Empty process groups are part of the public cleanup claim. Probe only
@@ -129,6 +132,32 @@ class HarnessCase(unittest.TestCase):
             with self.assertRaises(ProcessLookupError, msg=f'group still exists: {child}'):
                 os.killpg(child['pid'], 0)
         return summary
+
+    def assert_retained_evidence(self, output, summary):
+        # Run this for successful, rejected, timed-out, and signaled experiments.
+        manifest = json.loads((output / 'manifest.json').read_text())
+        self.assertEqual(manifest['configuration'], summary['configuration'])
+        self.assertIsInstance(manifest['configuration']['seed'], int)
+        if summary['mode'] == 'chaos':
+            self.assertEqual(summary['seed'], manifest['configuration']['seed'])
+            self.assertTrue(manifest['seed_used'])
+            self.assertIn('candidate_plan', manifest)
+        events = [json.loads(line) for line in (output / 'events.jsonl').read_text().splitlines()]
+        self.assertEqual(events[-1]['event'], 'verdict')
+        for field in ('verdict', 'exit_code', 'first_failure'):
+            self.assertEqual(events[-1][field], summary[field])
+        spawns = [event for event in events if event['event'] == 'spawn']
+        self.assertEqual({event['pid'] for event in spawns}, {child['pid'] for child in summary['children']})
+        for event in spawns:
+            for stream in ('stdout', 'stderr'):
+                self.assertTrue((output / event[stream]).is_file(), event)
+        if summary['acknowledged']:
+            self.assertGreater((output / 'coordinator.wal').stat().st_size, 0)
+        for stream in ('stdout', 'stderr'):
+            log = self.directory / f'harness-{self.run_index}.{stream}.log'
+            self.assertTrue(log.is_file(), log)
+        self.assertIn(summary['verdict'],
+                      (self.directory / f'harness-{self.run_index}.stdout.log').read_text())
 
     def events(self, output):
         path = output / 'events.jsonl'
@@ -193,6 +222,22 @@ class HarnessCase(unittest.TestCase):
 
 
 class HarnessTests(HarnessCase):
+    def test_interrupted_json_publication_retains_previous_and_unpublished_evidence(self):
+        output = self.directory / 'publication-fixture'
+        output.mkdir()
+        run = batch.BatchRun(argparse.Namespace(bin_dir=BIN_DIR), output)
+        try:
+            original = dict(fixture=True, seed=42, phase='before-update')
+            updated = dict(fixture=True, seed=42, phase='after-update')
+            run.save('publication.json', original)
+            with patch.object(Path, 'replace', side_effect=OSError('injected rename failure')):
+                with self.assertRaisesRegex(OSError, 'injected rename failure'):
+                    run.save('publication.json', updated)
+            self.assertEqual(json.loads((output / 'publication.json').read_text()), original)
+            self.assertEqual(json.loads((output / 'publication.json.tmp').read_text()), updated)
+        finally:
+            run.events.close()
+
     def test_real_pool_results_identity_accounting_and_artifacts(self):
         with self.launch() as (process, output):
             summary = self.summary(process, output)
