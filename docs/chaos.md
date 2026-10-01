@@ -314,9 +314,10 @@ state and execution limits remain defined by the
    including per-ID accounting and coverage checks.
 3. **Reviewed:** coverage and per-ID invariants across the planned seed set;
    see [evidence and limits](chaos-review.md).
-4. **Implemented:** bounded seed-42 and harness regression steps in [Linux CI](ci.md),
-   with evidence uploads and local Linux validation. GitHub-hosted execution of
-   these new steps remains to be verified after pushing the workflow.
+4. **Validated:** bounded seed-42 and harness regression steps in [Linux CI](ci.md),
+   including [GitHub-hosted execution](ci.md#github-hosted-linux-validation) of
+   the complete workflow in both builds and independent audits of all four
+   downloaded artifacts.
 5. Proceed to the separate scaling and controlled failure-recovery benchmarks,
    with measurements defined independently from these correctness experiments.
 

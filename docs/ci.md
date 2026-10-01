@@ -5,6 +5,11 @@ the GitHub Actions workflow named **Linux CI**. It runs on pushes and pull
 requests, and supports manual runs with `workflow_dispatch`. There are no
 branch or path filters.
 
+**Hosted validation passed on 2026-10-01:** both compiler jobs completed the full
+workflow at `d90389b`, and all four artifacts were downloaded and independently
+audited. See the [GitHub-hosted validation record](#github-hosted-linux-validation).
+The earlier local validation records below retain their original scope and dates.
+
 The workflow takes effect on GitHub when the file is committed and pushed.
 Manual dispatch requires it on the repository's default branch. Adding the
 workflow does not itself configure branch protection or require checks before
@@ -184,8 +189,9 @@ failed experiment's exit status.
 Both uploads use `always()` to attempt preservation after failures. A step skipped
 after an earlier failure produces no evidence; missing files trigger a warning,
 not fabricated results. Cancellation or loss of the runner can still prevent
-upload. The configured patterns were checked locally; actual artifact transfer
-requires GitHub-hosted execution.
+upload. Actual transfer and downloaded contents were verified in the
+[hosted validation](#github-hosted-linux-validation), including evidence from
+deliberately rejected experiments inside successful regression suites.
 
 In the GitHub Actions run, download `linux-gcc-chaos-evidence` or
 `linux-clang-sanitizers-chaos-evidence` together with the corresponding `-logs`
@@ -326,9 +332,10 @@ The existing 131 C groups and 143 integration scenarios were not rerun for this
 workflow-only integration; their earlier Linux validation is recorded above.
 The new steps and upload configuration are ready for GitHub, but these local
 ARM64 checks do not establish hosted x86-64 results, actual artifact transfer,
-or runner cancellation behavior. Those remain to be verified on a pushed
-revision. Additional seeds, sustained-load tests, and controlled benchmarks
-remain outside this CI profile.
+or runner cancellation behavior. Hosted execution and artifact transfer were
+subsequently verified [below](#github-hosted-linux-validation); runner cancellation
+remains outside that check. Additional seeds, sustained-load tests, and controlled
+benchmarks remain outside this CI profile.
 
 ## CI acceptance gate validation
 
@@ -366,8 +373,9 @@ containers were removed after evidence was copied and verified.
 
 These changes affect CI infrastructure, tests, and documentation. The C runtime
 and production harness verification rules are unchanged; the existing core C
-and process integration suites were not rerun. GitHub-hosted x86-64 execution
-and actual artifact uploads remain to be verified after pushing this revision.
+and process integration suites were not rerun in this local check. The later
+[hosted validation](#github-hosted-linux-validation) runs all suites and verifies
+actual artifact uploads and downloads.
 
 ## Evidence preservation validation
 
@@ -402,4 +410,101 @@ This change affects artifact selection and regression checks, not the C runtime
 or production harness. The unchanged core suites, deadline suite, and full
 100-job seed-42 experiment were not rerun; their prior evidence is recorded above.
 This verifies local Linux artifact production and selection. Actual GitHub-hosted
-upload/download remains to be verified after pushing the workflow.
+upload/download was subsequently verified below.
+
+## GitHub-hosted Linux validation
+
+Verified on **2026-10-01** in
+[Linux CI run 36802222756](https://github.com/farukumarx64/flatline-c/actions/runs/36802222756),
+attempt **1**, triggered by pushing committed revision
+`d90389b9ec96ff96916607bff1800774bbfd0672` to
+`codex/linux-ci-validation-20261001`. Both jobs and every step succeeded on their
+first invocation. The validation branch publishes the four local commits that
+contain the latest CI changes without advancing remote `main`.
+
+The two independent GitHub-hosted x86-64 runners reported Ubuntu **24.04.5 LTS**,
+runner image **20260920.314.1**, kernel **6.17.0-1022-azure**, GNU Make **4.3**, and
+Python **3.12.3**. GCC was **13.3.0**; Clang and its symbolizer were **18.1.3**.
+Both builds used `-O0 -g -Werror`. Clang enabled AddressSanitizer, leak detection,
+and UBSan with halt-on-error settings. No compiler warnings or unexpected
+sanitizer diagnostics were found.
+
+| Check | [GCC job](https://github.com/farukumarx64/flatline-c/actions/runs/36802222756/job/110178855880) | [Clang + ASan/UBSan job](https://github.com/farukumarx64/flatline-c/actions/runs/36802222756/job/110178856054) |
+| --- | --- | --- |
+| C unit groups | 131 passed | 131 passed |
+| Process integration scenarios | 143 passed | 143 passed |
+| Deadline/failure-propagation checks | 7 passed | 7 passed |
+| Batch harness regression checks | 21 passed | 21 passed |
+| Chaos harness regression checks | 35 passed | 35 passed |
+| Full seed-42 experiment | CHAOS_PASS | CHAOS_PASS |
+| Job duration, including uploads | 5 min 51 s | 6 min 9 s |
+
+That is **674 test-group/scenario executions plus two full experiments**, with
+no skipped tests. The integration suites used port 9000, including the
+default-endpoint checks. The deadline suite exercised both timeout escalation
+and failure propagation through logging; the full experiments finished before
+their actual configured deadlines. No workflow or runtime repair was needed.
+
+Each full experiment used five workers, 100 three-second sleep jobs, three
+permitted retries per job, a 30-second fault window, and a 180-second overall
+deadline. Downloaded evidence established:
+
+| Full experiment result | GCC | Clang + ASan/UBSan |
+| --- | --- | --- |
+| Submitted / DONE / FAILED | 100 / 100 / 0 | 100 / 100 / 0 |
+| Attempts / retries | 105 / 5 | 105 / 5 |
+| Busy-worker crashes / recovered interrupted attempts | 5 / 5 | 5 / 5 |
+| Eligible jobs when faults stopped, all completed | 52 | 52 |
+| Recorded children reaped, process groups retired | 596 | 594 |
+| Experiment elapsed time, including cleanup | 68.815 s | 68.886 s |
+
+The independent audit compared all 100 distinct acknowledged IDs against the
+job listing, individual status responses, and accounting report. Every result
+was exactly `slept_ms=3000`, with valid attempt/retry counts and corresponding
+loss history. It also checked fault cutoffs, replacement identities, the healthy
+five-worker final pool, and successful cleanup with no remaining children.
+Child counts include CLI and metadata helpers, not just workers. The candidate
+plans matched across builds; recovered job IDs differed (`18, 26, 37, 39, 53`
+versus `18, 26, 37, 38, 53`), as scheduling is not fixed by the random seed.
+Elapsed times are observations, not benchmark results.
+
+Both manifests recorded the exact tested revision with `dirty: true`. Their
+retained `git-status` stdout contained only untracked
+`tests/chaos/__pycache__/` and `tests/integration/__pycache__/` directories created
+by Python imports. It reported no tracked source modifications. The audit checks
+those exact entries instead of treating the checkout as clean or ignoring the
+dirty flag.
+
+All four upload steps succeeded. The downloaded ZIP bytes matched the SHA-256
+digests reported by GitHub:
+
+| Artifact | Artifact ID | Files | ZIP SHA-256 |
+| --- | --- | --- | --- |
+| `linux-gcc-logs` | 11135624856 | 8 | `263ba5d0a631ce843a5e2a9f56578515e510f57ce7328e7d11b8d0badd6d8170` |
+| `linux-gcc-chaos-evidence` | 11135579880 | 2935 | `743e10f9d9ccb91fe7ff0f2c0ac80546cdef612b2417102ae940959a74550108` |
+| `linux-clang-sanitizers-logs` | 11136363714 | 8 | `9fc101bc4340a7b17838f6563575c70f2232447533772a241896100fa4811023` |
+| `linux-clang-sanitizers-chaos-evidence` | 11136253926 | 2925 | `a73a87fc60cfe6b66d8c224d89febbfb28bb2c5860b59bf78679ab452410b128` |
+
+Each evidence ZIP contained the full experiment plus **29 regression summaries**:
+6 successful experiments and 23 deliberate rejections. Those FAIL verdicts are
+expected negative cases inside passing tests. The audit verified retained seed
+and configuration, final summary/event agreement, every recorded child log,
+WALs after acknowledgment, all 86 outer harness logs (including 14 early-error
+stderr logs), and the publication-error fixture's previous JSON and unpublished
+`.json.tmp`. Empty logs survived transfer, and fixture executables were excluded.
+Every completed regression fixture recorded reaped children and retired groups.
+
+GitHub reported artifact expiry on **2026-10-08**, consistent with seven-day
+retention. Local copies of the ZIPs, run/job/artifact metadata, complete job logs,
+extracted contents, file hashes, and independent audit scripts/results are in
+Git-ignored `build/github-linux-20261001-tugnhgrn/`. `make clean` removes these
+local copies; neither the remote downloads nor local files are permanent storage.
+
+This validates the actual hosted push workflow, both toolchains, the full suite,
+seed 42, and artifact transfer. The failed experiments' evidence was uploaded
+from otherwise successful jobs; an entire failed/cancelled hosted job, runner
+loss, and interrupted upload were not separately forced. Pull-request/manual
+triggers were not exercised by this push. The full three-seed Linux matrix,
+multi-machine testing, sustained load, and controlled benchmarks remain outside
+this record. This milestone adds documentation and retained validation evidence;
+production code, harness rules, and workflow configuration are unchanged.

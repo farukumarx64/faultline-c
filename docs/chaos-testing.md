@@ -252,7 +252,9 @@ expanded suites and full seed-42 experiment passing in both local Linux builds.
 The [phase review](chaos-review.md) records the full `42, 7, 2026` seed matrix,
 sanitizer/regression evidence, reproduction commands, and limits. The subsequent
 [CI integration](ci.md#chaos-ci-integration-validation) records validation of the
-bounded workflow steps; GitHub-hosted execution remains to be verified.
+bounded workflow steps. The later
+[GitHub-hosted run](ci.md#github-hosted-linux-validation) passed the complete
+workflow in both builds and verified actual artifact uploads and downloads.
 
 ## Linux fixed-seed experiment verification
 
@@ -315,7 +317,8 @@ This is **local Linux ARM64 seed-42 evidence**, not the full three-seed Linux
 matrix or a GitHub-hosted x86-64 run. No runtime/harness changes were required,
 and that experiment did not change the CI workflow. The subsequent
 [CI integration](ci.md#chaos-ci-integration-validation) adds the bounded steps;
-hosted execution remains to be verified after pushing them.
+the later [hosted validation](ci.md#github-hosted-linux-validation) establishes
+their x86-64 execution and artifact transfer separately.
 
 ## Linux harness regression verification
 
@@ -435,5 +438,6 @@ alongside the manifests and WALs.
 
 The final regression rerun also covered anchoring the first gap directly to
 fault-window start. Python syntax, changed Markdown links/fences, and
-`git diff --check` passed. This record claims local macOS execution; new chaos
-targets have not been executed by Linux CI or GitHub-hosted runners here.
+`git diff --check` passed. This record claims local macOS execution. Subsequent
+[hosted validation](ci.md#github-hosted-linux-validation) records the later Linux
+CI execution separately.

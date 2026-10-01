@@ -47,7 +47,10 @@ The [Linux harness verification](../docs/chaos-testing.md#linux-harness-regressi
 records both suites passing with GCC and Clang sanitizers in local Ubuntu ARM64
 containers, with leak detection enabled. The subsequent
 [CI integration validation](../docs/ci.md#chaos-ci-integration-validation) checks
-the new workflow commands; GitHub-hosted execution remains to be verified.
+the new workflow commands. The later
+[GitHub-hosted validation](../docs/ci.md#github-hosted-linux-validation) passed
+the complete workflow on Ubuntu x86-64 in both builds and verified all four
+uploaded artifacts after downloading them.
 The [full Linux seed-42 experiment](../docs/chaos-testing.md#linux-fixed-seed-experiment-verification)
 also passed in both builds, with all 100 jobs completed after worker crashes.
 Use `make test-job-status-protocol` for status codecs, or

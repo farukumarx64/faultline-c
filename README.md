@@ -293,8 +293,9 @@ Linux CI explicitly runs 7 deadline/failure-propagation checks, 21 baseline and
 35 chaos harness checks, followed by the full seed-42 experiment, in each compiler
 job. The steps have deadlines and upload available logs, JSON evidence, and WALs
 after success or failure. See the
-[CI validation record](docs/ci.md#ci-acceptance-gate-validation) for local Linux
-results and the remaining hosted-run check.
+[hosted CI validation record](docs/ci.md#github-hosted-linux-validation): both
+Ubuntu x86-64 jobs passed the complete workflow, all 200 experiment jobs finished
+correctly, and all four downloaded artifacts passed an independent audit.
 The [acceptance gates](docs/ci.md#conditions-that-fail-ci) reject missing jobs,
 wrong results, invalid retries, insufficient recovery, timeouts, and cleanup
 failures, including cleanup errors after all jobs have completed.
