@@ -62,6 +62,11 @@ test-chaos: all
 test-chaos-harness: all
 	$(PYTHON) tests/chaos/test_chaos.py --bin-dir $(BUILD_DIR)
 
+.PHONY: test-ci-deadlines
+# Linux/GNU timeout only; tests the same runner used by GitHub Actions.
+test-ci-deadlines:
+	$(PYTHON) tests/ci/test_deadlines.py
+
 .PHONY: test-stats-protocol test-stats test-logs test-observability
 test-logs: $(BUILD_DIR)/tests/test_log
 	./$(BUILD_DIR)/tests/test_log

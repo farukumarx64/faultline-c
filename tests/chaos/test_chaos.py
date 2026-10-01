@@ -367,6 +367,67 @@ class CrashProcessTests(baseline.HarnessCase):
         self.assertIsNone(summary['accounting'])
         self.assertTrue(summary['cleanup']['ok'])
 
+    def test_wrong_exact_result_after_recovery_fails_the_process(self):
+        binaries = self.cli_wrapper("if sys.argv[1] == 'status': "
+                                    "output = output.replace('slept_ms=2000', 'slept_ms=2001')")
+        with self.launch(binary_dir=binaries) as (process, output):
+            summary = self.summary(process, output, 1)
+        self.assertIn('wrong exact result', summary['first_failure'])
+        self.assertEqual(summary['verdict'], 'FAIL')
+        self.assertTrue(summary['coverage']['recovery_demonstrated'])
+        self.assertIsNone(summary['accounting'])
+        self.assertTrue(summary['cleanup']['ok'])
+
+    def test_retry_over_allowance_after_faults_fails_the_process(self):
+        binaries = self.cli_wrapper(
+            'from pathlib import Path\n'
+            f"if sys.argv[1] == 'jobs' and list(Path({str(self.directory)!r}).glob('run-*/drain-start.json')):\n"
+            "    lines = output.splitlines()\n"
+            "    fields = lines[2].split()\n"
+            "    fields[5] = '4/3'\n"
+            "    lines[2] = ' '.join(fields)\n"
+            "    output = '\\n'.join(lines) + '\\n'")
+        with self.launch(binary_dir=binaries) as (process, output):
+            summary = self.summary(process, output, 1)
+        self.assertIn('retry count out of range', summary['first_failure'])
+        self.assertEqual(summary['verdict'], 'FAIL')
+        self.assertEqual(summary['acknowledged'], 6)
+        self.assertIsNone(summary['accounting'])
+        self.assertTrue(summary['cleanup']['ok'])
+
+    def test_cleanup_failure_overrides_verified_results_and_recovery(self):
+        # Exercise the real run()/cleanup()/exit path after all job checks pass.
+        # Only this test runner adds a stubborn owned helper; production does not.
+        runner = self.directory / 'cleanup_runner.py'
+        runner.write_text(
+            'import sys,time\n'
+            f'sys.path.insert(0, {str(Path(chaos.__file__).parent)!r})\n'
+            'from run_chaos import ChaosRun, parse_args\n'
+            'class CleanupFailureRun(ChaosRun):\n'
+            '    def drain_and_verify(self):\n'
+            '        super().drain_and_verify()\n'
+            '        child = self.spawn("cleanup-blocker", [sys.executable, "-c",\n'
+            '            "import signal,time; signal.signal(signal.SIGTERM, signal.SIG_IGN); "\n'
+            '            "print(\\"ready\\",flush=True); time.sleep(60)"])\n'
+            '        deadline = time.monotonic() + 2\n'
+            '        while "ready" not in child.stdout.read_text():\n'
+            '            self.pause(deadline, .02)\n'
+            'args = parse_args(chaos=True)\n'
+            'sys.exit(CleanupFailureRun(args, args.output_dir).run())\n')
+        self.RUNNER = runner
+        with self.launch() as (process, output):
+            summary = self.summary(process, output, 1)
+        self.assertEqual(summary['first_failure'], 'process cleanup failed')
+        self.assertEqual(summary['verdict'], 'FAIL')
+        self.assertEqual(summary['verified_completed'], 6)
+        self.assert_accounted(output, summary)
+        self.assertTrue(summary['coverage']['recovery_demonstrated'])
+        self.assertFalse(summary['cleanup']['ok'])
+        self.assertTrue(any('forced kill during cleanup' in e for e in summary['cleanup']['errors']))
+        blocker = next(c for c in summary['children'] if c['role'] == 'cleanup-blocker')
+        self.assertEqual(blocker['returncode'], -signal.SIGKILL)
+        self.assertFalse(blocker['intentional_crash'])
+
     def test_drain_deadline_cannot_count_unfinished_work_as_failed(self):
         with self.launch('--sleep-ms', '6000', '--deadline-ms', '19000') as (process, output):
             summary = self.summary(process, output, 1)

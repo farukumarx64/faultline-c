@@ -81,11 +81,50 @@ jobs:
             test-integration INTEGRATION_ARGS='--port 9000' \
             2>&1 | tee "$RUNNER_TEMP/faultline-ci/integration.log"
 
+      - name: Verify CI deadline and failure propagation
+        timeout-minutes: 2
+        run: |
+          bash tests/ci/run_with_deadline.sh 90 "$RUNNER_TEMP/faultline-ci/deadlines.log" \
+            make test-ci-deadlines
+
+      - name: Run batch harness regression tests
+        timeout-minutes: 4
+        run: |
+          bash tests/ci/run_with_deadline.sh 210 "$RUNNER_TEMP/faultline-ci/batch-harness.log" \
+            make CC="$CC" SANITIZE="$SANITIZE" CFLAGS="$CFLAGS" test-batch-harness
+
+      - name: Run chaos harness regression tests
+        timeout-minutes: 4
+        run: |
+          bash tests/ci/run_with_deadline.sh 210 "$RUNNER_TEMP/faultline-ci/chaos-harness.log" \
+            make CC="$CC" SANITIZE="$SANITIZE" CFLAGS="$CFLAGS" test-chaos-harness
+
+      - name: Run fixed-seed chaos experiment
+        timeout-minutes: 4
+        run: |
+          bash tests/ci/run_with_deadline.sh 210 "$RUNNER_TEMP/faultline-ci/chaos-seed-42.log" \
+            make CC="$CC" SANITIZE="$SANITIZE" CFLAGS="$CFLAGS" test-chaos \
+            CHAOS_ARGS='--seed 42 --workers 5 --jobs 100 --sleep-ms 3000 --max-retries 3 --fault-duration-ms 30000 --deadline-ms 180000 --output-dir build/chaos/ci-seed-42'
+
       - name: Upload build and test logs
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: linux-${{ matrix.artifact }}-logs
           path: ${{ runner.temp }}/faultline-ci/*.log
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Upload chaos evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: linux-${{ matrix.artifact }}-chaos-evidence
+          # Keep run identities and diagnostics, without fixture executables.
+          path: |
+            build/chaos/**/*.json
+            build/chaos/**/*.jsonl
+            build/chaos/**/*.log
+            build/chaos/**/*.wal
           if-no-files-found: warn
           retention-days: 7
