@@ -105,6 +105,7 @@ class Child:
 
 class BatchRun:
     mode = 'baseline'
+    task_name = 'sleep'
 
     def __init__(self, args, directory):
         self.args = args
@@ -369,7 +370,7 @@ class BatchRun:
     def observe_jobs(self, rows):
         self.require_job_ids(rows, 'job listing')
         for job_id, row in rows.items():
-            require(row['TASK'] == 'sleep' and row['FAILURE'] == 'NONE', f'unexpected task/failure for job {job_id}')
+            require(row['TASK'] == self.task_name and row['FAILURE'] == 'NONE', f'unexpected task/failure for job {job_id}')
             require(row['RETRIES'] == f'0/{self.args.max_retries}', f'job {job_id} consumed a retry in baseline')
             require(row['STATE'] in ('QUEUED', 'ASSIGNED', 'RUNNING', 'DONE'), f'job {job_id} did not succeed')
             if row['STATE'] == 'QUEUED':

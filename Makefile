@@ -3,6 +3,7 @@ PYTHON ?= python3
 INTEGRATION_ARGS ?=
 BATCH_ARGS ?=
 CHAOS_ARGS ?=
+BENCHMARK_ARGS ?=
 SANITIZE ?= 0
 
 CPPFLAGS += -Iinclude -D_POSIX_C_SOURCE=200809L
@@ -61,6 +62,14 @@ test-chaos: all
 
 test-chaos-harness: all
 	$(PYTHON) tests/chaos/test_chaos.py --bin-dir $(BUILD_DIR)
+
+.PHONY: benchmark-baseline test-benchmark-harness
+# The driver owns a fresh optimized build and runs its correctness checks first.
+benchmark-baseline:
+	$(PYTHON) benchmarks/run_baseline.py $(BENCHMARK_ARGS)
+
+test-benchmark-harness: all
+	$(PYTHON) tests/benchmarks/test_baseline.py --bin-dir $(BUILD_DIR)
 
 .PHONY: test-ci-deadlines
 # Linux/GNU timeout only; tests the same runner used by GitHub Actions.
