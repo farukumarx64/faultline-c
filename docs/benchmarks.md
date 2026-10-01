@@ -1,8 +1,9 @@
 # Benchmark contract
 
 Status: **contract defined; the one-worker baseline is implemented and verified.** See
-[baseline execution and evidence](benchmark-baseline.md). The complete
-ordered scaling campaign and controlled recovery driver remain later steps.
+[baseline execution and evidence](benchmark-baseline.md). The
+[ordered scaling runner](benchmark-scaling.md) is implemented; its measurements
+and the controlled recovery driver remain pending.
 Contract version: `faultline-benchmarks-v1`. The versioned
 [scaling profile](../benchmarks/profiles/scaling-v1.json) and
 [recovery profile](../benchmarks/profiles/recovery-v1.json) freeze the numeric
@@ -17,6 +18,7 @@ their elapsed times are not benchmark samples. The existing batch/chaos runners
 remain correctness experiments. `make benchmark-baseline` now builds optimized
 binaries and runs one warmup plus five one-worker measurements as a development
 baseline, labelled separately from the full scaling campaign.
+`make benchmark-scaling` runs that full campaign, requiring clean committed source.
 
 ## Scaling workload
 
@@ -348,7 +350,8 @@ that escape their owned session remain outside this process-based guarantee.
 2. **Verified:** the [one-worker baseline](benchmark-baseline.md), with
    per-ID verification, timing, retained evidence, deadlines, and cleanup.
    All 384 jobs passed; median measured batch duration was 59.395 seconds.
-3. Run the complete optimized scaling campaign with the fixed worker-count matrix.
+3. **Implemented; measurements pending:** run the complete optimized
+   [scaling campaign](benchmark-scaling.md) with the fixed worker-count matrix.
 4. Implement and verify the controlled recovery scenarios, then run their campaign.
 5. Audit all IDs/results, raw samples, and provenance; publish tables/graphs and
    explain workload, machine, polling, durability, and scheduling limitations.

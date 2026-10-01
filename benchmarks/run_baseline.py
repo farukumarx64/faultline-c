@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Build and verify an optimized one-worker development baseline on macOS.
+"""Build and verify optimized baseline or full scaling measurements on macOS.
 
-One warmup and five measured samples, never a complete scaling campaign.
+Default: one-worker development baseline. --scaling: the complete ordered matrix.
 Standard library only. All helpers and runtime children use BatchRun ownership.
 """
 
@@ -114,16 +114,20 @@ def machine_snapshot(owner, label):
                 available_bytes=free, load_average=list(os.getloadavg()), python=sys.version)
 
 
-def latency_report(transitions, ids, worker_id, task, expected, max_retries):
+def latency_report(transitions, ids, worker_ids, task, expected, max_retries):
     require(set(transitions) == set(ids), 'log job IDs differ from acknowledged IDs')
+    require(worker_ids and all(isinstance(wid, int) and wid > 0 for wid in worker_ids),
+            'invalid owned worker IDs')
     latencies = []
-    sequence = [('job_submitted', 'QUEUED', 'ACCEPTED', '0', '0'),
-                ('job_assigned', 'ASSIGNED', 'ASSIGNED', '1', str(worker_id)),
-                ('job_started', 'RUNNING', 'RUNNING', '1', str(worker_id)),
-                ('job_completed', 'DONE', 'COMPLETED', '1', str(worker_id))]
     for job_id in sorted(ids):
         events = transitions[job_id]
         require(len(events) == 4, f'job {job_id} missing or duplicate log transitions')
+        worker_id = unsigned(events[1]['worker_id'], 'assigned worker ID', (1 << 32)-1)
+        require(worker_id in worker_ids, f'job {job_id} assigned outside the owned pool')
+        sequence = [('job_submitted', 'QUEUED', 'ACCEPTED', '0', '0'),
+                    ('job_assigned', 'ASSIGNED', 'ASSIGNED', '1', str(worker_id)),
+                    ('job_started', 'RUNNING', 'RUNNING', '1', str(worker_id)),
+                    ('job_completed', 'DONE', 'COMPLETED', '1', str(worker_id))]
         times, sequences = [], []
         for event, (name, state, outcome, attempt, wid) in zip(events, sequence):
             require(all(event[k] == v for k, v in dict(event=name, state=state, outcome=outcome,
@@ -158,6 +162,8 @@ class BaselineRun(BatchRun):
         self.inspections = []
         self.metrics = None
         self.machine = {}
+        self.measured_round = None
+        self.campaign_index = None
 
     def spawn(self, role, argv):
         if self.started is None:
@@ -177,6 +183,7 @@ class BaselineRun(BatchRun):
     def manifest(self):
         result = super().manifest()
         result.update(contract=self.profile['contract'], profile=self.profile, stage=self.stage,
+                      measured_round=self.measured_round, campaign_index=self.campaign_index,
                       reportable_scaling_campaign=False, timing_clock='time.monotonic_ns',
                       source_inputs=source_inventory())
         return result
@@ -247,7 +254,7 @@ class BaselineRun(BatchRun):
     def verify_job_history(self):
         self.check()
         ids = self.require_job_ids(self.transitions, 'coordinator log')
-        latency = latency_report(self.transitions, ids, self.workers[0], self.profile['task'],
+        latency = latency_report(self.transitions, ids, set(self.workers.values()), self.profile['task'],
                                  self.expected_result, 0)
         self.save('latencies.json', latency)
         require(self.t0 is not None and self.t0 <= self.t_ack <= self.t_done, 'invalid batch boundaries')
@@ -308,6 +315,8 @@ class BaselineRun(BatchRun):
         overhead = dict(startup_ms=(self.t0 / 1e9-self.started)*1000 if self.t0 else None,
                         verification_ms=(self.verified_ns-self.t_done)/1e6 if self.verified_ns else None)
         return dict(profile=self.profile['profile'], stage=self.stage, metrics=self.metrics,
+                    workers=self.args.workers, measured_round=self.measured_round,
+                    campaign_index=self.campaign_index,
                     overhead=overhead, reportable_scaling_campaign=False)
 
     def save(self, name, value):
@@ -344,6 +353,50 @@ def aggregate(samples):
                        maximum=max(s['metrics'][name] for s in samples)) for name in names}
 
 
+def sample_plan(profile, scaling):
+    if scaling:
+        entries = [('warmup', None, workers) for workers in profile['warmup_order']]
+        entries += [('measured', number, workers)
+                    for number, order in enumerate(profile['measured_rounds'], 1) for workers in order]
+    else:
+        entries = [('warmup', None, 1)] + [('measured', None, 1)] * 5
+    return [dict(campaign_index=index, stage=stage, measured_round=number, workers=workers)
+            for index, (stage, number, workers) in enumerate(entries)]
+
+
+def scaling_aggregate(samples, profile):
+    plan = sample_plan(profile, True)
+    require(len(samples) == len(plan), 'incomplete scaling campaign')
+    for sample, expected in zip(samples, plan):
+        require(all(sample.get(key) == value for key, value in expected.items()),
+                'scaling sample order/configuration mismatch')
+        require(sample['exit_code'] == 0 and sample['timing_valid'], 'invalid scaling sample')
+        require(sample['accounting']['counts'] == dict(submitted=profile['jobs'],
+                completed=profile['jobs'], terminally_failed=0), 'incomplete scaling accounting')
+        require(all(math.isfinite(value) and value >= 0 for value in sample['metrics'].values())
+                and sample['metrics']['batch_elapsed_ms'] > 0, 'invalid scaling metrics')
+        if expected['stage'] == 'warmup':
+            require(sample['metrics']['batch_elapsed_ms'] >= profile['minimum_warmup_batch_ms'],
+                    'warmup workload is too short')
+    grouped = {str(workers): aggregate([s for s in samples if s['stage'] == 'measured'
+                                       and s['workers'] == workers])
+               for workers in profile['worker_counts']}
+    baseline = grouped['1']['batch_elapsed_ms']['median']
+    for workers, metrics in grouped.items():
+        metrics['speedup'] = baseline / metrics['batch_elapsed_ms']['median']
+        metrics['worker_normalized_efficiency_percent'] = metrics['speedup'] * 100 / int(workers)
+    return grouped
+
+
+def machine_identity(snapshot):
+    # Load, free space, power observations and timestamps vary; platform must not.
+    return {key: snapshot[key] for key in ('hardware', 'os', 'kernel', 'storage', 'python')}
+
+
+def require_clean_source(status):
+    require(not status.strip(), 'scaling requires a clean committed checkout; save changes before running')
+
+
 def make_command(bin_dir, compiler):
     clean_env = ['env']
     for name in ('MAKEFLAGS', 'MFLAGS', 'MAKEOVERRIDES', 'CFLAGS', 'CPPFLAGS', 'LDFLAGS',
@@ -356,11 +409,14 @@ def make_command(bin_dir, compiler):
                 'CFLAGS=-O2 -g -Werror', f'PYTHON={sys.executable}']
 
 
-def run_series(directory, profile):
+def run_series(directory, profile, *, scaling=False):
     args = argparse.Namespace(bin_dir=directory/'bin', deadline_ms=profile['campaign_deadline_ms'])
     owner = SeriesOwner(args, directory)
     handlers = {sig: signal.signal(sig, owner.on_signal) for sig in (signal.SIGINT, signal.SIGTERM)}
     failure, samples, runs, provenance = None, [], [], {}
+    plan = sample_plan(profile, scaling)
+    scope = 'complete ordered scaling campaign' if scaling else 'one-worker development baseline'
+    reference_machine = None
     try:
         # Start its absolute budget before the first owned metadata helper.
         child = owner.spawn('git-revision', ['git', '-C', ROOT, 'rev-parse', 'HEAD'])
@@ -379,11 +435,12 @@ def run_series(directory, profile):
         provenance = dict(revision=child.stdout.read_text().strip(), git_status=status,
                           source_inputs=inputs, source_patch=patch,
                           reportable_scaling_campaign=False,
-                          scope='one-worker development baseline; full ordered matrix is separate')
+                          scope=scope)
         owner.save('provenance.json', provenance)
+        if scaling:
+            require_clean_source(status)
         owner.save('profile.json', profile)
-        owner.save('plan.json', dict(scope='one-worker development baseline', workers=1,
-                   stages=['warmup']+['measured']*5, cooldown_ms=profile['cooldown_ms'],
+        owner.save('plan.json', dict(scope=scope, runs=plan, cooldown_ms=profile['cooldown_ms'],
                    reportable_scaling_campaign=False))
         shutil.copyfile(ROOT/'docs/benchmarks.md', directory/'contract.md')
         compiler = shutil.which('clang')
@@ -398,7 +455,8 @@ def run_series(directory, profile):
                     build=build, correctness=correctness, cflags=profile['build']['cflags'], sanitize=0,
                     binaries={name:digest(args.bin_dir/name) for name in PROGRAMS}))
         require(source_inventory() == inputs, 'source changed during build/correctness checks')
-        for index, stage in enumerate(['warmup'] + ['measured'] * 5):
+        for entry in plan:
+            index, stage, workers = entry['campaign_index'], entry['stage'], entry['workers']
             owner.check()
             if index:
                 until = min(owner.work_deadline, time.monotonic()+profile['cooldown_ms']/1000)
@@ -407,23 +465,40 @@ def run_series(directory, profile):
                     time.sleep(max(0, min(.2, until-time.monotonic())))
                 owner.check()
             require(owner.work_deadline-time.monotonic() > 10, 'insufficient remaining series budget')
-            path = directory / f'{index:02d}-{stage}'
+            suffix = f'-r{entry["measured_round"]}' if entry['measured_round'] is not None else ''
+            name = f'{index:02d}-{stage}{suffix}-w{workers}' if scaling else f'{index:02d}-{stage}'
+            path = directory / name
             path.mkdir()
-            run_args = argparse.Namespace(bin_dir=args.bin_dir, workers=1, jobs=profile['jobs'],
+            run_args = argparse.Namespace(bin_dir=args.bin_dir, workers=workers, jobs=profile['jobs'],
                          max_retries=0, deadline_ms=profile['run_deadline_ms'], output_dir=path)
-            print(f'Starting {path.name}: {profile["jobs"]} prime-count jobs, one worker', flush=True)
+            print(f'Starting {path.name}: {profile["jobs"]} prime-count jobs, {workers} worker(s)', flush=True)
             run = BaselineRun(run_args, path, profile, stage, owner.run_deadline)
+            run.measured_round, run.campaign_index = entry['measured_round'], index
+            if scaling:
+                run.mode = 'benchmark_scaling_sample'
             code = run.run()
             result = json.loads((path/'summary.json').read_text())
-            runs.append(dict(path=path.name, exit_code=code, metrics=result['metrics']))
+            runs.append(dict(path=path.name, exit_code=code, metrics=result['metrics'], **entry))
             if code in (128+signal.SIGINT, 128+signal.SIGTERM):
                 owner.stop_signal = code-128
             require(code == 0 and result['timing_valid'], f'{path.name} failed; no replacement sample')
             require(source_inventory() == inputs, 'source changed during baseline series')
             require({name:digest(args.bin_dir/name) for name in PROGRAMS} ==
                     json.loads((directory/'build.json').read_text())['binaries'], 'binaries changed')
-            if stage == 'measured':
+            if scaling:
+                for moment in ('before', 'after'):
+                    identity = machine_identity(run.machine[moment])
+                    if reference_machine is None:
+                        reference_machine = identity
+                    require(identity == reference_machine, 'machine configuration changed during campaign')
+                current, _ = owner.command('source-status', ['git', '-C', ROOT, 'status', '--porcelain'], owner.work_deadline)
+                require_clean_source(current)
+                revision, _ = owner.command('source-revision', ['git', '-C', ROOT, 'rev-parse', 'HEAD'], owner.work_deadline)
+                require(revision.strip() == provenance['revision'], 'source revision changed during campaign')
+            if scaling or stage == 'measured':
                 samples.append(result)
+        # Validate aggregates inside the guarded body so errors retain a FAIL summary.
+        metrics = scaling_aggregate(samples, profile) if scaling else aggregate(samples)
     except Exception as error:
         failure = f'{type(error).__name__}: {error}'
     finally:
@@ -433,10 +508,10 @@ def run_series(directory, profile):
             failure = failure or f'interrupted by signal {owner.stop_signal}'
         code = 128+owner.stop_signal if owner.stop_signal else (1 if failure else 0)
         result = dict(contract=profile['contract'], profile=profile['profile'],
-                      verdict='ONE_WORKER_BASELINE_PASS' if code == 0 else 'FAIL',
-                      exit_code=code, first_failure=failure, reportable_scaling_campaign=False,
-                      runs=runs, measured_samples=len(samples),
-                      aggregate=aggregate(samples) if code == 0 else None, cleanup=cleanup,
+                      verdict=('SCALING_PASS' if scaling else 'ONE_WORKER_BASELINE_PASS') if code == 0 else 'FAIL',
+                      exit_code=code, first_failure=failure, reportable_scaling_campaign=scaling and code == 0,
+                      scope=scope, runs=runs, measured_samples=sum(s['stage'] == 'measured' for s in samples),
+                      aggregate=metrics if code == 0 else None, cleanup=cleanup,
                       elapsed_ms=owner.elapsed(),
                       children=[dict(role=c.role, pid=c.process.pid, returncode=c.process.returncode,
                                      reaped=c.exit_ms is not None, group_retired=c.group_retired)
@@ -457,6 +532,7 @@ def run_series(directory, profile):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output-dir', type=Path, help='fresh directory; default under build/benchmarks')
+    parser.add_argument('--scaling', action='store_true', help='run the full ordered 1/2/4/8-worker campaign')
     args = parser.parse_args()
     if sys.platform != 'darwin':
         parser.error('automatic machine/power validation currently supports macOS only')
@@ -468,8 +544,8 @@ def main():
         else:
             parent = ROOT/'build/benchmarks'
             parent.mkdir(parents=True, exist_ok=True)
-            directory = Path(tempfile.mkdtemp(prefix='one-worker-', dir=parent))
-        print(f'One-worker baseline artifacts: {directory}', flush=True)
+            directory = Path(tempfile.mkdtemp(prefix='scaling-' if args.scaling else 'one-worker-', dir=parent))
+        print(f'Benchmark artifacts: {directory}', flush=True)
         # Tee the driver's own output to retained files without launching helpers.
         class Tee:
             def __init__(self, terminal, file):
@@ -484,7 +560,7 @@ def main():
             stdout, stderr = sys.stdout, sys.stderr
             try:
                 sys.stdout, sys.stderr = Tee(stdout, out), Tee(stderr, err)
-                return run_series(directory, profile)
+                return run_series(directory, profile, scaling=args.scaling)
             finally:
                 sys.stdout, sys.stderr = stdout, stderr
     except (OSError, ValueError, RunFailure) as error:

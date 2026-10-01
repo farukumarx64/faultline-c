@@ -36,7 +36,7 @@ class MetricTests(unittest.TestCase):
         return {1:events}
 
     def test_latency_is_from_one_coordinator_clock(self):
-        result = benchmark.latency_report(self.history(), {1}, 1, 'prime_count', '25', 0)
+        result = benchmark.latency_report(self.history(), {1}, {1}, 'prime_count', '25', 0)
         self.assertEqual(result['mean_accepted_latency_ms'], 50)
         self.assertEqual(result['p95_accepted_latency_ms'], 50)
 
@@ -52,7 +52,7 @@ class MetricTests(unittest.TestCase):
             else:
                 events[1].append(events[1][-1])
             with self.subTest(mutation=mutation), self.assertRaises(benchmark.RunFailure):
-                benchmark.latency_report(events, {1}, 1, 'prime_count', '25', 0)
+                benchmark.latency_report(events, {1}, {1}, 'prime_count', '25', 0)
 
     def test_rejects_bad_clock_order_owner_result_and_retry(self):
         for key, value in [('monotonic_ms','-1'), ('monotonic_ms','99'), ('wal_sequence','2'),
@@ -61,7 +61,7 @@ class MetricTests(unittest.TestCase):
             events = self.history()
             events[1][-1][key] = value
             with self.subTest(key=key, value=value), self.assertRaises(benchmark.RunFailure):
-                benchmark.latency_report(events, {1}, 1, 'prime_count', '25', 0)
+                benchmark.latency_report(events, {1}, {1}, 'prime_count', '25', 0)
 
     def test_nearest_rank_p95_and_mean(self):
         history = {}
@@ -69,7 +69,7 @@ class MetricTests(unittest.TestCase):
             events = self.history()[1]
             events[-1]['monotonic_ms'] = str(150+i)
             history[i] = events
-        result = benchmark.latency_report(history, set(history), 1, 'prime_count', '25', 0)
+        result = benchmark.latency_report(history, set(history), {1}, 'prime_count', '25', 0)
         self.assertEqual(result['mean_accepted_latency_ms'], 60.5)
         self.assertEqual(result['p95_accepted_latency_ms'], 69)
 
@@ -100,6 +100,93 @@ class MetricTests(unittest.TestCase):
 
     def test_committed_profile_is_supported(self):
         self.assertEqual(benchmark.load_profile()['jobs'], 64)
+
+
+class ScalingMetricTests(unittest.TestCase):
+    def samples(self):
+        profile = benchmark.load_profile()
+        samples = []
+        for entry in benchmark.sample_plan(profile, True):
+            if entry['stage'] == 'warmup':
+                elapsed = 20000
+            elif entry['workers'] == 1:
+                elapsed = [100000, 10000, 20000, 30000, 40000][entry['measured_round']-1]
+            else:
+                elapsed = [25000, 5000, 5000, 5000, 5000][entry['measured_round']-1]
+            samples.append(dict(**entry, exit_code=0, timing_valid=True,
+                accounting=dict(counts=dict(submitted=64, completed=64, terminally_failed=0)),
+                metrics=dict(batch_elapsed_ms=elapsed, completed_jobs_per_second=64000/elapsed,
+                             mean_accepted_latency_ms=elapsed/2, p95_accepted_latency_ms=elapsed*.95)))
+        return profile, samples
+
+    def test_exact_warmup_and_rotated_round_plan(self):
+        profile = benchmark.load_profile()
+        plan = benchmark.sample_plan(profile, True)
+        self.assertEqual(len(plan), 24)
+        self.assertEqual([e['workers'] for e in plan[:4]], [1,2,4,8])
+        self.assertTrue(all(e['stage']=='warmup' and e['measured_round'] is None for e in plan[:4]))
+        for number, expected in enumerate([[1,2,4,8],[2,4,8,1],[4,8,1,2],[8,1,2,4],[1,4,2,8]],1):
+            self.assertEqual([e['workers'] for e in plan if e['measured_round']==number], expected)
+        self.assertEqual([e['campaign_index'] for e in plan], list(range(24)))
+
+    def test_speedup_is_ratio_of_medians_not_median_of_ratios(self):
+        profile, samples = self.samples()
+        result = benchmark.scaling_aggregate(samples, profile)
+        self.assertEqual(result['1']['batch_elapsed_ms']['median'], 30000)
+        self.assertEqual(result['2']['speedup'], 6)
+        self.assertEqual(result['2']['worker_normalized_efficiency_percent'], 300)
+        self.assertEqual(result['1']['speedup'], 1)
+        self.assertEqual(result['2']['batch_elapsed_ms']['values'], [25000,5000,5000,5000,5000])
+        self.assertEqual(result['2']['batch_elapsed_ms']['minimum'], 5000)
+        self.assertEqual(result['2']['batch_elapsed_ms']['maximum'], 25000)
+
+    def test_rejects_missing_duplicate_reordered_and_invalid_samples(self):
+        for mutation in ('missing', 'duplicate', 'reordered', 'failed', 'invalid', 'accounting',
+                         'warmup', 'nan', 'zero', 'negative', 'wrong_round', 'wrong_workers'):
+            profile, samples = self.samples()
+            if mutation == 'missing': samples.pop()
+            elif mutation == 'duplicate': samples[-1] = copy.deepcopy(samples[-2])
+            elif mutation == 'reordered': samples[5], samples[6] = samples[6], samples[5]
+            elif mutation == 'failed': samples[5]['exit_code'] = 1
+            elif mutation == 'invalid': samples[5]['timing_valid'] = False
+            elif mutation == 'accounting': samples[5]['accounting']['counts']['completed'] = 63
+            elif mutation == 'warmup': samples[0]['metrics']['batch_elapsed_ms'] = 9999
+            elif mutation == 'nan': samples[5]['metrics']['mean_accepted_latency_ms'] = float('nan')
+            elif mutation == 'zero': samples[5]['metrics']['batch_elapsed_ms'] = 0
+            elif mutation == 'negative': samples[5]['metrics']['p95_accepted_latency_ms'] = -1
+            elif mutation == 'wrong_round': samples[5]['measured_round'] = 2
+            else: samples[5]['workers'] = 8
+            with self.subTest(mutation=mutation), self.assertRaises(benchmark.RunFailure):
+                benchmark.scaling_aggregate(samples, profile)
+
+    def test_multiple_workers_each_keep_their_own_lease(self):
+        histories = MetricTests().history()
+        histories[2] = copy.deepcopy(histories[1])
+        for event in histories[2][1:]: event['worker_id'] = '2'
+        self.assertEqual(len(benchmark.latency_report(histories, {1,2}, {1,2}, 'prime_count','25',0)['jobs']), 2)
+        for mutation in ('unknown_owner', 'changed_owner', 'unowned_completion'):
+            altered = copy.deepcopy(histories)
+            if mutation == 'unknown_owner':
+                for event in altered[2][1:]: event['worker_id'] = '3'
+            elif mutation == 'changed_owner': altered[2][-1]['worker_id'] = '1'
+            else: altered[2][-1]['worker_id'] = '3'
+            with self.subTest(mutation=mutation), self.assertRaises(benchmark.RunFailure):
+                benchmark.latency_report(altered, {1,2}, {1,2}, 'prime_count', '25', 0)
+
+    def test_dirty_source_is_rejected(self):
+        benchmark.require_clean_source('')
+        for status in (' M benchmarks/run_baseline.py\n', '?? new.py\n', 'A  tracked.py\n'):
+            with self.subTest(status=status), self.assertRaises(benchmark.RunFailure):
+                benchmark.require_clean_source(status)
+
+    def test_machine_comparison_includes_platform_but_not_load(self):
+        before=dict(hardware={'model':'M4'},os='macOS',kernel={'release':'27'},storage={'internal':True},
+                    python='3.9',load_average=[1,2,3],available_bytes=1000)
+        after=copy.deepcopy(before);after['load_average']=[3,2,1];after['available_bytes']=999
+        self.assertEqual(benchmark.machine_identity(before), benchmark.machine_identity(after))
+        for key in ('hardware','os','kernel','storage','python'):
+            changed=copy.deepcopy(before);changed[key]='changed'
+            self.assertNotEqual(benchmark.machine_identity(before), benchmark.machine_identity(changed))
 
 
 class ProcessTests(unittest.TestCase):
@@ -142,10 +229,12 @@ class ProcessTests(unittest.TestCase):
 
     @contextmanager
     def launch(self, *, binary_dir=None, slow=False, short_warmup=False, deadline_ms=30000,
-               bad_timing=False, bad_cleanup=False):
+               bad_timing=False, bad_cleanup=False, workers=1, jobs=3, full_prime=False):
         profile = benchmark.load_profile()
-        profile.update(contract='benchmark-regression-fixture', jobs=3, arguments='100',
+        profile.update(contract='benchmark-regression-fixture', jobs=jobs, arguments='100',
                        expected_result='25', expected_result_bytes=2, minimum_warmup_batch_ms=0)
+        if full_prime:
+            profile.update(arguments='10000000', expected_result='664579', expected_result_bytes=6)
         if slow:
             profile.update(task='sleep', arguments='10000', expected_result='slept_ms=10000',
                            expected_result_bytes=14)
@@ -157,7 +246,7 @@ class ProcessTests(unittest.TestCase):
             f'import sys,time,argparse\nsys.dont_write_bytecode=True\nsys.path.insert(0,{str(ROOT/"benchmarks")!r})\n'
             'import run_baseline as b\n'
             f'p={profile!r}\na=argparse.Namespace(bin_dir=b.Path({str(binary_dir or BIN_DIR)!r}), '
-            f'workers=1,jobs=3,max_retries=0,deadline_ms={deadline_ms},output_dir=b.Path({str(output)!r}))\n'
+            f'workers={workers},jobs={jobs},max_retries=0,deadline_ms={deadline_ms},output_dir=b.Path({str(output)!r}))\n'
             'class Fixture(b.BaselineRun):\n'
             ' def verify_job_history(self):\n'
             f'  if {bad_timing!r}: self.t_done=self.t0-1\n'
@@ -214,6 +303,20 @@ class ProcessTests(unittest.TestCase):
         binaries = self.cli_wrapper('if sys.argv[1]=="status": output=output.replace(\'result="25"\',\'result="29"\')')
         with self.launch(binary_dir=binaries) as (process, output):
             self.assertIn('wrong exact result', self.result(process, output, 1)['first_failure'])
+
+    def test_real_two_four_eight_worker_pools(self):
+        for workers in (2,4,8):
+            with self.subTest(workers=workers):
+                self.directory = Path(tempfile.mkdtemp(prefix='scaling-regression-', dir=ROOT/'build/benchmarks'))
+                with self.launch(workers=workers, jobs=8, full_prime=True) as (process, output):
+                    summary = self.result(process, output, 0)
+                    self.assertEqual(summary['accounting']['counts'], dict(submitted=8,completed=8,terminally_failed=0))
+                    snapshots = json.loads((output/'final-snapshots.json').read_text())
+                    self.assertEqual(len(snapshots['workers']), workers)
+                    owners = {row['WORKER_ID'] for row in snapshots['jobs'].values()}
+                    self.assertGreater(len(owners), 1)
+                    self.assertTrue(owners <= set(snapshots['workers']))
+                    self.assertTrue(all(s['result']=='"664579"' for s in snapshots['statuses'].values()))
 
     def test_equal_total_with_missing_id_is_rejected(self):
         binaries = self.cli_wrapper('import re\nif sys.argv[1]=="jobs": output=re.sub(r"(?m)^1(\\s+prime_count\\s)", lambda m: "77"+m[1], output)')

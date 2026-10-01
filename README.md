@@ -318,6 +318,9 @@ failures: the median measured 64-job batch took **59.395 seconds**, or
 **1.078 jobs/second**, on the recorded Apple M4 configuration. The
 [reviewed results](benchmarks/results/one-worker-20261001.json) retain all samples
 and evidence references; the full worker-count comparison remains the next step.
+`make benchmark-scaling` now runs the full 1/2/4/8-worker plan from a clean
+committed checkout. See the [scaling guide](docs/benchmark-scaling.md) for the
+ordered repetitions, acceptance checks, and speedup calculation.
 Use `make test-unit` or `make test-integration` to run either layer separately.
 Use `make test-job-status-protocol` for status payloads and validation, or add
 `SANITIZE=1` for AddressSanitizer/UBSan.
@@ -366,7 +369,7 @@ faultline/
 ├── .github/workflows/linux-ci.yml
 ├── Makefile
 ├── benchmarks/
-│   ├── run_baseline.py  Optimized one-worker build, verification, and timing
+│   ├── run_baseline.py  Optimized baseline/scaling builds, verification, and timing
 │   ├── profiles/        Versioned scaling and controlled recovery settings
 │   ├── results/         Reviewed baseline measurements and evidence hashes
 │   └── machines/        Hardware, OS, toolchain, storage, and power inventory
@@ -387,6 +390,7 @@ faultline/
 │   ├── chaos-review.md
 │   ├── benchmarks.md
 │   ├── benchmark-baseline.md
+│   ├── benchmark-scaling.md
 │   ├── networking.md
 │   ├── workers.md
 │   ├── jobs.md

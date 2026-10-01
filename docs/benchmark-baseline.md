@@ -202,7 +202,8 @@ owned process group. A cleanup failure invalidates otherwise completed work.
 make test-benchmark-harness
 ```
 
-The 18 checks cover isolated builds with absolute output paths, exact real results,
+The suite now has 25 checks, including the [scaling extensions](benchmark-scaling.md).
+Checks cover isolated builds with absolute output paths, exact real results,
 timing boundaries, log identity/clock/WAL
 ordering, nearest-rank p95 and sample aggregation, unavailable/bad power conditions,
 missing IDs hidden by equal totals, wrong same-length results, duplicate ACKs

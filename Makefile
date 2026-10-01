@@ -63,10 +63,13 @@ test-chaos: all
 test-chaos-harness: all
 	$(PYTHON) tests/chaos/test_chaos.py --bin-dir $(BUILD_DIR)
 
-.PHONY: benchmark-baseline test-benchmark-harness
+.PHONY: benchmark-baseline benchmark-scaling test-benchmark-harness
 # The driver owns a fresh optimized build and runs its correctness checks first.
 benchmark-baseline:
 	$(PYTHON) benchmarks/run_baseline.py $(BENCHMARK_ARGS)
+
+benchmark-scaling:
+	$(PYTHON) benchmarks/run_baseline.py --scaling $(BENCHMARK_ARGS)
 
 test-benchmark-harness: all
 	$(PYTHON) tests/benchmarks/test_baseline.py --bin-dir $(BUILD_DIR)
