@@ -240,8 +240,8 @@ The later [hosted run](ci.md#github-hosted-linux-validation) passed every step
 on Ubuntu x86-64 with both toolchains; all four artifact downloads were audited,
 including successful and deliberately rejected experiments.
 
-The next separate MVP experiment phase is **benchmarks**: compare a fixed
-workload with 1, 2, 4, and 8 workers, then measure controlled failure-recovery
-overhead. Define workload, timing boundaries, repetitions, and reported metrics
-before collecting those numbers. The chaos elapsed times above are not those
-benchmark results.
+The next separate MVP experiment phase is **benchmarks**. Its
+[contract](benchmarks.md) now fixes the workload, 1/2/4/8-worker scaling matrix,
+controlled failure profiles, timing, repetitions, machine inventory, and cleanup.
+Next, implement the benchmark runner and verify the one-worker baseline before
+collecting the full matrix. The chaos elapsed times above are not benchmark results.

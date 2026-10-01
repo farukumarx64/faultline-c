@@ -1,0 +1,35 @@
+{
+  "contract": "faultline-benchmarks-v1",
+  "profile": "scaling-prime-count-v1",
+  "task": "prime_count",
+  "arguments": "10000000",
+  "expected_result": "664579",
+  "expected_result_bytes": 6,
+  "jobs": 64,
+  "worker_counts": [1, 2, 4, 8],
+  "max_retries": 0,
+  "faults_per_run": 0,
+  "warmup_order": [1, 2, 4, 8],
+  "measured_rounds": [
+    [1, 2, 4, 8],
+    [2, 4, 8, 1],
+    [4, 8, 1, 2],
+    [8, 1, 2, 4],
+    [1, 4, 2, 8]
+  ],
+  "build": {
+    "cc": "clang",
+    "cflags": "-O2 -g -Werror",
+    "sanitize": 0,
+    "cpu_tuning": "compiler_default",
+    "lto": false
+  },
+  "heartbeat_interval_ms": 2000,
+  "heartbeat_timeout_ms": 6000,
+  "poll_interval_ms": 200,
+  "cooldown_ms": 30000,
+  "minimum_warmup_batch_ms": 10000,
+  "run_deadline_ms": 600000,
+  "cleanup_reserve_ms": 10000,
+  "campaign_deadline_ms": 7200000
+}

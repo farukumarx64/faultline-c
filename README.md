@@ -305,6 +305,11 @@ limits](docs/ci.md#failure-visibility).
 The [Testing and chaos review](docs/chaos-review.md) records seeds 42, 7, and
 2026 under normal and sanitizer builds: 600 jobs accounted for, 27 interrupted
 attempts recovered, and the remaining coverage and platform limits.
+The next phase's [benchmark contract](docs/benchmarks.md) is now defined:
+64 CPU-bound prime-count jobs with 1/2/4/8 workers, optimized builds, five measured
+repetitions, and separate controlled crash/heartbeat recovery profiles. Versioned
+settings and the initial machine inventory live under `benchmarks/`. The benchmark
+runner and performance results are not implemented yet.
 Use `make test-unit` or `make test-integration` to run either layer separately.
 Use `make test-job-status-protocol` for status payloads and validation, or add
 `SANITIZE=1` for AddressSanitizer/UBSan.
@@ -352,6 +357,9 @@ See [the test guide](tests/README.md) for coverage and failure diagnostics.
 faultline/
 ├── .github/workflows/linux-ci.yml
 ├── Makefile
+├── benchmarks/
+│   ├── profiles/        Versioned scaling and controlled recovery settings
+│   └── machines/        Hardware, OS, toolchain, storage, and power inventory
 ├── docs/
 │   ├── architecture.md
 │   ├── protocol.md
@@ -367,6 +375,7 @@ faultline/
 │   ├── batch-testing.md
 │   ├── chaos-testing.md
 │   ├── chaos-review.md
+│   ├── benchmarks.md
 │   ├── networking.md
 │   ├── workers.md
 │   ├── jobs.md

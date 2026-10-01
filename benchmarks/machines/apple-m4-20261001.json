@@ -1,0 +1,56 @@
+{
+  "schema": "faultline-benchmark-machine-v1",
+  "machine_id": "apple-m4-16g-macos",
+  "recorded_at_utc": "2026-10-01T13:26:57Z",
+  "record_kind": "inventory_only_not_a_benchmark_run",
+  "os": {
+    "name": "macOS",
+    "version": "26.6.2",
+    "build": "25G83",
+    "kernel": "Darwin 25.6.0",
+    "architecture": "arm64"
+  },
+  "hardware": {
+    "model_identifier": "Mac16,12",
+    "cpu": "Apple M4",
+    "physical_cores": 10,
+    "logical_cpus": 10,
+    "performance_cores": 4,
+    "efficiency_cores": 6,
+    "memory_bytes": 17179869184
+  },
+  "storage": {
+    "internal": true,
+    "solid_state": true,
+    "filesystem": "APFS",
+    "apfs_container_bytes": 494384795648,
+    "available_gib_approx_at_inventory": 88
+  },
+  "toolchain": {
+    "compiler": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
+    "target": "arm64-apple-darwin25.6.0",
+    "make": "GNU Make 3.81",
+    "python": "3.9.6"
+  },
+  "power_snapshot": {
+    "source": "battery",
+    "charge_percent": 58,
+    "low_power_mode_on_battery": false,
+    "low_power_mode_on_ac": false,
+    "thermal_report": "No thermal or performance warning level recorded; no CPU power status recorded."
+  },
+  "reportable_run_requires_ac_power": true,
+  "inventory_methods": [
+    "sw_vers",
+    "uname -srm",
+    "sysctl CPU, model, core-class and memory fields",
+    "diskutil info -plist /System/Volumes/Data (selected storage fields)",
+    "df -h .",
+    "xcrun clang --version",
+    "make --version",
+    "python3 --version",
+    "pmset -g batt",
+    "pmset -g custom",
+    "pmset -g therm"
+  ]
+}
