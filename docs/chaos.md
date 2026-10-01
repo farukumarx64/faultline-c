@@ -320,7 +320,8 @@ state and execution limits remain defined by the
    downloaded artifacts.
 5. **Contract defined:** the separate [scaling and controlled recovery benchmarks](benchmarks.md),
    with fixed profiles and measurements independent of these correctness runs.
-   Implementing the benchmark runner and collecting results are next.
+   The [one-worker runner](benchmark-baseline.md) is implemented; the full scaling
+   matrix and controlled recovery measurements follow.
 
 Baseline/chaos runs and their regression suites have explicit Make targets.
 They are not part of `make test`. Linux CI explicitly runs `test-batch-harness`,

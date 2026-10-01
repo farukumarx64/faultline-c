@@ -308,8 +308,13 @@ attempts recovered, and the remaining coverage and platform limits.
 The next phase's [benchmark contract](docs/benchmarks.md) is now defined:
 64 CPU-bound prime-count jobs with 1/2/4/8 workers, optimized builds, five measured
 repetitions, and separate controlled crash/heartbeat recovery profiles. Versioned
-settings and the initial machine inventory live under `benchmarks/`. The benchmark
-runner and performance results are not implemented yet.
+settings and the initial machine inventory live under `benchmarks/`.
+`make benchmark-baseline` now builds and checks optimized binaries, then runs one
+warmup and five verified one-worker samples. See the
+[baseline guide](docs/benchmark-baseline.md) for timing, machine checks, evidence,
+and the distinction from the later complete scaling campaign. The runner's
+regressions pass; the full baseline has no accepted samples yet because the
+attempted warmup stopped at the AC-power requirement before submitting jobs.
 Use `make test-unit` or `make test-integration` to run either layer separately.
 Use `make test-job-status-protocol` for status payloads and validation, or add
 `SANITIZE=1` for AddressSanitizer/UBSan.
@@ -358,6 +363,7 @@ faultline/
 ├── .github/workflows/linux-ci.yml
 ├── Makefile
 ├── benchmarks/
+│   ├── run_baseline.py  Optimized one-worker build, verification, and timing
 │   ├── profiles/        Versioned scaling and controlled recovery settings
 │   └── machines/        Hardware, OS, toolchain, storage, and power inventory
 ├── docs/
@@ -376,6 +382,7 @@ faultline/
 │   ├── chaos-testing.md
 │   ├── chaos-review.md
 │   ├── benchmarks.md
+│   ├── benchmark-baseline.md
 │   ├── networking.md
 │   ├── workers.md
 │   ├── jobs.md

@@ -1,6 +1,9 @@
 # Benchmark contract
 
-Status: **contract defined; benchmark harness and measurements not yet implemented.**
+Status: **contract defined; the one-worker baseline runner is implemented;
+baseline measurement awaits AC power.** See
+[baseline execution and evidence](benchmark-baseline.md). The complete
+ordered scaling campaign and controlled recovery driver remain later steps.
 Contract version: `faultline-benchmarks-v1`. The versioned
 [scaling profile](../benchmarks/profiles/scaling-v1.json) and
 [recovery profile](../benchmarks/profiles/recovery-v1.json) freeze the numeric
@@ -12,8 +15,9 @@ The MVP asks whether additional workers improve useful throughput and how much
 controlled worker failure costs. These are separate experiments. Existing
 [chaos checks](chaos-review.md) establish correctness and bounded recovery;
 their elapsed times are not benchmark samples. The existing batch/chaos runners
-are sleep-specific and do not yet implement this contract. There is currently
-no benchmark Make target or benchmark command to run.
+remain correctness experiments. `make benchmark-baseline` now builds optimized
+binaries and runs one warmup plus five one-worker measurements as a development
+baseline, labelled separately from the full scaling campaign.
 
 ## Scaling workload
 
@@ -340,8 +344,10 @@ that escape their owned session remain outside this process-based guarantee.
 ## Implementation sequence
 
 1. **Defined:** these profiles, timing/acceptance rules, and initial machine record.
-2. Build the benchmark runner and verify a correct one-worker baseline, evidence,
-   timing, deadlines, and cleanup before collecting reportable results.
+2. **Implemented:** the [one-worker baseline runner](benchmark-baseline.md), with
+   per-ID verification, timing, retained evidence, deadlines, and cleanup.
+   **Execution pending:** collect and review the complete series on AC power;
+   the initial attempt stopped before submitting jobs at the power gate.
 3. Run the complete optimized scaling campaign with the fixed worker-count matrix.
 4. Implement and verify the controlled recovery scenarios, then run their campaign.
 5. Audit all IDs/results, raw samples, and provenance; publish tables/graphs and

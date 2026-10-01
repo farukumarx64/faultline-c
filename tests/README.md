@@ -11,6 +11,10 @@ These run 131 protocol, registry, job, queue, scheduler, task, socket, logging, 
 tests using Python 3's standard library. A loopback-capable environment is
 required. You can select the Python interpreter with `PYTHON=/path/to/python3`.
 Use `make test-unit` or `make test-integration` to run one layer separately.
+`make test-benchmark-harness` runs 18 checks of the one-worker benchmark verifier,
+timing, failure evidence, and cleanup. They are separate from the suite counts
+above. `make benchmark-baseline` runs the full optimized development baseline on
+macOS; see [the baseline guide](../docs/benchmark-baseline.md).
 The [Linux CI workflow](../.github/workflows/linux-ci.yml) runs both layers on
 Ubuntu 24.04 with GCC 13 and with Clang 18 + AddressSanitizer/UBSan. Both jobs
 enable the default-port checks and reject compiler warnings. Available build/test
