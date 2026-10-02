@@ -16,6 +16,45 @@ Every job is `sleep --args 10000 --max-retries 1`, with the exact expected resul
 aggregates. Waiting tasks measure recovery behavior; these numbers are not
 CPU throughput or a replacement for the [scaling experiment](benchmark-scaling.md).
 
+## Measurement status: 2026-10-02
+
+The runner and regression checks are complete. **The full timing campaign remains
+pending because AC power was lost during both attempts.** Neither attempt supplies
+a valid five-round performance result, and no samples are combined across them.
+
+| Evidence directory under `build/benchmarks/` | Successful samples before stopping | Failed sample | Reason |
+| --- | ---: | --- | --- |
+| `recovery-20261002/` | 14 | Round 4, no fault | Final power check reported battery power |
+| `recovery-20261002-ac/` | 9 | Round 3, heartbeat expiry | Final power check reported battery power |
+
+The first attempt used revision `5a96292`; the second used `eecc1f3` after a
+verifier fix. Rechecking an already attributed crash diagnostic is now safe;
+an extra unrelated warning still fails validation. This fixes a possible false
+failure in the benchmark verifier without changing coordinator/worker behavior.
+
+Across all 25 finished samples, including the two invalidated by power checks,
+an independent per-ID audit confirmed **800 correct results, 17 retries, zero
+terminal failures, and successful cleanup of every directly tracked process**.
+This is correctness evidence, not a completed timing comparison. The
+[interrupted-campaign record](../benchmarks/results/recovery-attempts-20261002.json)
+preserves sample identities, counts, failure reasons, and evidence hashes. Both
+raw directories retain their summaries, logs, event traces, and WALs locally;
+they are Git-ignored and `make clean` removes them.
+
+Validation completed before the second attempt:
+
+- All 15 recovery-harness checks passed in normal, ASan/UBSan, and freshly built
+  optimized binaries. Sanitizer fixture timings are excluded from measurements.
+- The fresh optimized build passed 131 C test groups and 141 integration tests;
+  two default-endpoint checks skipped because automatic ports were used.
+- During implementation, existing benchmark, batch, and chaos regression suites
+  passed 25, 22, and 35 checks respectively.
+
+Once AC remains stable, rerun the entire matrix into a fresh directory. The next
+step is a complete campaign, followed by an independent timing audit and published
+JSON/CSV comparisons. Do not resume at the failed sample or report medians from
+these incomplete attempts.
+
 ## Running the campaign
 
 ```sh
