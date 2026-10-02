@@ -1,185 +1,98 @@
 # Faultline
 
-Faultline is a distributed job execution engine being built in C11. Its planned
-MVP distributes independent jobs across workers, detects worker failures,
-retries interrupted work, and recovers coordinator state after a restart.
+**A fault-tolerant job execution engine, built in C11.**
 
-The coordinator and CLI now exchange framed PING/PONG messages over TCP. The
-coordinator handles multiple clients with nonblocking sockets and `poll()`, and
-the shared networking code handles partial transfers and deadlines. Protocol
-unit tests, socket tests, and process integration tests cover the exchange.
-The coordinator also accepts worker registration, assigns IDs, and tracks each
-worker's connection, liveness state, and last heartbeat time in a bounded registry.
-It checks incoming heartbeat IDs against their connections and marks workers
-dead on disconnect or heartbeat expiry. The worker executable connects, registers,
-prints its assigned ID, and sends a heartbeat every two seconds. The coordinator
-expires a worker after six seconds without a valid heartbeat. Both durations are
-configurable. Built-in task execution is implemented. The
-[durability contract](docs/durability.md) defines the persistence phase. The
-[WAL format](docs/wal-format.md) now has versioned headers, explicit job payloads,
-checksums, and tested byte codecs. The [WAL writer](docs/wal-writer.md) now creates
-and locks new logs, handles partial writes, and syncs each complete record before
-success. [WAL replay](docs/wal-replay.md) now reconstructs saved jobs, results,
-retry counts, FIFO order, and ID counters, repairs incomplete tails, and resumes
-the locked writer. [Coordinator persistence](docs/persistence.md) now connects
-these modules to live operations: sync before ACK/dispatch/result publication,
-and reconcile interrupted attempts before listening after restart.
-[Coordinator crash checks](docs/coordinator-crashes.md) now kill the process
-around WAL writes and flushes, recover with the same log, and execute restored
-work through real CLI/worker scenarios.
+[![Linux CI](https://github.com/farukumarx64/flatline-c/actions/workflows/linux-ci.yml/badge.svg)](https://github.com/farukumarx64/flatline-c/actions/workflows/linux-ci.yml)
 
-Dedicated failure tests distinguish worker exit and TCP reset from missed
-heartbeats on an open connection. A healthy worker and the CLI must remain usable
-in every case; timeout logs report the measured silence duration.
+Submit a job, let a worker execute it, and inspect the result. Faultline schedules
+independent jobs across worker processes, retries interrupted work, and restores
+coordinator state from a write-ahead log after a restart.
 
-An in-memory job model now defines task types, owned arguments/results, states,
-worker assignments, attempt numbers, timestamps, and bounded retry transitions.
-Its operations reject invalid transitions and stale reports. A coordinator FIFO
-module now holds up to 256 pending job IDs, preserves insertion order, and rejects
-duplicates or overflow. The shared protocol codec now encodes and validates job
-submission, acknowledgment, assignment, started, completed, and failed messages,
-including bounded arguments/results and attempt identity. The CLI now submits
-jobs and receives IDs. The coordinator retains up to 256 full job records and
-assigns the oldest queued job to an alive, idle worker. Reports update job state;
-worker loss and task failures apply bounded retries. Workers execute `sleep`,
-`prime_count`, `fibonacci`, and `hash` while heartbeating, report real results,
-and take the next job. See [built-in tasks](docs/tasks.md) for inputs and examples.
-The CLI now [queries job status](docs/status.md) by ID, displaying state, worker,
-attempt, retries, failure reason, and escaped result bytes. Read-only coordinator
-lookup uses the [job-status protocol](docs/job-status-protocol.md), including an
-explicit not-found reply, and works with jobs recovered from the WAL.
-[`jobs` and `workers`](docs/listings.md) now list retained job summaries and
-worker liveness, heartbeat age, and active assignments in ID order.
-[`stats`](docs/stats.md) reports retained job totals, current worker gauges,
-session activity, throughput, and completion latency with explicit restart scopes.
+Built to make distributed-systems behavior visible: explicit TCP framing, FIFO
+scheduling, heartbeat-based failure detection, bounded retries, and durable state.
+The current MVP runs as multiple processes **on one machine**, with the coordinator
+listening on IPv4 loopback. It targets macOS and Linux.
 
-## Build and run
+[Quick start](#quick-start) · [Commands](#commands) · [Benchmarks](#benchmarks) ·
+[Guarantees](#guarantees) · [Limitations](#limitations) · [Documentation](#documentation)
 
-Requirements: Make, POSIX threads, and a C11 compiler such as Clang or GCC. The project targets
-macOS and Linux. Sanitizer builds also require the compiler's AddressSanitizer
-and UndefinedBehaviorSanitizer runtimes. The integration tests require Python 3
-(standard library only).
+## How it works
+
+```mermaid
+flowchart TB
+    CLI["CLI<br/>Submit jobs · inspect state"]
+    C["Coordinator<br/>FIFO queue · worker registry · job state"]
+    W["Worker processes<br/>One task at a time per worker"]
+    WAL[("Write-ahead log<br/>Durable state on disk")]
+
+    CLI -->|Requests| C
+    C -->|Job IDs, status, results| CLI
+    C -->|Assignments| W
+    W -->|Heartbeats and reports| C
+    C <-->|Append, sync, replay| WAL
+```
+
+- **Schedule:** the coordinator gives the oldest queued job to an alive, idle worker.
+- **Execute:** workers run `sleep`, `prime_count`, `fibonacci`, or `hash` while sending heartbeats.
+- **Recover:** a lost connection or expired heartbeat revokes the assignment; eligible work returns to the queue.
+- **Persist:** the coordinator syncs state changes to the WAL before acknowledging submissions, dispatching work, or publishing results.
+- **Inspect:** the CLI exposes job state, results, worker liveness, and statistics.
+
+The normal job lifecycle is `QUEUED → ASSIGNED → RUNNING → DONE`. Failed or
+interrupted attempts rejoin the FIFO tail while retries remain; otherwise the
+job becomes `FAILED`. See the [architecture](docs/architecture.md) for ownership
+and implementation details.
+
+## Quick start
+
+You need **Make, a C11 compiler (Clang or GCC), and POSIX threads/sockets**.
+There are no third-party C library dependencies. Tests also require Python 3.
+
+### 1. Build
 
 ```sh
+git clone https://github.com/farukumarx64/flatline-c.git
+cd flatline-c
 make
 ```
 
-Initialize a new coordinator log on the first launch:
+Run the following commands from the project root in three terminals.
+
+### 2. Start the coordinator — terminal 1
+
+Create a new WAL on the first launch:
 
 ```sh
 ./build/debug/faultline-coordinator --port 9000 --wal faultline.wal --init-wal
 ```
 
-On subsequent launches, omit `--init-wal` to recover the same file:
+`--init-wal` refuses to overwrite an existing file. If you have already created
+this log, use the [restart command](#stop-and-restart) below.
 
-```sh
-./build/debug/faultline-coordinator --port 9000 --wal faultline.wal
-```
-
-The default path is `faultline.wal`. Initialization refuses to overwrite an
-existing log, and ordinary startup refuses a missing log. See
-[persistence startup and guarantees](docs/persistence.md).
-
-Then send a PING from a second terminal:
-
-```sh
-./build/debug/faultline ping --coordinator 127.0.0.1:9000
-# PONG
-```
-
-All three programs default to `127.0.0.1:9000`, so `faultline-coordinator`,
-`faultline ping`, and `faultline-worker` work without address options. Use the executable paths
-above unless you have added their directory to PATH. The coordinator also requires
-its existing WAL unless `--init-wal` is supplied. Stop the coordinator with
-Ctrl+C. It closes active connections and its listening socket before exiting.
-
-With the coordinator running, start a worker in each of two additional terminals:
+### 3. Start a worker — terminal 2
 
 ```sh
 ./build/debug/faultline-worker
 ```
 
-Each prints its assigned ID and stays running. On a fresh coordinator, the first
-two registrations get IDs 1 and 2 (process scheduling determines which gets 1).
-These excerpts omit the UTC timestamp and process/monotonic metadata:
+The worker prints its assigned ID and stays connected. Open more terminals and
+run the same command to add workers; each receives a distinct ID.
 
-```text
-[INFO] worker registered worker_id=1 coordinator=127.0.0.1:9000 heartbeat_interval_ms=2000
-[INFO] worker registered worker_id=2 coordinator=127.0.0.1:9000 heartbeat_interval_ms=2000
-```
-
-Use `./build/debug/faultline-worker --coordinator 127.0.0.1:9000` to specify an
-endpoint. Ctrl+C or SIGTERM stops the worker and closes its socket. Unexpected
-coordinator disconnection makes the worker report an error and exit; automatic
-reconnection is not implemented yet.
-
-To change the heartbeat timings, start the programs with these options:
+### 4. Submit and inspect — terminal 3
 
 ```sh
-# Coordinator terminal: expire after 3 seconds without a valid heartbeat
-./build/debug/faultline-coordinator --port 9000 --heartbeat-timeout-ms 3000
+./build/debug/faultline ping
+# PONG
 
-# Worker terminal: send every 1 second
-./build/debug/faultline-worker --coordinator 127.0.0.1:9000 --heartbeat-interval-ms 1000
-```
-
-Durations are positive decimal milliseconds. Configure the timeout comfortably
-above every worker's interval; the separate processes do not negotiate these
-values. The [worker guide](docs/workers.md) explains timing, timeout logs, and a
-pause/resume experiment that demonstrates failure detection with an open socket.
-
-The coordinator currently binds only to IPv4 loopback. The CLI and worker accept numeric
-IPv4 addresses and ports from 1 through 65535. Hostname resolution, IPv6, and a
-coordinator bind-address option are not implemented yet.
-
-Warnings are enabled for common defects, conversions, shadowed variables,
-function prototypes, and format strings. Dependency files ensure changes to
-included headers trigger recompilation.
-
-Build with AddressSanitizer and UndefinedBehaviorSanitizer:
-
-```sh
-make sanitize
-```
-
-Run the same examples using `build/sanitize/` in place of
-`build/debug/`.
-
-Debug symbols and frame pointers make sanitizer reports easier to investigate.
-Sanitizer builds stop on detected undefined behavior. Normal and sanitizer
-outputs live in separate directories. Use `make clean` to remove both; also
-clean before changing compilers or flags within the same build configuration.
-
-## Submit and execute jobs
-
-With the coordinator running, submit jobs before or after starting workers:
-
-```sh
 ./build/debug/faultline submit sleep --args 1000 --max-retries 1
-# job_id=1
-./build/debug/faultline submit prime_count --args 100
-# job_id=2
-./build/debug/faultline submit fibonacci --args 10
-# job_id=3
-./build/debug/faultline submit hash --args hello
-# job_id=4
+# job_id=1  (on a fresh log)
+
+./build/debug/faultline status 1
 ```
 
-The coordinator queues jobs until an idle worker is available, then assigns them
-in FIFO order. Each worker executes one job at a time while continuing heartbeats.
-Jobs move through ASSIGNED, RUNNING, and DONE. The coordinator stores and logs
-results: the examples above produce `slept_ms=1000`, `25`, `55`, and
-`a430d84680aabd0b`. Invalid task inputs report failure and follow the retry policy.
-Submission prints an acceptance ID. Query it with `./build/debug/faultline status 1`.
-See [task arguments, algorithms, and execution](docs/tasks.md).
-
-Arguments are passed through as text or hex-decoded bytes, up to 1024 bytes.
-Retry allowance defaults to zero. The store retains 256 total jobs, including
-terminal records; full stores reject further submissions, and restarting preserves
-these records and the capacity limit. See [the scheduling guide](docs/scheduling.md) for CLI options,
-acceptance guarantees, worker eligibility, retries, and the current limits.
-
-For example, after job 1 completes on worker 1:
+Use the ID printed by your submission. Submission confirms **durable acceptance**;
+`status` reads one snapshot and does not wait for completion. Run it again if the
+job is still queued or running. Once job 1 finishes on worker 1, expect:
 
 ```text
 job_id=1
@@ -192,279 +105,256 @@ result_bytes=13
 result="slept_ms=1000"
 ```
 
-`status` accepts `--coordinator IPv4:PORT` and reads one snapshot per invocation.
-It exits 0 for a known job (including FAILED), 2 for an unknown ID, and 1 on an
-argument, network, protocol, or output error. See [the status guide](docs/status.md)
-for queued/retried states, result escaping, and restart behavior.
+### Stop and restart
 
-Inspect all retained jobs and worker registrations:
+Stop workers and the coordinator with **Ctrl+C**. Keep the WAL. To restore the
+same coordinator state, omit `--init-wal`:
 
 ```sh
-./build/debug/faultline jobs
-./build/debug/faultline workers
+./build/debug/faultline-coordinator --port 9000 --wal faultline.wal
 ```
 
-Both accept `--coordinator IPv4:PORT` and exit 0 for a valid listing, including
-an empty one. Jobs include completed and failed records. Workers include retained
-dead registrations until slot reuse; the live registry starts empty after restart.
-See [the listing guide](docs/listings.md) for table columns and snapshot semantics.
+Start workers again in their terminals. Old connections cannot be restored, and
+workers do not automatically reconnect. Saved terminal results remain queryable;
+interrupted assignments follow the [retry policy](#guarantees).
 
-Read aggregate statistics:
+## Commands
+
+All three programs default to `127.0.0.1:9000`. These examples use the debug build;
+`make sanitize` creates equivalent executables under `build/sanitize/`.
+
+| Command | What it shows or does |
+| --- | --- |
+| `./build/debug/faultline ping` | Check coordinator connectivity; expect `PONG` |
+| `./build/debug/faultline submit TASK --args TEXT --max-retries N` | Submit work and print its job ID |
+| `./build/debug/faultline status ID` | State, worker, attempt, retries, result, or failure for one job |
+| `./build/debug/faultline jobs` | All retained jobs, including `DONE` and `FAILED` |
+| `./build/debug/faultline workers` | Registered worker liveness, heartbeat age, and active assignments |
+| `./build/debug/faultline stats` | Retained job totals, current worker gauges, and session activity |
+
+`status` exits **0 for a known job, including a failed one**, **2 for an unknown
+ID**, and **1 for an error**. Scripts must inspect the reported state to determine
+job success. Job totals survive restart; worker gauges and session measurements
+start afresh. See [status](docs/status.md), [listings](docs/listings.md), and
+[counter definitions](docs/stats.md).
+
+### Built-in tasks
 
 ```sh
-./build/debug/faultline stats
+./build/debug/faultline submit sleep --args 1000 --max-retries 1
+./build/debug/faultline submit prime_count --args 100
+./build/debug/faultline submit fibonacci --args 10
+./build/debug/faultline submit hash --args hello
 ```
 
-It also accepts `--coordinator IPv4:PORT`. Job totals are reconstructed from the
-WAL; current worker gauges and session measurements reset on restart. Startup
-recovery outcomes are included in retained totals and reported separately from
-runtime session activity. See [counter definitions and performance limits](docs/stats.md).
+| Task | Input | Result for the example above |
+| --- | --- | --- |
+| `sleep` | Duration in milliseconds, 0–86,400,000 | `slept_ms=1000` |
+| `prime_count` | Inclusive upper bound, 0–100,000,000 | `25` |
+| `fibonacci` | Sequence index, 0–93 | `55` |
+| `hash` | Up to 1,024 bytes; FNV-1a 64-bit, non-cryptographic | `a430d84680aabd0b` |
 
-Coordinator and worker logs include UTC time, severity, component, event, and
-identity fields. Job events distinguish requeued attempts, terminal failures,
-durably accepted results, and restored state. Worker sends explicitly leave
-coordinator acceptance unconfirmed. See [the logging guide](docs/logging.md) and
-[CLI and observability phase review](docs/observability-review.md) for how to
-interpret commands and logs together.
+Numeric inputs are decimal integers. Use `--args-hex HEX` instead of `--args TEXT`
+for binary input. The retry allowance defaults to **zero**; `--max-retries 2`
+permits at most three attempts. [Task details →](docs/tasks.md)
 
-[Worker recovery checks](docs/recovery.md) kill a busy worker with SIGKILL or
-pause it with SIGSTOP until its heartbeat expires. In both cases, an
-already-connected worker completes the same job on attempt 2 and remains
-available for another job.
-Additional checks resume the expired worker while attempt 2 is running or after
-it completes, verifying that the current assignment and accepted result stay intact.
-Retry-exhaustion checks kill successive owners until the allowance runs out,
-verify FAILED without another assignment, and confirm a healthy worker can still
-complete a new job. Two retries allow three attempts; zero retries allow one.
+<details>
+<summary><strong>Change the port or heartbeat timings</strong></summary>
 
-Assignments are revocable leases tied to worker connection/heartbeat liveness.
-An expired worker can still be computing while another starts the retry.
-Job/worker/attempt validation protects accepted coordinator state, while tasks
-must be safe to repeat under the bounded at-least-once retry policy. Heartbeats
-do not prove task progress. Submission ACKs now follow a successful WAL sync;
-missing an ACK still leaves an uncertain client outcome. See [the lease and execution guarantees](docs/recovery.md#assignment-lease).
-The [fault-tolerance phase review](docs/recovery.md#phase-review) records the
-verified recovery cases and the boundary before persistence.
-
-## Persistence guarantees
-
-- A received submission ACK means the job is recoverable after a coordinator
-  process crash using the same retained WAL and working local storage.
-- Job inputs, IDs, retry accounting, queue order, and saved terminal outcomes
-  survive. DONE and FAILED jobs receive no new attempts.
-- Interrupted ASSIGNED/RUNNING jobs retry from the beginning if their allowance
-  permits. Work can execute more than once; finite retries can end in failure.
-- Workers need fresh connections and registrations. A missing submission ACK
-  remains uncertain; manual resubmission can create another job.
-- This covers process crashes under the storage assumptions, not storage loss,
-  universal power-loss survival, exactly-once effects, or automatic failover.
-
-The [persistence phase review](docs/persistence-review.md) records the full
-verification results, acceptance boundaries, retry rules, and exclusions.
-
-## Tests
+Stop the existing processes first. These commands reuse the WAL created above:
 
 ```sh
-make test
-make test-sanitize
+# Coordinator: listen on port 9100; expire after six seconds of silence.
+./build/debug/faultline-coordinator --port 9100 --wal faultline.wal --heartbeat-timeout-ms 6000
+
+# Worker, in another terminal: send a heartbeat every two seconds.
+./build/debug/faultline-worker --coordinator 127.0.0.1:9100 --heartbeat-interval-ms 2000
+
+# CLI, in a third terminal: select the same endpoint for any command.
+./build/debug/faultline ping --coordinator 127.0.0.1:9100
 ```
 
-Both commands build and run C unit tests and Python integration tests against
-the real executables. `test-sanitize` instruments all C programs under test.
-The [Linux CI workflow](.github/workflows/linux-ci.yml) runs the full suite on
-Ubuntu 24.04 for pushes and pull requests: GCC 13 for a normal build and Clang 18
-with AddressSanitizer/UBSan. Both treat compiler warnings as errors and include
-the port 9000 default-endpoint checks. See [the CI guide](docs/ci.md) for triggers,
-logs, reproduction commands, and the distinction between local validation and
-GitHub-hosted results.
-The [batch baseline harness](docs/batch-testing.md) now runs five workers and
-100 jobs with exact result/ID accounting, shared deadlines, and process cleanup:
-`make test-batch` (or `make SANITIZE=1 test-batch`). Use
-`BATCH_ARGS='--workers 3 --jobs 9 --sleep-ms 25'` for a small run and
-`make test-batch-harness` for the harness's own regression checks. These are
-separate from `make test`. The [seeded chaos harness](docs/chaos-testing.md) now
-runs with `make test-chaos` (also `SANITIZE=1`), killing busy workers and starting
-replacements while retaining the plan, actions, and recovery evidence. Use
-`CHAOS_ARGS` to configure it and `make test-chaos-harness` for its regression suite.
-Each run saves its drain cohort and a per-job `accounting.json` report, proving
-that the acknowledged IDs partition into completed and terminally failed jobs,
-with exact results and valid retry histories. Matching totals alone cannot pass.
-Linux CI explicitly runs 7 deadline/failure-propagation checks, 21 baseline and
-35 chaos harness checks, followed by the full seed-42 experiment, in each compiler
-job. The steps have deadlines and upload available logs, JSON evidence, and WALs
-after success or failure. See the
-[hosted CI validation record](docs/ci.md#github-hosted-linux-validation): both
-Ubuntu x86-64 jobs passed the complete workflow, all 200 experiment jobs finished
-correctly, and all four downloaded artifacts passed an independent audit.
-The [acceptance gates](docs/ci.md#conditions-that-fail-ci) reject missing jobs,
-wrong results, invalid retries, insufficient recovery, timeouts, and cleanup
-failures, including cleanup errors after all jobs have completed.
-Both outcomes retain summaries, seed/configuration, event traces, harness and
-process logs, WALs, and any partial JSON writes. See [artifact downloads and
-limits](docs/ci.md#failure-visibility).
-The [Testing and chaos review](docs/chaos-review.md) records seeds 42, 7, and
-2026 under normal and sanitizer builds: 600 jobs accounted for, 27 interrupted
-attempts recovered, and the remaining coverage and platform limits.
-The next phase's [benchmark contract](docs/benchmarks.md) is now defined:
-64 CPU-bound prime-count jobs with 1/2/4/8 workers, optimized builds, five measured
-repetitions, and separate controlled crash/heartbeat recovery profiles. Versioned
-settings and the initial machine inventory live under `benchmarks/`.
-`make benchmark-baseline` now builds and checks optimized binaries, then runs one
-warmup and five verified one-worker samples. See the
-[baseline guide](docs/benchmark-baseline.md) for timing, machine checks, evidence,
-and the distinction from the complete scaling campaign. The verified
-one-worker series completed all 384 jobs (including warmup) without retries or
-failures: the median measured 64-job batch took **59.395 seconds**, or
-**1.078 jobs/second**, on the recorded Apple M4 configuration. The
-[reviewed results](benchmarks/results/one-worker-20261001.json) retain all samples
-and evidence references.
-`make benchmark-scaling` now runs the full 1/2/4/8-worker plan from a clean
-committed checkout. The [verified scaling campaign](docs/benchmark-scaling.md)
-completed all 1,536 jobs without retries or failures. Median batch times were
-59.008, 29.856, 16.924, and 13.942 seconds respectively: eight workers achieved
-**4.232× speedup** against the fresh one-worker median. The guide records every
-sample and its variation, with [JSON](benchmarks/results/scaling-20261001.json)
-and [CSV](benchmarks/results/scaling-20261001.csv) reports.
-`make benchmark-recovery` runs matching no-fault, SIGKILL, and heartbeat-expiry
-experiments. The [verified recovery campaign](docs/benchmark-recovery.md) passed
-all 18 runs and 576 jobs, with one retry per fault run and zero terminal failures.
-Median batch times were **80.264 s**, **80.689 s**, and **85.939 s** respectively.
-Median additional time against each fault's same-round control was **0.418 s**
-for SIGKILL and **5.691 s** for heartbeat expiry. The guide explains detection
-versus FIFO waiting and includes the graph, with
-[JSON](benchmarks/results/recovery-20261002.json) and
-[CSV](benchmarks/results/recovery-20261002.csv) reports.
-Three earlier power-interrupted campaigns remain documented in the
-[attempt record](benchmarks/results/recovery-attempts-20261002.json) and are
-excluded from these measurements.
-Use `make test-unit` or `make test-integration` to run either layer separately.
-Use `make test-job-status-protocol` for status payloads and validation, or add
-`SANITIZE=1` for AddressSanitizer/UBSan.
-Use `make test-status` for live CLI queries, read-only checks, and recovered results;
-add `SANITIZE=1` for instrumentation.
-Use `make test-list-protocol` for listing codecs and `make test-listings` for live
-job/worker snapshots; add `SANITIZE=1` for instrumentation.
-Use `make test-stats-protocol` for statistics codecs and aggregation, and
-`make test-stats` for live counter/restart checks; both accept `SANITIZE=1`.
-Use `make test-logs` for log formatting/escaping and `make test-observability`
-for command, WAL, and log agreement across execution/failure/restart; both accept
-`SANITIZE=1`.
-Use `make test-wal` for WAL format checks, or `make SANITIZE=1 test-wal`
-for the same checks with AddressSanitizer/UBSan.
-Use `make test-wal-writer` for real-file appends, sync ordering, storage-error
-injection, locking, and writer-crash checks; add `SANITIZE=1` for instrumentation.
-Use `make test-wal-replay` for history validation, reconstructed state, tail
-repair, and append resumption; add `SANITIZE=1` for instrumentation.
-Use `make test-persistence` for coordinator commit ordering and restart checks;
-add `SANITIZE=1` for instrumentation.
-Use `make test-startup-recovery` for restored job states, interrupted-attempt
-retry accounting, and fresh registration after restart; add `SANITIZE=1` for instrumentation.
-Use `make test-coordinator-crashes` for SIGKILL at selected WAL boundaries and
-real CLI/worker restart scenarios; add `SANITIZE=1` for instrumentation.
-Use `make test-scheduling` for CLI submission and scheduling scenarios.
-Use `make test-execution` for task results, concurrent workers, and cancellation.
-Use `make test-recovery` for crash/heartbeat recovery, resumed-worker protection,
-and retry exhaustion, or `make SANITIZE=1 test-recovery` for the sanitizer build.
-Use `make test-failures` to run only the five failure-detection scenarios, or
-`make SANITIZE=1 test-failures` to run them with AddressSanitizer/UBSan.
+Two-second heartbeats and a six-second timeout are the defaults. Keep the timeout
+comfortably above the worker interval; the processes do not negotiate these
+settings. Endpoints accept numeric IPv4 addresses. The coordinator currently
+binds only to `127.0.0.1`. [Worker configuration →](docs/workers.md)
 
-Integration tests normally choose an available loopback port, leaving the
-default-endpoint checks skipped. To also exercise all three programs' port 9000
-defaults, first stop any existing coordinator and run:
+</details>
+
+## Benchmarks
+
+Measured on **Apple M4 · 10 cores (4 Performance + 6 Efficiency) · 16 GiB RAM**,
+with an internal APFS SSD, macOS 27.0.1, and Apple Clang 21. Builds used
+`-O2 -g -Werror`, sanitizers off, and normal logging and WAL synchronization.
+AC power and low-power mode off were checked before and after every sample.
+
+Each configuration has **five measured repetitions**, with warmups excluded.
+These are single-machine results for the specified workloads, not multi-host
+performance claims. Full reports retain individual samples, ranges, source
+revisions, machine observations, and evidence hashes.
+
+### Worker scaling · October 1, 2026
+
+64 CPU-bound `prime_count(10000000)` jobs per run, each verified to return `664579`.
+All **1,536 jobs** across warmups and measured runs completed correctly, with no
+retries or terminal failures.
+
+| Workers | Median batch time | Median jobs/s | Mean job latency¹ | Speedup |
+| ---: | ---: | ---: | ---: | ---: |
+| 1 | 59.008 s | 1.085 | 29.076 s | 1.000× |
+| 2 | 29.856 s | 2.144 | 14.457 s | 1.976× |
+| 4 | 16.924 s | 3.782 | 7.894 s | 3.487× |
+| 8 | 13.942 s | 4.590 | 6.717 s | **4.232×** |
+
+¹ Median of each run's mean acceptance-to-completion latency, including queue
+waiting. Batch time includes submission, execution, persistence, and completion
+observation; it excludes startup and final verification/cleanup.
+
+Eight workers finished the batch **4.232× faster** than the same campaign's
+one-worker median. Going from four to eight workers improved throughput by about
+**21.4%**. The experiment shows diminishing gains but does not isolate a bottleneck.
+
+[Full scaling report](docs/benchmark-scaling.md) ·
+[JSON](benchmarks/results/scaling-20261001.json) ·
+[CSV](benchmarks/results/scaling-20261001.csv)
+
+### Controlled recovery · October 2, 2026
+
+32 ten-second `sleep` jobs per run, four workers, and one allowed retry per job.
+Hard crashes (`SIGKILL`) and heartbeat expiry (a ten-second `SIGSTOP` pause) were
+measured separately against matching no-fault runs.
+
+| Scenario | Median batch time | Observed detection² | Paired extra time³ |
+| --- | ---: | ---: | ---: |
+| No fault | 80.264 s | — | — |
+| Hard crash | 80.689 s | 11.119 ms | +0.418 s |
+| Heartbeat expiry | 85.939 s | 5,195.880 ms | +5.691 s |
+
+² Median signal-to-observed durable worker-loss event; includes storage, logging,
+and observation delay. Heartbeat expiry uses time since the last heartbeat, so
+six seconds of silence need not mean six seconds after the pause signal.
+
+³ Median of same-round fault-minus-control differences, not the difference of
+the table's batch medians.
+
+![Controlled recovery: all five measured samples and medians for batch time, failure detection, reassignment delay, and additional completion time](benchmarks/results/recovery-20261002.svg)
+
+All **576 jobs** across 18 runs completed correctly. Each of the 12 fault runs
+used exactly one retry; there were **zero terminal failures**. The interrupted
+job waited roughly 70 seconds for reassignment because it rejoined the FIFO tail
+behind queued work. That delay is distinct from detecting the worker's loss.
+
+[Full recovery report and limits](docs/benchmark-recovery.md) ·
+[JSON](benchmarks/results/recovery-20261002.json) ·
+[CSV](benchmarks/results/recovery-20261002.csv)
+
+<details>
+<summary><strong>Reproduce the measurements</strong></summary>
+
+Use a clean, committed checkout on macOS, with stable AC power and low-power mode
+off. Automatic machine/power validation currently supports macOS. The runners
+build optimized binaries, check correctness, then time the fixed profiles:
 
 ```sh
-make test-integration INTEGRATION_ARGS='--port 9000'
+make benchmark-baseline   # One worker: warmup + five measured runs.
+make benchmark-scaling    # 1, 2, 4, 8 workers; about 29 minutes on this M4.
+make benchmark-recovery   # Matched controls and faults; about 35–40 minutes.
 ```
 
-See [the test guide](tests/README.md) for coverage and failure diagnostics.
+Campaigns enforce deadlines, verify every job and result, and clean up their
+processes. Each run preserves logs, summaries, traces, and WALs under a unique
+ignored `build/benchmarks/` directory. **Archive evidence before `make clean`,
+which removes `build/`.** Failed campaigns remain evidence but are excluded from
+published performance aggregates.
 
-## Project layout
+AC power is a measurement condition, not a requirement for running Faultline or
+its ordinary tests. Boundary checks do not establish continuous power stability;
+thermal telemetry was unavailable. See the [benchmark contract](docs/benchmarks.md)
+for timing definitions, machine requirements, and interpretation limits.
+
+</details>
+
+## Guarantees
+
+| Boundary | What Faultline guarantees |
+| --- | --- |
+| Submission acknowledgment | A complete creation record is synced to the WAL before the coordinator sends an ACK. An acknowledged job is recoverable after a coordinator process crash with the same retained log and working storage. |
+| Assignment and completion | Assignments are durable before dispatch. Accepted results are durable before publication. Reports must match the job, worker, and attempt; stale reports cannot overwrite authoritative state. |
+| Worker loss | Disconnect or heartbeat expiry revokes the assignment. Eligible work retries from the beginning at the FIFO tail; exhausted jobs become terminally `FAILED`. |
+| Coordinator restart | Job IDs, inputs, results, retry accounting, identity counters, and queue order recover from the WAL. `DONE` and `FAILED` jobs stay terminal. Queued jobs do not spend a retry simply because the coordinator restarts. |
+| Interrupted attempts | Recovered `ASSIGNED` or `RUNNING` jobs follow the worker-loss retry policy, including after an orderly shutdown. Workers establish fresh connections and registrations. |
+
+**Execution uses bounded at-least-once retries.** An expired worker may still be
+computing while a new attempt runs. Attempt checks protect coordinator state;
+they do not make external effects happen exactly once. Tasks must be safe to
+repeat, and a finite retry budget does not promise eventual success.
+
+**A missing ACK leaves submission uncertain.** The job may already be durable.
+Submitting it again can create a second job; request deduplication is deferred.
+
+Read the [recovery guarantees](docs/recovery.md) and
+[persistence review](docs/persistence-review.md) for crash boundaries and evidence.
+
+## Limitations
+
+- **Local deployment:** IPv4 loopback only; no coordinator bind-address option,
+  hostname resolution, IPv6, authentication, or TLS.
+- **Bounded storage:** 256 retained jobs, including terminal jobs; 1,024-byte
+  arguments and results; 64 simultaneous client connections shared by workers
+  and CLI requests. Restarting does not free retained job slots.
+- **Append-only persistence:** no WAL compaction or job eviction. The durability
+  contract covers process crashes with working storage, not disk loss or
+  universal power-loss survival.
+- **One coordinator:** no replication, consensus, automatic failover, or worker
+  reconnection. Scheduling pauses while the coordinator is down.
+- **Liveness, not progress:** heartbeats do not prove a task is advancing. There
+  is no independent job execution deadline or checkpoint/resume support.
+- **Four built-in tasks:** no arbitrary shell execution, task plugins, or web dashboard.
+
+[Optional post-MVP work](docs/post-mvp.md) records request deduplication and
+potential battery-only / Low Power Mode benchmark profiles. These remain proposals.
+
+## Testing
+
+```sh
+make test             # C unit/storage/socket tests + real-process integration tests.
+make test-sanitize    # The same suites with AddressSanitizer and UBSan.
+make test-batch       # Separate no-fault workload with per-job result verification.
+make test-chaos       # Separate seeded worker crashes and replacement experiment.
+```
+
+The [Linux CI workflow](.github/workflows/linux-ci.yml) runs on pushes and pull
+requests using Ubuntu 24.04: GCC 13 for normal builds and Clang 18 for ASan/UBSan.
+It treats warnings as errors, runs harness regressions and a fixed-seed chaos
+experiment, enforces deadlines and cleanup, and uploads available evidence after
+success or failure. Checks reject missing IDs, wrong results, invalid retries,
+and insufficient recovery coverage; matching totals alone cannot pass.
+
+See the [test guide](tests/README.md) for focused targets and diagnostics, the
+[chaos review](docs/chaos-review.md) for multi-seed evidence, and the
+[CI guide](docs/ci.md) for Linux reproduction and hosted validation records.
+
+## Documentation
+
+| Start here for… | Guides |
+| --- | --- |
+| System design | [Architecture](docs/architecture.md) · [Job model](docs/jobs.md) · [Scheduling](docs/scheduling.md) |
+| Wire format and connections | [Protocol](docs/protocol.md) · [Networking](docs/networking.md) · [Workers](docs/workers.md) |
+| Using and observing jobs | [Tasks](docs/tasks.md) · [CLI status](docs/status.md) · [Logs](docs/logging.md) |
+| Failure and restart behavior | [Recovery](docs/recovery.md) · [Durability contract](docs/durability.md) · [Persistence](docs/persistence.md) |
+| WAL implementation | [Record format](docs/wal-format.md) · [Writer](docs/wal-writer.md) · [Replay](docs/wal-replay.md) |
+| Experiments and measurements | [Chaos harness](docs/chaos-testing.md) · [Benchmark contract](docs/benchmarks.md) · [Results](benchmarks/results/) |
+| Possible extensions | [Post-MVP notes](docs/post-mvp.md) · [Request deduplication](docs/request-deduplication.md) |
+
+### Source layout
 
 ```text
-faultline/
-├── .github/workflows/linux-ci.yml
-├── Makefile
-├── benchmarks/
-│   ├── run_baseline.py  Optimized builds and ordered benchmark campaigns
-│   ├── run_recovery.py  Controlled faults, recovery timing, and matched comparisons
-│   ├── profiles/        Versioned scaling and controlled recovery settings
-│   ├── results/         Reviewed baseline measurements and evidence hashes
-│   └── machines/        Hardware, OS, toolchain, storage, and power inventory
-├── docs/
-│   ├── architecture.md
-│   ├── protocol.md
-│   ├── job-protocol.md
-│   ├── job-status-protocol.md
-│   ├── status.md
-│   ├── listings.md
-│   ├── stats.md
-│   ├── logging.md
-│   ├── observability-review.md
-│   ├── ci.md
-│   ├── chaos.md
-│   ├── batch-testing.md
-│   ├── chaos-testing.md
-│   ├── chaos-review.md
-│   ├── benchmarks.md
-│   ├── benchmark-baseline.md
-│   ├── benchmark-scaling.md
-│   ├── benchmark-recovery.md
-│   ├── networking.md
-│   ├── workers.md
-│   ├── jobs.md
-│   ├── queue.md
-│   ├── scheduling.md
-│   ├── tasks.md
-│   ├── recovery.md
-│   ├── durability.md
-│   ├── wal-format.md
-│   ├── wal-writer.md
-│   ├── wal-replay.md
-│   ├── persistence.md
-│   ├── coordinator-crashes.md
-│   ├── persistence-review.md
-│   ├── post-mvp.md
-│   └── request-deduplication.md
-├── include/             Shared C headers
-├── src/
-│   ├── common/          Shared protocol, networking, and logging code
-│   ├── coordinator/     Event loop, registry, job store, scheduler, and WAL modules
-│   ├── worker/          Registration, heartbeats, and assignment reception
-│   └── cli/             PING, submission, status, jobs, workers, and stats
-└── tests/               C unit/storage tests and TCP integration tests
+src/coordinator/   Event loop, registry, scheduler, job store, and persistence
+src/worker/        Registration, heartbeats, and task execution
+src/cli/           Submission and inspection commands
+src/common/        Shared protocol, networking, and logging code
+include/           Shared C headers
+tests/             Unit tests, process tests, and workload/chaos harnesses
+benchmarks/        Campaign runners, fixed profiles, and reviewed reports
+docs/              Design notes, contracts, and verification evidence
 ```
-
-Read [the architecture note](docs/architecture.md) for component responsibilities,
-MVP guarantees, and design decisions still to be resolved. Read
-[the protocol specification](docs/protocol.md) for byte offsets, network byte
-order, validation rules, and the C API. The [networking walkthrough](docs/networking.md)
-explains the PING/PONG exchange, connection state, partial I/O, and deadlines.
-The [worker guide](docs/workers.md) describes the registration exchange, worker
-IDs, connection ownership, and heartbeat timing. The [job guide](docs/jobs.md)
-defines the record, state transitions, attempt identity, and retry limits.
-The [queue guide](docs/queue.md) explains FIFO ordering, capacity, and job ownership.
-The [job message specification](docs/job-protocol.md) defines payload offsets,
-message semantics, and validation. The [scheduling guide](docs/scheduling.md)
-connects those pieces to CLI submission and live FIFO dispatch. The
-[task guide](docs/tasks.md) covers built-in execution and result reporting; the
-[recovery guide](docs/recovery.md) records worker-failure guarantees and checks.
-The [durability contract](docs/durability.md) defines WAL acceptance,
-restart, and retry rules. The [WAL format specification](docs/wal-format.md)
-defines exact file/record bytes and validation. The [WAL writer guide](docs/wal-writer.md)
-explains complete appends, sync boundaries, and storage failures. The
-[WAL replay guide](docs/wal-replay.md) explains historical validation, state
-reconstruction, incomplete-tail repair, and safely resuming appends. The
-[coordinator persistence guide](docs/persistence.md) connects these operations
-to durable live transitions, startup, retry accounting, and failure shutdown.
-The [coordinator crash guide](docs/coordinator-crashes.md) describes the test-only
-crash harness, verified boundaries, and process-crash guarantees.
-The [persistence phase review](docs/persistence-review.md) consolidates the
-durable-state promise, repeat-execution rules, evidence, and remaining scope.
-The [deferred request-deduplication proposal](docs/request-deduplication.md)
-records a future enhancement for safely repeating submissions after a lost ACK.
-It is not implemented. The [optional post-MVP notes](docs/post-mvp.md) track this
-proposal alongside potential battery-only and Low Power Mode benchmark profiles;
-the current AC-only benchmark contract remains unchanged.
-The [CLI and observability review](docs/observability-review.md)
-records this phase's command semantics, logging guarantees, verification, and
-handoff to testing and chaos experiments.

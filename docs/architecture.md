@@ -1,11 +1,11 @@
 # Faultline MVP architecture
 
-Faultline will distribute independent jobs across worker processes and recover
+Faultline distributes independent jobs across worker processes and recovers
 unfinished work when a worker fails. The v0.1 goal is a small C11 system whose
 networking, scheduling, failure handling, and recovery behavior can be explained
 and demonstrated with reproducible experiments.
 
-This note describes the intended MVP. The current implementation supports a
+This note describes the current MVP. The implementation supports a
 tested TCP PING/PONG exchange between the CLI and a coordinator using `poll()`.
 The coordinator also registers workers, returns assigned IDs, validates heartbeat
 ownership, and records connection state and heartbeat times in a worker registry.
@@ -61,7 +61,9 @@ appended and synced to the WAL before its prepared state is published in memory.
 
 Each **worker** connects to the coordinator, registers for an ID, sends periodic
 heartbeats, and executes one assigned job at a time. It reports job start,
-completion, or failure. Workers may run on the same computer or across a LAN.
+completion, or failure. The current coordinator binds only to IPv4 loopback, so
+workers run on the same computer. Multi-host deployment requires future networking
+and security work.
 Built-in tasks are `sleep`, `prime_count`, `fibonacci`, and `hash`.
 
 ## Job lifecycle and recovery
@@ -156,9 +158,11 @@ restarting the coordinator. Unit tests, integration tests, controlled failure
 experiments, and worker churn tests should show that no accepted durable job
 silently disappears. Benchmark 1, 2, 4, and 8 workers and report the workload,
 machine specifications, throughput, latency, and recovery costs.
-The [benchmark contract](benchmarks.md) now fixes the scaling and controlled
+The [benchmark contract](benchmarks.md) fixes the scaling and controlled
 recovery profiles, build settings, repetitions, timing boundaries, correctness
 requirements, and process cleanup. The [one-worker baseline](benchmark-baseline.md)
 has an optimized build and verified measurement runner. The complete
-[scaling matrix](benchmark-scaling.md) is measured and independently audited;
-controlled recovery measurements remain the next experiment.
+[scaling matrix](benchmark-scaling.md) and
+[controlled recovery campaign](benchmark-recovery.md) are measured and
+independently audited. Their reports record reproducible commands, all samples,
+observed scaling limits, and separate hard-crash and heartbeat-expiry recovery costs.
