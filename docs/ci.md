@@ -46,7 +46,7 @@ remain independent.
 4. Run all C unit groups.
 5. Run all process integration suites.
 6. Run the 7 CI deadline/failure-propagation checks.
-7. Run the 21 batch-harness regression checks.
+7. Run the 22 batch-harness regression checks.
 8. Run the 35 chaos-harness regression checks.
 9. Run the full seed-42 chaos experiment.
 10. Upload available logs and chaos evidence, including after test failures.
@@ -508,3 +508,52 @@ triggers were not exercised by this push. The full three-seed Linux matrix,
 multi-machine testing, sustained load, and controlled benchmarks remain outside
 this record. This milestone adds documentation and retained validation evidence;
 production code, harness rules, and workflow configuration are unchanged.
+
+## Sanitizer cleanup race — 2026-10-02
+
+In [run 36912575241](https://github.com/farukumarx64/flatline-c/actions/runs/36912575241),
+the Clang sanitizer seed-42 experiment verified all 100 results and five recovered
+attempts, then failed cleanup. Worker `worker-1-g2` (PID 6776, worker ID 10)
+logged `stopped exit_code=0 reason=signal signal=15` and closed its connection,
+but remained alive until the harness's four-second SIGKILL escalation.
+
+The trace showed SIGTERM immediately followed by SIGCONT. Linux LeakSanitizer
+uses [a ptrace tracer to suspend threads during its exit check](https://github.com/llvm/llvm-project/blob/llvmorg-18.1.3/compiler-rt/lib/sanitizer_common/sanitizer_stoptheworld_linux_libcdep.cpp).
+A late SIGCONT can cancel the tracer's stop request, leaving the tracer waiting
+while the exiting process spins. A minimal Clang 18.1.3 ASan/UBSan process
+reproduced this hang once in 1,000 TERM-then-CONT trials on Ubuntu 24.04 ARM64:
+the parent remained traced/running and its tracer was blocked in `wait4`.
+The reverse order produced zero hangs in 1,000 trials. This reproduces a cause
+consistent with the hosted logs; that run did not capture a process stack.
+
+Shared batch, chaos, and benchmark cleanup now sends CONT **before** TERM for
+workers/helpers and the coordinator. Stopped children can still exit gracefully.
+Leak detection, cleanup deadlines, and forced-kill failure rules are unchanged.
+A deterministic exit-sensitive fixture fails against the original code for both
+worker and coordinator roles and passes with the fix; it does not depend on
+winning the sanitizer race.
+
+Local Linux validation used GCC 13.3.0 and Clang 18.1.3 with CI compiler flags,
+ASan/UBSan options, leak detection, and the CI deadline wrapper:
+
+| Check | GCC | Clang + ASan/UBSan |
+| --- | --- | --- |
+| Batch harness | 22 passed | 22 passed |
+| Chaos harness | 35 passed | 35 passed |
+| Full seed 42 | 100 DONE, five recoveries | 100 DONE, five recoveries |
+| Cleanup | 586 children reaped; 22 ms | 586 children reaped; 43 ms |
+
+Both full runs verified exact IDs/results and retry histories, with no remaining
+process groups or unexpected sanitizer diagnostics. All 25 benchmark harness
+checks also passed with normal Linux binaries: the compiler lookup check was
+initially skipped, then passed separately with `clang` pointing to installed
+Clang 18. The final deterministic fixture passed on macOS and Linux, and failed
+against the original Linux harness as expected. C runtime code is unchanged;
+its core unit/integration suites were not rerun for this harness fix.
+
+The failed CI artifact (SHA-256
+`4b68861a698f440d99949dd43124b0fd6badafb1abe1f20ed719b5c466ffbb9d`),
+reproducer, process diagnostics, regression logs, and new run artifacts are
+retained in Git-ignored `build/ci-investigation/36912575241/` until `make clean`.
+These checks ran in a local Linux ARM64 container; a new GitHub-hosted x86-64
+run of the fix remains pending publication.

@@ -253,11 +253,11 @@ cleanup error and continue trying to stop/reap the rest of the owned processes.
 Within the ten-second reserve, use shared deadlines rather than a fresh timeout
 for each child:
 
-1. At cleanup start, request SIGTERM for live workers and CLI/helpers. Resume
-   any owned stopped process before graceful termination. Wait/reap these
-   children for at most four seconds in total.
-2. Send SIGKILL to any of those still alive, request SIGTERM for the coordinator,
-   and wait/reap under a shared deadline six seconds from cleanup start.
+1. At cleanup start, send SIGCONT before SIGTERM to live workers and CLI/helpers.
+   This resumes stopped children without sending CONT during their sanitizer
+   exit checks. Wait/reap these children for at most four seconds in total.
+2. Send SIGKILL to any of those still alive, send SIGCONT then SIGTERM to the
+   coordinator, and wait/reap under a shared deadline six seconds from cleanup start.
 3. Send SIGKILL to any remaining owned process/group, including the coordinator.
    Wait/reap all remaining children by ten seconds from cleanup start.
 4. Verify every direct child has a recorded terminal status and was reaped,

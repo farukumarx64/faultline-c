@@ -404,6 +404,58 @@ class HarnessTests(HarnessCase):
             run.cleanup()
             run.events.close()
 
+    def test_cleanup_does_not_resume_a_process_after_shutdown_starts(self):
+        # Linux LeakSanitizer suspends threads during its exit check. A CONT
+        # after TERM can cancel that suspension and deadlock the tracer. Model
+        # the exit-sensitive window explicitly instead of relying on race odds.
+        class ExitSensitiveRun(batch.BatchRun):
+            def signal_child(run, child, signum):
+                super().signal_child(child, signum)
+                marker = {signal.SIGCONT: 'continued', signal.SIGTERM: 'exiting'}.get(signum)
+                if marker is not None:
+                    deadline = time.monotonic() + 2
+                    while marker not in child.stdout.read_text() and child.process.poll() is None:
+                        if time.monotonic() >= deadline:
+                            raise AssertionError(f'fixture did not observe {signum}')
+                        time.sleep(.005)
+
+        for role in ('worker-fixture', 'coordinator'):
+            with self.subTest(role=role):
+                directory = self.directory / ('exit-sensitive-' + role)
+                directory.mkdir()
+                run = ExitSensitiveRun(argparse.Namespace(bin_dir=BIN_DIR, deadline_ms=30000), directory)
+                try:
+                    child = run.spawn(role, [sys.executable, '-c',
+                        'import signal,sys,time\n'
+                        'stopping = False\n'
+                        'continued = False\n'
+                        'def stop(*_):\n'
+                        '    global stopping\n'
+                        '    stopping = True\n'
+                        '    print("exiting",flush=True)\n'
+                        'def resume(*_):\n'
+                        '    global continued\n'
+                        '    continued = True\n'
+                        '    print("continued",flush=True)\n'
+                        '    if stopping: sys.exit(7)\n'
+                        'signal.signal(signal.SIGTERM, stop)\n'
+                        'signal.signal(signal.SIGCONT, resume)\n'
+                        'print("ready",flush=True)\n'
+                        'while not (stopping and continued): time.sleep(.005)\n'])
+                    if role == 'coordinator':
+                        run.coordinator = child
+                    deadline = time.monotonic() + 5
+                    while 'ready' not in child.stdout.read_text():
+                        run.pause(deadline, .01)
+                    result = run.cleanup()
+                    self.assertTrue(result['ok'], result)
+                    self.assertEqual(child.process.returncode, 0)
+                    self.assertTrue(child.group_retired)
+                    self.assertEqual(result['remaining'], [])
+                finally:
+                    run.cleanup()
+                    run.events.close()
+
     def test_cleanup_reaches_descendants_in_the_owned_group(self):
         directory = self.directory / 'descendants'
         directory.mkdir()

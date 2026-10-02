@@ -538,15 +538,18 @@ class BatchRun:
         deadline = min(start + CLEANUP_SECONDS, self.run_deadline) if self.run_deadline else start + CLEANUP_SECONDS
         self.cleanup_event('cleanup_started')
         others = [child for child in self.children if child is not self.coordinator]
+        # Resume before requesting exit. A later CONT can cancel the SIGSTOP
+        # used by Linux LeakSanitizer's exit-time tracer and leave it waiting
+        # forever. Stopped children still need to run to handle TERM.
         for child in others:
-            self.signal_child(child, signal.SIGTERM)
             self.signal_child(child, signal.SIGCONT)
+            self.signal_child(child, signal.SIGTERM)
         self.wait_groups(others, min(start + 4, deadline))
         for child in others:
             self.signal_child(child, signal.SIGKILL)
         if self.coordinator is not None:
-            self.signal_child(self.coordinator, signal.SIGTERM)
             self.signal_child(self.coordinator, signal.SIGCONT)
+            self.signal_child(self.coordinator, signal.SIGTERM)
         self.wait_groups(self.children, min(start + 6, deadline))
         for child in self.children:
             self.signal_child(child, signal.SIGKILL)

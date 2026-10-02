@@ -335,8 +335,10 @@ Only signal still-owned processes/groups; never use name-based or global kills.
 One idempotent cleanup path handles success, exceptions, partial startup,
 SIGINT/SIGTERM, and deadlines. Stop spawning/fault injection before teardown.
 
-Within the shared ten-second reserve, TERM workers/helpers and CONT stopped
-children; allow at most four seconds, then KILL survivors and TERM the coordinator.
+Within the shared ten-second reserve, CONT workers/helpers before sending TERM
+so stopped children can exit without a later CONT interfering with sanitizer
+exit checks. Allow at most four seconds, then KILL survivors and stop the
+coordinator using the same CONT-before-TERM order.
 At six seconds KILL remaining owned groups, and reap/confirm disappearance by ten.
 Record each cleanup error without hiding the original failure. Retired groups
 are never signaled again. An unplanned forced kill during cleanup, unreaped child,

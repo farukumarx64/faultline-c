@@ -32,7 +32,7 @@ and `make test-chaos-harness` for its 35 regression checks, including per-ID
 terminal accounting, exact results, retry histories, and drain failures.
 Both accept `SANITIZE=1`;
 `CHAOS_ARGS` configures the experiment. These targets also remain outside
-the default suite. CI explicitly runs the 21 baseline harness checks, the 35 chaos
+the default suite. CI explicitly runs the 22 baseline harness checks, the 35 chaos
 harness checks, and one full seed-42 experiment per compiler, with deadlines and
 evidence uploads. The full no-fault `test-batch` experiment stays manual.
 `make test-ci-deadlines` runs seven Linux-only checks of the shared CI runner,

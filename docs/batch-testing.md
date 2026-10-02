@@ -137,9 +137,11 @@ The outer cleanup path runs after success, exceptions, startup/admission errors,
 timeouts, SIGINT, and SIGTERM. A signal handler records a shutdown request;
 it does not interrupt process creation before the handle is tracked.
 
-Cleanup sends TERM (and CONT for potentially stopped children) to workers and
-CLI/helpers, waits up to four seconds shared across them, escalates survivors,
-then stops the coordinator. At six seconds it escalates remaining groups, with
+Cleanup sends CONT before TERM to workers and CLI/helpers, waits up to four
+seconds shared across them, escalates survivors, then stops the coordinator with
+the same signal order. CONT resumes potentially stopped children; sending it
+after TERM can interfere with Linux LeakSanitizer's exit-time thread suspension.
+At six seconds it escalates remaining groups, with
 ten seconds total for cleanup. It reaps each direct child and confirms its group
 has disappeared, including descendants that stay in the group. A denied probe
 or signal is inconclusive: ownership remains until disappearance is confirmed.
@@ -194,11 +196,12 @@ make test-batch-harness
 make SANITIZE=1 test-batch-harness
 ```
 
-`tests/chaos/test_batch.py` contains 21 regression tests for real batch results and artifact accounting,
+`tests/chaos/test_batch.py` contains 22 regression tests for real batch results and artifact accounting,
 zero-length sleeps/retry boundaries, invalid preflight, ambiguous/duplicate
 ACKs, a hung CLI, wrong or changed results, stats disagreement, partial startup,
 deadlines, SIGINT/SIGTERM, a stopped worker, sanitizer diagnostics, owned
-descendant cleanup, forced-kill failure, and idempotent cleanup. Small wrapper
+descendant cleanup, safe signal ordering during worker/coordinator exit,
+forced-kill failure, and idempotent cleanup. Small wrapper
 fixtures deliberately corrupt replies or interrupt test processes to challenge
 the verifier; these are harness regression tests, not baseline workload faults.
 Every completed process fixture also checks its retained manifest/seed, summary,
@@ -210,7 +213,7 @@ temporary file.
 
 Both targets remain separate from `make test` and `make test-integration`, so the
 existing 131 C groups and 143 integration-test counts remain unchanged.
-[Linux CI](ci.md) explicitly runs the 21 `test-batch-harness` checks in both
+[Linux CI](ci.md) explicitly runs the 22 `test-batch-harness` checks in both
 builds; the full no-fault `test-batch` experiment remains manual. The
 [chaos mode](chaos-testing.md) now implements the saved random fault plan,
 bounded SIGKILL/replacement cycle, and
