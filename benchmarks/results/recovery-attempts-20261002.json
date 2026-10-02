@@ -3,13 +3,13 @@
   "date": "2026-10-02",
   "reportable_recovery_campaign": false,
   "aggregate": null,
-  "reason": "Both full campaigns stopped when an end-of-sample power check reported battery power. No five-round campaign completed.",
+  "reason": "The three campaigns listed here stopped when an end-of-sample power check reported battery power. None completed five measured rounds.",
   "correctness_only": {
-    "submitted": 800,
-    "completed": 800,
+    "submitted": 1024,
+    "completed": 1024,
     "terminal_failures": 0,
-    "retries": 17,
-    "directly_tracked_sample_children": 13057,
+    "retries": 22,
+    "directly_tracked_sample_children": 16699,
     "all_sample_cleanup_verified": true,
     "note": "Per-ID results and cleanup audited; these counts do not certify the timing campaign."
   },
@@ -378,6 +378,118 @@
           "directly_tracked_children": 536,
           "summary_sha256": "d3ef453f55e877a514f756441c7abaef2875ad30712851ba9c76f324edddaf43",
           "accounting_sha256": "a49781cad561cfff6adb1ec9257fa70bfd56b33f6b83dbc1db045177efeeb97c"
+        }
+      ]
+    },
+    {
+      "directory": "build/benchmarks/recovery-20261002-stable",
+      "verdict": "FAIL",
+      "first_failure": "RunFailure: 06-measured-r2-sigkill failed; no replacement sample",
+      "source_revision": "9cb55798479bfd439e6e8de64943d294a1d213d3",
+      "successful_samples": 6,
+      "failed_sample": "06-measured-r2-sigkill",
+      "failed_sample_reason": "RunFailure: AC power is required",
+      "failed_sample_accounting": {
+        "submitted": 32,
+        "completed": 32,
+        "terminally_failed": 0
+      },
+      "cleanup_verified_for_all_samples": true,
+      "sample_count": 7,
+      "included_in_published_aggregates": false,
+      "resolution": "No AC-only campaign can be certified; no samples are spliced across campaigns.",
+      "summary_sha256": "1eecc79445834a52ed511b9e04e2b6909bbd2e16fe0bb85f6f14414d50be5b5d",
+      "samples": [
+        {
+          "path": "00-warmup-no_fault",
+          "verdict": "BENCHMARK_RECOVERY_SAMPLE_PASS",
+          "first_failure": null,
+          "submitted": 32,
+          "completed": 32,
+          "retries": 0,
+          "terminal_failures": 0,
+          "cleanup_ok": true,
+          "directly_tracked_children": 512,
+          "summary_sha256": "52e4188137e54bc7466d2769791b1de362fdae2d82623592a8653799656def8a",
+          "accounting_sha256": "52c7dbcd7be6afdca141ad95e18fe882a42f1ed894bea3e1e71f6820eb19e593"
+        },
+        {
+          "path": "01-warmup-sigkill",
+          "verdict": "BENCHMARK_RECOVERY_SAMPLE_PASS",
+          "first_failure": null,
+          "submitted": 32,
+          "completed": 32,
+          "retries": 1,
+          "terminal_failures": 0,
+          "cleanup_ok": true,
+          "directly_tracked_children": 515,
+          "summary_sha256": "439e7135e7a9222f7d40f3c5a6cfe1fbd362f1f75c712a7e51a0e8a78ee6f0b5",
+          "accounting_sha256": "5507f789488c91a5f211baf1d63dc9a436c3301a8371962a111a59b50add7f3e"
+        },
+        {
+          "path": "02-warmup-heartbeat_expiry",
+          "verdict": "BENCHMARK_RECOVERY_SAMPLE_PASS",
+          "first_failure": null,
+          "submitted": 32,
+          "completed": 32,
+          "retries": 1,
+          "terminal_failures": 0,
+          "cleanup_ok": true,
+          "directly_tracked_children": 539,
+          "summary_sha256": "ea7d240118c95455b60787be74552992a9ca6ee0e8a2e1c087248bd8a3de0af5",
+          "accounting_sha256": "2ec22c257857222bfe6521e1639d759f541f9531c45570a725d5d9d507b37858"
+        },
+        {
+          "path": "03-measured-r1-no_fault",
+          "verdict": "BENCHMARK_RECOVERY_SAMPLE_PASS",
+          "first_failure": null,
+          "submitted": 32,
+          "completed": 32,
+          "retries": 0,
+          "terminal_failures": 0,
+          "cleanup_ok": true,
+          "directly_tracked_children": 512,
+          "summary_sha256": "4e0a3f99dc6dcb7658ebf55102e9795510c953ae106cfe990d4d251ce158b67f",
+          "accounting_sha256": "ef0de972cca35debd28aff72414ef4308789f4f0a01cde13face90887378a934"
+        },
+        {
+          "path": "04-measured-r1-sigkill",
+          "verdict": "BENCHMARK_RECOVERY_SAMPLE_PASS",
+          "first_failure": null,
+          "submitted": 32,
+          "completed": 32,
+          "retries": 1,
+          "terminal_failures": 0,
+          "cleanup_ok": true,
+          "directly_tracked_children": 514,
+          "summary_sha256": "28cea56929100d0611696778827ae44dfabc6bb9164f4a69b19fc5999bcf3fa3",
+          "accounting_sha256": "cf7e8f61f5bbd6254b448f83f062bb4a0a5a3aa0f2e831ffe0ca00c57230c92e"
+        },
+        {
+          "path": "05-measured-r1-heartbeat_expiry",
+          "verdict": "BENCHMARK_RECOVERY_SAMPLE_PASS",
+          "first_failure": null,
+          "submitted": 32,
+          "completed": 32,
+          "retries": 1,
+          "terminal_failures": 0,
+          "cleanup_ok": true,
+          "directly_tracked_children": 540,
+          "summary_sha256": "91bd235f128adf3bde3506b9cd82c66e05828028378dfaff434e8c001fec65c1",
+          "accounting_sha256": "445caf671f5cc863c05071bf0abb760488aafdef6194039453626b0c73fbaa5a"
+        },
+        {
+          "path": "06-measured-r2-sigkill",
+          "verdict": "FAIL",
+          "first_failure": "RunFailure: AC power is required",
+          "submitted": 32,
+          "completed": 32,
+          "retries": 1,
+          "terminal_failures": 0,
+          "cleanup_ok": true,
+          "directly_tracked_children": 510,
+          "summary_sha256": "36cd9641ead28f1eb2cd687f3e8a35a36b3247fbb5a9c436eb5c1309c4b67a98",
+          "accounting_sha256": "857f1ed758fd66f9671a7c484f3fe6e7d0081166b3ed53b359ee85c79ad4f1ec"
         }
       ]
     }

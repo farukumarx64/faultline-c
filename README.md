@@ -329,7 +329,7 @@ and [CSV](benchmarks/results/scaling-20261001.csv) reports.
 expiry campaign. The [recovery benchmark guide](docs/benchmark-recovery.md) explains
 the controlled workload, detection/reassignment clocks, paired completion costs,
 and acceptance checks. The runner's normal and sanitizer regressions pass;
-the full timing comparison remains pending after two campaigns stopped on their
+the full timing comparison remains pending after three campaigns stopped on their
 AC-power checks. Their correctness evidence and failure reasons are retained in
 the guide and [attempt record](benchmarks/results/recovery-attempts-20261002.json).
 Use `make test-unit` or `make test-integration` to run either layer separately.

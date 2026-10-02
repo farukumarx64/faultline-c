@@ -19,29 +19,34 @@ CPU throughput or a replacement for the [scaling experiment](benchmark-scaling.m
 ## Measurement status: 2026-10-02
 
 The runner and regression checks are complete. **The full timing campaign remains
-pending because AC power was lost during both attempts.** Neither attempt supplies
-a valid five-round performance result, and no samples are combined across them.
+pending because AC power was lost during all three attempts.** The AC-only
+contract remains unchanged, and further timing runs are deferred. No attempt
+supplies a valid five-round performance result, and no samples are combined
+across them.
 
 | Evidence directory under `build/benchmarks/` | Successful samples before stopping | Failed sample | Reason |
 | --- | ---: | --- | --- |
 | `recovery-20261002/` | 14 | Round 4, no fault | Final power check reported battery power |
 | `recovery-20261002-ac/` | 9 | Round 3, heartbeat expiry | Final power check reported battery power |
+| `recovery-20261002-stable/` | 6 | Round 2, SIGKILL | Final power check reported battery power |
 
 The first attempt used revision `5a96292`; the second used `eecc1f3` after a
-verifier fix. Rechecking an already attributed crash diagnostic is now safe;
-an extra unrelated warning still fails validation. This fixes a possible false
-failure in the benchmark verifier without changing coordinator/worker behavior.
+verifier fix. The third used `9cb5579` after committing the earlier evidence and
+passing 31 AC-power checks over 60 seconds. Rechecking an already attributed
+crash diagnostic is now safe; an extra unrelated warning still fails validation.
+This fixes a possible false failure in the benchmark verifier without changing
+coordinator/worker behavior.
 
-Across all 25 finished samples, including the two invalidated by power checks,
-an independent per-ID audit confirmed **800 correct results, 17 retries, zero
+Across all 32 finished samples, including the three invalidated by power checks,
+an independent per-ID audit confirmed **1,024 correct results, 22 retries, zero
 terminal failures, and successful cleanup of every directly tracked process**.
 This is correctness evidence, not a completed timing comparison. The
 [interrupted-campaign record](../benchmarks/results/recovery-attempts-20261002.json)
-preserves sample identities, counts, failure reasons, and evidence hashes. Both
+preserves sample identities, counts, failure reasons, and evidence hashes. All three
 raw directories retain their summaries, logs, event traces, and WALs locally;
 they are Git-ignored and `make clean` removes them.
 
-Validation completed before the second attempt:
+Validation completed before the latest attempt:
 
 - All 15 recovery-harness checks passed in normal, ASan/UBSan, and freshly built
   optimized binaries. Sanitizer fixture timings are excluded from measurements.
