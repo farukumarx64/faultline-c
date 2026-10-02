@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Build and verify optimized baseline or full scaling measurements on macOS.
+"""Build and verify optimized baseline, scaling, or recovery measurements on macOS.
 
-Default: one-worker development baseline. --scaling: the complete ordered matrix.
+Default: one-worker development baseline. --scaling/--recovery: ordered campaigns.
 Standard library only. All helpers and runtime children use BatchRun ownership.
 """
 
@@ -288,6 +288,10 @@ class BaselineRun(BatchRun):
             next_query = max(query_start / 1e9 + .2, time.monotonic())
             while time.monotonic() < next_query:
                 self.pause(self.work_deadline, max(0, min(.05, next_query-time.monotonic())))
+        self.verify_terminal(rows)
+
+    def verify_terminal(self, rows):
+        """Freeze timing first; then audit stable results, histories and the pool."""
         previous_deadline = self.work_deadline
         self.work_deadline = min(previous_deadline, time.monotonic() + 60)
         try:
@@ -394,7 +398,7 @@ def machine_identity(snapshot):
 
 
 def require_clean_source(status):
-    require(not status.strip(), 'scaling requires a clean committed checkout; save changes before running')
+    require(not status.strip(), 'campaign requires a clean committed checkout; save changes before running')
 
 
 def make_command(bin_dir, compiler):
@@ -409,13 +413,17 @@ def make_command(bin_dir, compiler):
                 'CFLAGS=-O2 -g -Werror', f'PYTHON={sys.executable}']
 
 
-def run_series(directory, profile, *, scaling=False):
+def run_series(directory, profile, *, scaling=False, recovery=False):
+    if recovery:
+        import run_recovery
     args = argparse.Namespace(bin_dir=directory/'bin', deadline_ms=profile['campaign_deadline_ms'])
     owner = SeriesOwner(args, directory)
     handlers = {sig: signal.signal(sig, owner.on_signal) for sig in (signal.SIGINT, signal.SIGTERM)}
     failure, samples, runs, provenance = None, [], [], {}
-    plan = sample_plan(profile, scaling)
-    scope = 'complete ordered scaling campaign' if scaling else 'one-worker development baseline'
+    plan = run_recovery.sample_plan(profile) if recovery else sample_plan(profile, scaling)
+    scope = ('complete ordered recovery campaign' if recovery else
+             'complete ordered scaling campaign' if scaling else 'one-worker development baseline')
+    controlled = scaling or recovery
     reference_machine = None
     try:
         # Start its absolute budget before the first owned metadata helper.
@@ -437,7 +445,7 @@ def run_series(directory, profile, *, scaling=False):
                           reportable_scaling_campaign=False,
                           scope=scope)
         owner.save('provenance.json', provenance)
-        if scaling:
+        if controlled:
             require_clean_source(status)
         owner.save('profile.json', profile)
         owner.save('plan.json', dict(scope=scope, runs=plan, cooldown_ms=profile['cooldown_ms'],
@@ -451,6 +459,10 @@ def run_series(directory, profile, *, scaling=False):
         command = make_command(args.bin_dir, compiler)
         build = owner.long_command('optimized-build', command+['--jobs=2', 'all'], 120)
         correctness = owner.long_command('optimized-tests', command+['test'], 600)
+        if recovery:
+            provenance['recovery_regressions'] = owner.long_command(
+                'recovery-regressions', command+['test-recovery-benchmark-harness'], 300)
+            owner.save('provenance.json', provenance)
         owner.save('build.json', dict(compiler=compiler, compiler_version=version, make_version=make_version,
                     build=build, correctness=correctness, cflags=profile['build']['cflags'], sanitize=0,
                     binaries={name:digest(args.bin_dir/name) for name in PROGRAMS}))
@@ -466,13 +478,16 @@ def run_series(directory, profile, *, scaling=False):
                 owner.check()
             require(owner.work_deadline-time.monotonic() > 10, 'insufficient remaining series budget')
             suffix = f'-r{entry["measured_round"]}' if entry['measured_round'] is not None else ''
-            name = f'{index:02d}-{stage}{suffix}-w{workers}' if scaling else f'{index:02d}-{stage}'
+            name = (f'{index:02d}-{stage}{suffix}-{entry["scenario"]}' if recovery else
+                    f'{index:02d}-{stage}{suffix}-w{workers}' if scaling else f'{index:02d}-{stage}')
             path = directory / name
             path.mkdir()
             run_args = argparse.Namespace(bin_dir=args.bin_dir, workers=workers, jobs=profile['jobs'],
-                         max_retries=0, deadline_ms=profile['run_deadline_ms'], output_dir=path)
-            print(f'Starting {path.name}: {profile["jobs"]} prime-count jobs, {workers} worker(s)', flush=True)
-            run = BaselineRun(run_args, path, profile, stage, owner.run_deadline)
+                         max_retries=profile['max_retries'], deadline_ms=profile['run_deadline_ms'], output_dir=path)
+            print(f'Starting {path.name}: {profile["jobs"]} {profile["task"]} jobs, {workers} worker(s)', flush=True)
+            run = (run_recovery.RecoveryRun(run_args, path, profile, stage, owner.run_deadline,
+                                          scenario=entry['scenario']) if recovery else
+                   BaselineRun(run_args, path, profile, stage, owner.run_deadline))
             run.measured_round, run.campaign_index = entry['measured_round'], index
             if scaling:
                 run.mode = 'benchmark_scaling_sample'
@@ -485,7 +500,7 @@ def run_series(directory, profile, *, scaling=False):
             require(source_inventory() == inputs, 'source changed during baseline series')
             require({name:digest(args.bin_dir/name) for name in PROGRAMS} ==
                     json.loads((directory/'build.json').read_text())['binaries'], 'binaries changed')
-            if scaling:
+            if controlled:
                 for moment in ('before', 'after'):
                     identity = machine_identity(run.machine[moment])
                     if reference_machine is None:
@@ -495,10 +510,11 @@ def run_series(directory, profile, *, scaling=False):
                 require_clean_source(current)
                 revision, _ = owner.command('source-revision', ['git', '-C', ROOT, 'rev-parse', 'HEAD'], owner.work_deadline)
                 require(revision.strip() == provenance['revision'], 'source revision changed during campaign')
-            if scaling or stage == 'measured':
+            if controlled or stage == 'measured':
                 samples.append(result)
         # Validate aggregates inside the guarded body so errors retain a FAIL summary.
-        metrics = scaling_aggregate(samples, profile) if scaling else aggregate(samples)
+        metrics = (run_recovery.aggregate(samples, profile) if recovery else
+                   scaling_aggregate(samples, profile) if scaling else aggregate(samples))
     except Exception as error:
         failure = f'{type(error).__name__}: {error}'
     finally:
@@ -508,8 +524,10 @@ def run_series(directory, profile, *, scaling=False):
             failure = failure or f'interrupted by signal {owner.stop_signal}'
         code = 128+owner.stop_signal if owner.stop_signal else (1 if failure else 0)
         result = dict(contract=profile['contract'], profile=profile['profile'],
-                      verdict=('SCALING_PASS' if scaling else 'ONE_WORKER_BASELINE_PASS') if code == 0 else 'FAIL',
+                      verdict=('RECOVERY_PASS' if recovery else 'SCALING_PASS' if scaling else
+                               'ONE_WORKER_BASELINE_PASS') if code == 0 else 'FAIL',
                       exit_code=code, first_failure=failure, reportable_scaling_campaign=scaling and code == 0,
+                      reportable_recovery_campaign=recovery and code == 0,
                       scope=scope, runs=runs, measured_samples=sum(s['stage'] == 'measured' for s in samples),
                       aggregate=metrics if code == 0 else None, cleanup=cleanup,
                       elapsed_ms=owner.elapsed(),
@@ -532,19 +550,26 @@ def run_series(directory, profile, *, scaling=False):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output-dir', type=Path, help='fresh directory; default under build/benchmarks')
-    parser.add_argument('--scaling', action='store_true', help='run the full ordered 1/2/4/8-worker campaign')
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument('--scaling', action='store_true', help='run the full ordered 1/2/4/8-worker campaign')
+    mode.add_argument('--recovery', action='store_true', help='run matched control/crash/heartbeat recovery rounds')
     args = parser.parse_args()
     if sys.platform != 'darwin':
         parser.error('automatic machine/power validation currently supports macOS only')
     try:
-        profile = load_profile()
+        if args.recovery:
+            from run_recovery import load_profile as load_recovery_profile
+            profile = load_recovery_profile()
+        else:
+            profile = load_profile()
         if args.output_dir:
             directory = args.output_dir.absolute()
             directory.mkdir(parents=True, exist_ok=False)
         else:
             parent = ROOT/'build/benchmarks'
             parent.mkdir(parents=True, exist_ok=True)
-            directory = Path(tempfile.mkdtemp(prefix='scaling-' if args.scaling else 'one-worker-', dir=parent))
+            directory = Path(tempfile.mkdtemp(prefix='recovery-' if args.recovery else
+                                             'scaling-' if args.scaling else 'one-worker-', dir=parent))
         print(f'Benchmark artifacts: {directory}', flush=True)
         # Tee the driver's own output to retained files without launching helpers.
         class Tee:
@@ -560,7 +585,7 @@ def main():
             stdout, stderr = sys.stdout, sys.stderr
             try:
                 sys.stdout, sys.stderr = Tee(stdout, out), Tee(stderr, err)
-                return run_series(directory, profile, scaling=args.scaling)
+                return run_series(directory, profile, scaling=args.scaling, recovery=args.recovery)
             finally:
                 sys.stdout, sys.stderr = stdout, stderr
     except (OSError, ValueError, RunFailure) as error:

@@ -324,8 +324,11 @@ completed all 1,536 jobs without retries or failures. Median batch times were
 59.008, 29.856, 16.924, and 13.942 seconds respectively: eight workers achieved
 **4.232× speedup** against the fresh one-worker median. The guide records every
 sample and its variation, with [JSON](benchmarks/results/scaling-20261001.json)
-and [CSV](benchmarks/results/scaling-20261001.csv) reports. Controlled recovery
-benchmarks remain the next experiment.
+and [CSV](benchmarks/results/scaling-20261001.csv) reports.
+`make benchmark-recovery` implements the matching no-fault, SIGKILL, and heartbeat
+expiry campaign. The [recovery benchmark guide](docs/benchmark-recovery.md) explains
+the controlled workload, detection/reassignment clocks, paired completion costs,
+and acceptance checks.
 Use `make test-unit` or `make test-integration` to run either layer separately.
 Use `make test-job-status-protocol` for status payloads and validation, or add
 `SANITIZE=1` for AddressSanitizer/UBSan.
@@ -374,7 +377,8 @@ faultline/
 ├── .github/workflows/linux-ci.yml
 ├── Makefile
 ├── benchmarks/
-│   ├── run_baseline.py  Optimized baseline/scaling builds, verification, and timing
+│   ├── run_baseline.py  Optimized builds and ordered benchmark campaigns
+│   ├── run_recovery.py  Controlled faults, recovery timing, and matched comparisons
 │   ├── profiles/        Versioned scaling and controlled recovery settings
 │   ├── results/         Reviewed baseline measurements and evidence hashes
 │   └── machines/        Hardware, OS, toolchain, storage, and power inventory
@@ -396,6 +400,7 @@ faultline/
 │   ├── benchmarks.md
 │   ├── benchmark-baseline.md
 │   ├── benchmark-scaling.md
+│   ├── benchmark-recovery.md
 │   ├── networking.md
 │   ├── workers.md
 │   ├── jobs.md

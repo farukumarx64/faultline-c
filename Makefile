@@ -63,7 +63,7 @@ test-chaos: all
 test-chaos-harness: all
 	$(PYTHON) tests/chaos/test_chaos.py --bin-dir $(BUILD_DIR)
 
-.PHONY: benchmark-baseline benchmark-scaling test-benchmark-harness
+.PHONY: benchmark-baseline benchmark-scaling benchmark-recovery test-benchmark-harness test-recovery-benchmark-harness
 # The driver owns a fresh optimized build and runs its correctness checks first.
 benchmark-baseline:
 	$(PYTHON) benchmarks/run_baseline.py $(BENCHMARK_ARGS)
@@ -71,8 +71,14 @@ benchmark-baseline:
 benchmark-scaling:
 	$(PYTHON) benchmarks/run_baseline.py --scaling $(BENCHMARK_ARGS)
 
+benchmark-recovery:
+	$(PYTHON) benchmarks/run_baseline.py --recovery $(BENCHMARK_ARGS)
+
 test-benchmark-harness: all
 	$(PYTHON) tests/benchmarks/test_baseline.py --bin-dir $(BUILD_DIR)
+
+test-recovery-benchmark-harness: all
+	$(PYTHON) tests/benchmarks/test_recovery.py --bin-dir $(BUILD_DIR)
 
 .PHONY: test-ci-deadlines
 # Linux/GNU timeout only; tests the same runner used by GitHub Actions.

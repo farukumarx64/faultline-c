@@ -3,7 +3,8 @@
 Status: **contract defined; the one-worker baseline is implemented and verified.** See
 [baseline execution and evidence](benchmark-baseline.md). The
 [ordered scaling campaign](benchmark-scaling.md) is implemented, measured, and
-independently audited. Controlled recovery measurements remain pending.
+independently audited. The [controlled recovery runner](benchmark-recovery.md) is
+implemented; reportable recovery measurements remain pending.
 Contract version: `faultline-benchmarks-v1`. The versioned
 [scaling profile](../benchmarks/profiles/scaling-v1.json) and
 [recovery profile](../benchmarks/profiles/recovery-v1.json) freeze the numeric
@@ -19,6 +20,8 @@ remain correctness experiments. `make benchmark-baseline` now builds optimized
 binaries and runs one warmup plus five one-worker measurements as a development
 baseline, labelled separately from the full scaling campaign.
 `make benchmark-scaling` runs that full campaign, requiring clean committed source.
+`make benchmark-recovery` applies the same build/machine/ownership controls to the
+separate recovery profile and compares each failure to its same-round control.
 
 ## Scaling workload
 
@@ -356,7 +359,8 @@ that escape their owned session remain outside this process-based guarantee.
 3. **Verified:** the complete optimized [scaling campaign](benchmark-scaling.md)
    passed all 24 runs and 1,536 jobs. Measured speedups at 2/4/8 workers were
    1.976×/3.487×/4.232× against its fresh one-worker median.
-4. Implement and verify the controlled recovery scenarios, then run their campaign.
+4. **Implemented:** controlled recovery scenarios, concurrent admission/fault
+   handling, and matched timing comparisons. Run and audit the complete campaign.
 5. **Scaling audit/report complete:** all IDs/results, raw samples, and provenance
    were audited and tables published with their limits. Repeat the audit/report
    process for controlled recovery when its measurements are collected.

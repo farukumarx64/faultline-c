@@ -164,8 +164,7 @@ class BatchRun:
         for child in self.children:
             if child.role == 'coordinator' or child.role.startswith('worker-'):
                 self.poll(child)
-                require(child.process.returncode is None or
-                        (child.intentional_crash and child.process.returncode == -signal.SIGKILL),
+                require(child.process.returncode is None or self.expected_runtime_exit(child),
                         f'unexpected {child.role} exit: {child.process.returncode}')
                 self.inspect_runtime(child)
 
@@ -188,11 +187,20 @@ class BatchRun:
     def runtime_line(self, child, line, path):
         require(not re.search(r'\[(WARN|ERROR)\]', line), f'unexpected runtime diagnostic in {path.name}')
 
+    def expected_runtime_exit(self, child):
+        return child.intentional_crash and child.process.returncode == -signal.SIGKILL
+
+    def expected_cleanup_exit(self, child):
+        return -signal.SIGKILL if child.intentional_crash else 0
+
+    def verify_final_log(self, child, path, text):
+        require('[ERROR]' not in text, f'runtime error in {path.name}')
+
     def poll(self, child):
         code = child.process.poll()  # waitpid(WNOHANG) reaps a finished direct child.
         if code is not None and child.exit_ms is None:
             child.exit_ms = self.elapsed()
-            if (self.cleaning and not child.shutdown_requested and not child.intentional_crash and
+            if (self.cleaning and not child.shutdown_requested and not self.expected_runtime_exit(child) and
                     (child.role == 'coordinator' or child.role.startswith('worker-'))):
                 self.cleanup_errors.append(f'unexpected {child.role} exit before shutdown request: {code}')
             self.cleanup_event('exit_reaped', role=child.role, pid=child.process.pid, returncode=code)
@@ -557,7 +565,7 @@ class BatchRun:
         remaining = [dict(role=c.role, pid=c.process.pid) for c in self.children
                      if c.process.returncode is None or not c.group_retired]
         for child in self.children:
-            expected_exit = -signal.SIGKILL if child.intentional_crash else 0
+            expected_exit = self.expected_cleanup_exit(child)
             if (child.role == 'coordinator' or child.role.startswith('worker-')) and child.process.returncode not in (None, expected_exit):
                 self.cleanup_errors.append(f'{child.role} exited {child.process.returncode}')
         if remaining:
@@ -601,7 +609,7 @@ class BatchRun:
                     for path in (child.stdout, child.stderr):
                         text = path.read_text(encoding='utf-8', errors='replace')
                         require(not SANITIZER.search(text), f'sanitizer diagnostic in {path.name}')
-                        require('[ERROR]' not in text, f'runtime error in {path.name}')
+                        self.verify_final_log(child, path, text)
                 if self.started is not None:
                     require(time.monotonic() <= self.run_deadline, 'overall deadline exceeded')
             except Exception as error:

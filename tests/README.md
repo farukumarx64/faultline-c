@@ -17,6 +17,11 @@ above. `make benchmark-baseline` runs the full optimized development baseline on
 macOS; see [the baseline guide](../docs/benchmark-baseline.md).
 `make benchmark-scaling` runs the complete ordered 1/2/4/8-worker campaign from a
 clean committed checkout; see [the scaling guide](../docs/benchmark-scaling.md).
+`make test-recovery-benchmark-harness` runs 14 controlled-recovery verifier checks,
+including real crash/expiry recovery and failure/cleanup paths; add `SANITIZE=1`
+to exercise instrumented binaries. These checks are also separate from the core
+suite counts. `make benchmark-recovery` runs the full matched campaign; see the
+[recovery guide](../docs/benchmark-recovery.md).
 The [Linux CI workflow](../.github/workflows/linux-ci.yml) runs both layers on
 Ubuntu 24.04 with GCC 13 and with Clang 18 + AddressSanitizer/UBSan. Both jobs
 enable the default-port checks and reject compiler warnings. Available build/test
