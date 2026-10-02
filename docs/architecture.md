@@ -37,18 +37,30 @@ between command snapshots, logs, and durable job records.
 
 ## Components and ownership
 
-```text
-CLI client ───── submit over TCP ────────> Coordinator
-                                              │
-                                     assign jobs over TCP
-                                              │
-                                      ┌───────┴───────┐
-                                   Worker A        Worker B
-                                      │               │
-                                      └── heartbeats ─┘
-                                          and results
-                                      to coordinator
-```
+[![Faultline architecture: CLI requests and replies, coordinator-owned scheduling and state, independent workers with a separate heartbeat path, and local WAL writes and startup replay](diagrams/architecture.svg)](diagrams/architecture.svg)
+
+The worker group represents separate processes, each with its own TCP connection
+and coordinator-issued identity. Every worker performs the exchange shown at the
+group boundary; there is no intermediary worker-pool process. The dashed
+heartbeat path shares the worker's connection with registration and job reports.
+All network traffic uses framed TCP over IPv4 loopback. The WAL paths are local
+file operations, not network messages.
+
+| Path | Meaning |
+| --- | --- |
+| CLI → coordinator | Submit a job, query status/listings/statistics, or check connectivity. |
+| Coordinator → CLI | Return a submission ACK containing the job ID, a requested snapshot, or PONG. Results are read through queries; they are not pushed to a waiting CLI. |
+| Coordinator → workers | Acknowledge registration with a worker ID, then dispatch job assignments to idle workers. |
+| Workers → coordinator | Register and report `JOB_STARTED`, `JOB_COMPLETED`, or `JOB_FAILED`, with job/worker/attempt identity on job reports. |
+| Workers ⇢ coordinator (dashed) | Send heartbeats every two seconds by default. Six seconds without a valid heartbeat expires the worker's lease; both intervals are configurable. |
+| Coordinator → WAL | Append and sync durable state before submission ACKs, assignment dispatch, or accepted-result publication. Heartbeats are not appended to the WAL. |
+| WAL → coordinator | Replay saved jobs, results, retries, and identity counters at startup; reconcile interrupted attempts before accepting connections. TCP connections and live heartbeat state are not restored. |
+
+The [Mermaid source](diagrams/architecture.mmd) is the editable diagram; the
+[SVG](diagrams/architecture.svg) is its shared render, also embedded in the README.
+Keep the source and SVG together when updating the diagram. The SVG includes a
+text description and uses native SVG text so it can be viewed without Mermaid
+support. The image can be opened at full size for small screens.
 
 The **CLI** submits a supported task and its arguments and receives a job ID.
 It also queries status, jobs, workers, and statistics. It does not decide which

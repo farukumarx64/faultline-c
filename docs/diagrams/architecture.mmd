@@ -1,0 +1,58 @@
+---
+config:
+  theme: base
+  htmlLabels: false
+  fontFamily: Arial
+  themeVariables:
+    fontFamily: Arial
+    fontSize: '17px'
+    primaryColor: '#eef2ff'
+    primaryTextColor: '#172033'
+    primaryBorderColor: '#6366f1'
+    lineColor: '#526175'
+    clusterBkg: '#f8fafc'
+    clusterBorder: '#cbd5e1'
+    edgeLabelBackground: '#ffffff'
+  flowchart:
+    htmlLabels: false
+    curve: basis
+    nodeSpacing: 24
+    rankSpacing: 70
+    wrappingWidth: 420
+    subGraphTitleMargin:
+      top: 12
+      bottom: 22
+---
+flowchart BT
+    accTitle: Faultline architecture
+    accDescr: On one machine, the CLI submits jobs and requests snapshots from a coordinator at 127.0.0.1:9000. The coordinator owns the FIFO queue, job state, and worker registry. Each worker connects independently, registers for an ID, receives assignments, reports job progress and outcomes, and sends a heartbeat every two seconds by default. Six seconds of heartbeat silence expires an assignment. The coordinator appends and syncs its local write-ahead log before acknowledging submissions, dispatching assignments, or publishing accepted results, and replays the log at startup.
+
+    subgraph HOST["Faultline · local MVP"]
+        direction BT
+        CLI["CLI<br/>Submit jobs · inspect state"]
+        C["Coordinator · 127.0.0.1:9000<br/>FIFO queue · job state · worker registry<br/>Heartbeat timeout: 6 s by default"]
+        subgraph POOL["Independent workers"]
+            direction LR
+            W1["Worker 1<br/>One task at a time"]
+            WN["Worker N<br/>One task at a time"]
+            W1 ~~~ WN
+        end
+        WAL[("Local write-ahead log<br/>Jobs · results · retries<br/>Identity counters")]
+
+        CLI -->|Submit / inspect| C
+        C -->|ACK / reply| CLI
+        C -->|Worker ID / assignments| POOL
+        POOL -->|Register / job reports| C
+        POOL -.->|Heartbeats / 2 s| C
+        C -->|Append + sync| WAL
+        WAL -->|Startup replay| C
+    end
+
+    classDef client fill:#f1f5f9,stroke:#64748b,color:#172033
+    classDef coordinator fill:#eef2ff,stroke:#6366f1,color:#172033,stroke-width:2px
+    classDef worker fill:#ecfdf5,stroke:#059669,color:#172033
+    classDef storage fill:#fffbeb,stroke:#d97706,color:#172033
+    class CLI client
+    class C coordinator
+    class W1,WN worker
+    class WAL storage

@@ -18,19 +18,11 @@ listening on IPv4 loopback. It targets macOS and Linux.
 
 ## How it works
 
-```mermaid
-flowchart TB
-    CLI["CLI<br/>Submit jobs · inspect state"]
-    C["Coordinator<br/>FIFO queue · worker registry · job state"]
-    W["Worker processes<br/>One task at a time per worker"]
-    WAL[("Write-ahead log<br/>Durable state on disk")]
+[![Faultline architecture: the CLI submits and inspects jobs through the coordinator; independent workers receive assignments and send reports and heartbeats; the coordinator syncs a local WAL and replays it at startup](docs/diagrams/architecture.svg)](docs/diagrams/architecture.svg)
 
-    CLI -->|Requests| C
-    C -->|Job IDs, status, results| CLI
-    C -->|Assignments| W
-    W -->|Heartbeats and reports| C
-    C <-->|Append, sync, replay| WAL
-```
+Each worker has its own TCP connection. The dashed path shows heartbeats on that
+same connection; the WAL paths are local file I/O. The two-second heartbeat and
+six-second timeout are configurable defaults.
 
 - **Schedule:** the coordinator gives the oldest queued job to an alive, idle worker.
 - **Execute:** workers run `sleep`, `prime_count`, `fibonacci`, or `hash` while sending heartbeats.
@@ -40,8 +32,8 @@ flowchart TB
 
 The normal job lifecycle is `QUEUED → ASSIGNED → RUNNING → DONE`. Failed or
 interrupted attempts rejoin the FIFO tail while retries remain; otherwise the
-job becomes `FAILED`. See the [architecture](docs/architecture.md) for ownership
-and implementation details.
+job becomes `FAILED`. See the [architecture](docs/architecture.md#components-and-ownership)
+for message flow and ownership, or the [editable diagram source](docs/diagrams/architecture.mmd).
 
 ## Quick start
 
