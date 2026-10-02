@@ -1,0 +1,5262 @@
+{
+  "report": "faultline-controlled-recovery-v1",
+  "date": "2026-10-02",
+  "verdict": "RECOVERY_PASS",
+  "reportable_recovery_campaign": true,
+  "profile": {
+    "contract": "faultline-benchmarks-v1",
+    "profile": "recovery-sleep-v1",
+    "task": "sleep",
+    "arguments": "10000",
+    "expected_result": "slept_ms=10000",
+    "expected_result_bytes": 14,
+    "jobs": 32,
+    "workers": 4,
+    "max_retries": 1,
+    "scenarios": {
+      "no_fault": {
+        "faults_per_run": 0
+      },
+      "sigkill": {
+        "faults_per_run": 1,
+        "signal": "SIGKILL"
+      },
+      "heartbeat_expiry": {
+        "faults_per_run": 1,
+        "signal": "SIGSTOP",
+        "pause_duration_ms": 10000,
+        "resume_signal": "SIGCONT"
+      }
+    },
+    "fault_target": "first_acknowledged_job_attempt_1",
+    "fault_delay_after_started_observation_ms": 500,
+    "replacement_policy": "one_replacement_after_matching_durable_worker_loss",
+    "warmup_order": [
+      "no_fault",
+      "sigkill",
+      "heartbeat_expiry"
+    ],
+    "measured_rounds": [
+      [
+        "no_fault",
+        "sigkill",
+        "heartbeat_expiry"
+      ],
+      [
+        "sigkill",
+        "heartbeat_expiry",
+        "no_fault"
+      ],
+      [
+        "heartbeat_expiry",
+        "no_fault",
+        "sigkill"
+      ],
+      [
+        "heartbeat_expiry",
+        "sigkill",
+        "no_fault"
+      ],
+      [
+        "sigkill",
+        "no_fault",
+        "heartbeat_expiry"
+      ]
+    ],
+    "build": {
+      "cc": "clang",
+      "cflags": "-O2 -g -Werror",
+      "sanitize": 0,
+      "cpu_tuning": "compiler_default",
+      "lto": false
+    },
+    "heartbeat_interval_ms": 2000,
+    "heartbeat_timeout_ms": 6000,
+    "poll_interval_ms": 200,
+    "cooldown_ms": 30000,
+    "run_deadline_ms": 600000,
+    "cleanup_reserve_ms": 10000,
+    "campaign_deadline_ms": 7200000
+  },
+  "plan": [
+    {
+      "campaign_index": 0,
+      "stage": "warmup",
+      "measured_round": null,
+      "scenario": "no_fault",
+      "workers": 4
+    },
+    {
+      "campaign_index": 1,
+      "stage": "warmup",
+      "measured_round": null,
+      "scenario": "sigkill",
+      "workers": 4
+    },
+    {
+      "campaign_index": 2,
+      "stage": "warmup",
+      "measured_round": null,
+      "scenario": "heartbeat_expiry",
+      "workers": 4
+    },
+    {
+      "campaign_index": 3,
+      "stage": "measured",
+      "measured_round": 1,
+      "scenario": "no_fault",
+      "workers": 4
+    },
+    {
+      "campaign_index": 4,
+      "stage": "measured",
+      "measured_round": 1,
+      "scenario": "sigkill",
+      "workers": 4
+    },
+    {
+      "campaign_index": 5,
+      "stage": "measured",
+      "measured_round": 1,
+      "scenario": "heartbeat_expiry",
+      "workers": 4
+    },
+    {
+      "campaign_index": 6,
+      "stage": "measured",
+      "measured_round": 2,
+      "scenario": "sigkill",
+      "workers": 4
+    },
+    {
+      "campaign_index": 7,
+      "stage": "measured",
+      "measured_round": 2,
+      "scenario": "heartbeat_expiry",
+      "workers": 4
+    },
+    {
+      "campaign_index": 8,
+      "stage": "measured",
+      "measured_round": 2,
+      "scenario": "no_fault",
+      "workers": 4
+    },
+    {
+      "campaign_index": 9,
+      "stage": "measured",
+      "measured_round": 3,
+      "scenario": "heartbeat_expiry",
+      "workers": 4
+    },
+    {
+      "campaign_index": 10,
+      "stage": "measured",
+      "measured_round": 3,
+      "scenario": "no_fault",
+      "workers": 4
+    },
+    {
+      "campaign_index": 11,
+      "stage": "measured",
+      "measured_round": 3,
+      "scenario": "sigkill",
+      "workers": 4
+    },
+    {
+      "campaign_index": 12,
+      "stage": "measured",
+      "measured_round": 4,
+      "scenario": "heartbeat_expiry",
+      "workers": 4
+    },
+    {
+      "campaign_index": 13,
+      "stage": "measured",
+      "measured_round": 4,
+      "scenario": "sigkill",
+      "workers": 4
+    },
+    {
+      "campaign_index": 14,
+      "stage": "measured",
+      "measured_round": 4,
+      "scenario": "no_fault",
+      "workers": 4
+    },
+    {
+      "campaign_index": 15,
+      "stage": "measured",
+      "measured_round": 5,
+      "scenario": "sigkill",
+      "workers": 4
+    },
+    {
+      "campaign_index": 16,
+      "stage": "measured",
+      "measured_round": 5,
+      "scenario": "no_fault",
+      "workers": 4
+    },
+    {
+      "campaign_index": 17,
+      "stage": "measured",
+      "measured_round": 5,
+      "scenario": "heartbeat_expiry",
+      "workers": 4
+    }
+  ],
+  "source_revision": "5f945ed1a54d5b28f557be92748f2da7fdd4bbfb",
+  "source_status": "",
+  "source_inputs": {
+    "Makefile": "fc3cd4284013bb8085fa861dc8ea938c6d69d45e90eeded8317db6cbc857fc34",
+    "benchmarks/machines/apple-m4-20261001.json": "a4c7c1ab2a6b170eb40902bcaf535380f80503470a8c39e7c121bf73b669c16e",
+    "benchmarks/profiles/recovery-v1.json": "35472eaf079eb864e023a0aac2cddeed9d5629a240bfcac3d2c791c907f71d8e",
+    "benchmarks/profiles/scaling-v1.json": "477caef76455620456be91862b3313385ab96da32261d82d2714e05cebbc86ca",
+    "benchmarks/results/one-worker-20261001.json": "13de08c217468bcaa765714b3ccce107d81f8b0e9c518c91f873b569ab01a8e3",
+    "benchmarks/results/recovery-attempts-20261002.json": "c9feecef394ad249ce3922620f640be73ac952af51d1916b7fb27268c9436908",
+    "benchmarks/results/scaling-20261001.json": "071ab2a7de7277e5320acdc80db21da0e0b8847a37ba8661a3b9e06fc938f1e8",
+    "benchmarks/run_baseline.py": "af9da0a46fc7ed743cd2d1ab6932e134dd9a6f9ffaf8cc26f4555a86072e00e7",
+    "benchmarks/run_recovery.py": "b0fbd3c52cb2353d5a76feefb3c91b0780a80b69cecdd466dae3f0452082a4d1",
+    "include/coordinator_stats.h": "2614bb48aaf00405b693ef8bc8cee07b6a5c9e2aa6d9ca9256de9715f400f84b",
+    "include/coordinator_store.h": "a2c7ff5f26ffe4409d5917f6b04e762ce65e84bb46d15d69c465341533d51e4b",
+    "include/job.h": "0bf1e45b6bfb69f1e84c851e3882c20c74fa51bf7d354a77e0a06d425a8e998f",
+    "include/job_queue.h": "ab076049f529e3721e9fcac0846486996199d31cc7a67594d107365bf99deaac",
+    "include/log.h": "242706a1e5536832c65c467b1929a10fa1ef694fed58c96d0c1a92704f65135d",
+    "include/net.h": "f2f9c57fa79585c9b6bfd8fd10a03388516d1d6090d5800099c794cbda9c96a8",
+    "include/protocol.h": "f9d4c02c7fd058dc19cbf0e979d804eaa8ab2775173e203694759d270f07cde3",
+    "include/scheduler.h": "e0f345ca15837c3461be9c388d2220813138d0d01634e236b5e0af934d1dc6bb",
+    "include/task.h": "59e9e7bc7bc3219a0c2f61defb11ff1e6ee5a720c7b0912d3179079f60419236",
+    "include/wal.h": "66e7c2a0f9d123c3cc4f2059c8bec9d62b6a43fd66ca94d12429f781eecdc335",
+    "include/wal_replay.h": "fa4fca3e554e73a76a991bd6ce3b5b6a69b52e53547377f378115377ab7e103b",
+    "include/wal_writer.h": "f698c3c926ac69233c886178769dc39ca0df200548e3894c06e2a3acf856ac70",
+    "include/worker_registry.h": "4d1caba810033e00cabf1fb034aa6be9daddb7df9bc0b4538d2543786c4f18af",
+    "src/cli/main.c": "82fb3a8f83182a650fb077c8420d8aeb9011c31c72e3db06a39825ef0be193a6",
+    "src/common/log.c": "b2acf0b5cdad3ca26c62ca81928a6edc37b170ac6e0843aa65db5c432d805e72",
+    "src/common/net.c": "2c17d1f0fb3fa48acaa2613e51d6ca7c6b639a368a0a8d7e2b81d874a03a8743",
+    "src/common/protocol.c": "b68fea307260d87c83ac1f35df7ea00f42fa5e42ebeec182097505b7ae4e6a5e",
+    "src/coordinator/coordinator_stats.c": "a4f814726c8745742f103fc9607f20a1e1b83010e613d13cf4b46ec574b78251",
+    "src/coordinator/coordinator_store.c": "da1b094058ddaf4b327f1fa9d06e9abe68647a3b0881bfa662b1f3ca5e7ec79a",
+    "src/coordinator/coordinator_store_internal.h": "ddd3352abb517084f7be5ff728372d71bf0b001049bb2ff089d7e67381d2160a",
+    "src/coordinator/job.c": "3955db02465441e77487684098ffb33e8292dd5b56391302bec0e231418b5d95",
+    "src/coordinator/job_queue.c": "5fa76f44f322417762ba103a525a05e9d9b47ec5e3c7f2cd8c65e659cf79c9ad",
+    "src/coordinator/main.c": "e5653010afc69f8dc9c684e4828166e13bcee7f00c6aeec335072c08fdc78940",
+    "src/coordinator/scheduler.c": "2201ef7b64184cf902aa7057f43f5b5f57894481a3be8b71a81cb10b72b5852b",
+    "src/coordinator/wal_format.c": "44da18592f6b84b52c4c99d7f7523625d411402b012d6e9d9d98de315cb66407",
+    "src/coordinator/wal_replay.c": "011125aa4c957736ecbef4f9764ee272b24f2b4006dd4ce924c6237682495255",
+    "src/coordinator/wal_replay_internal.h": "234dbdcd58b2b7d863267afd74e7933feea2f4f7974acc247db63b192c114e8a",
+    "src/coordinator/wal_writer.c": "d65b2f6161ffaf269cd04a270294b7aea185335ad232224a6bb022ce23652e9f",
+    "src/coordinator/wal_writer_internal.h": "a264ecdc4ba78826cf49ff83d1834a7e9e947326fa8f2f2970cd9008e80dbfe6",
+    "src/coordinator/worker_registry.c": "830f1b4fc370701cad1509793d3d41e1a550df5cb83fd745c24d1b15cea9fa3c",
+    "src/worker/main.c": "b3096240793177fc67cc964708017439775d0b6aa578a7f06dffd67a1adf832e",
+    "src/worker/task.c": "339ce759c376e554129afa97816d50c5182711b57702b39449f69a5f2abc7025",
+    "tests/benchmarks/test_baseline.py": "352af003f97fd220371f4363a9eedb819c1977b66fab43568dd56e2082844a72",
+    "tests/benchmarks/test_recovery.py": "776e100e3bfd81b3cbee3afbdf21898e230b8badd4e2d21799fd411c850af1ca",
+    "tests/chaos/run_batch.py": "ec4e0348103b21eac59212e376b25a67eb8ec26e6ad6e16a5d74c3d7df1640ae",
+    "tests/chaos/run_chaos.py": "700a2822024b7a0e4bfa550f9bea5699aa676d45633dd2f0e02f7485467b4ad9",
+    "tests/chaos/test_batch.py": "521df193eb798eeb769641b90e1816fe3b9623c41905c5a365bf33717596ec21",
+    "tests/chaos/test_chaos.py": "8a050518a56ad3715176bcb638b01d639ce9131a1833cd02fc5791e9227f5fe7",
+    "tests/ci/test_deadlines.py": "12391e14077aa03739f5fa06424e88066ae10d8a471efb870a2e7c094b7d7f54",
+    "tests/crash_coordinator_io.c": "269e496ae834312df71577fdeec746e835e746a2c0eca092f679bd416396bfab",
+    "tests/fixtures/wal_v1_vectors.h": "41fe798ebfbe1a4c55269d21cc24c4d80dc47e66fa4f03431043d1d337cada17",
+    "tests/integration/test_coordinator_crashes.py": "6b9c2f550ba1b606cf5e1b189f71b3d9f9e26550e532a9b15a8f602982962d4d",
+    "tests/integration/test_execution.py": "16b3480fa58954e4012b4237160ac1157afc2e5d43b768978de20e4c8abe2d6a",
+    "tests/integration/test_failure_detection.py": "1b920ca31a12a819469487875dd6874b4690b232bdade6c307d25e08332c8829",
+    "tests/integration/test_heartbeat.py": "d43feffb5bb72352b34889fb99f7641165b0c9cfbee8b8919311fc4e9914f08f",
+    "tests/integration/test_listings.py": "ee1a58c316352e59d67e7a84f2cf21bcf98d87356eeb8d51f45ce7fc52a31f76",
+    "tests/integration/test_observability.py": "bc09210b9d62b7d740923aab7b929ead3127ed9e1418162e39ecc9ef5f6a7d70",
+    "tests/integration/test_persistence.py": "e7cbe55b482b3584c19cc6d0f4a437167b4c6c0a240b72e9f9abd93a59dbe71a",
+    "tests/integration/test_ping.py": "065655db80cbe3adfcbca2cd7df0c693450c0325ebeab5d43e3ff6a2e45dc604",
+    "tests/integration/test_recovery.py": "8368c5cfe314a9a94f4fe477fd16f3e2f2ba744848eb1e35aa119bd8beda448c",
+    "tests/integration/test_scheduling.py": "357d73053be92424b70db6d3e0d07c4ebe130d70447c86a4d3ad80e2861a4aeb",
+    "tests/integration/test_startup_recovery.py": "5fa19dc83d0169a92fc92327c625f15c690044aeb69dbee8e7a7dcaa0dbb51bb",
+    "tests/integration/test_stats.py": "fbe714489d77b806a1d99b544ac7459811d08d8c7d0b9de5c897ee6d8dc731d5",
+    "tests/integration/test_status.py": "95816c0a75d127d2f42a889a31c050397b1e6fb3a804790de56bee0b0fd82003",
+    "tests/integration/test_worker.py": "0d9141841c507ab0da0fa4c3327932e2d10a7cdb27bd7bfdfda667661b65966e",
+    "tests/test_coordinator_store.c": "7997b1825eeffb2c84ae7a6f360de1650cf2f4270c939c95640a988cc59ba620",
+    "tests/test_job_messages.c": "6e983e76709acbc45b9ab6bdcdcf0b5cd7e97a78aaf395635f2e79e3a47e7b36",
+    "tests/test_job_queue.c": "fb26551d044e03d242d8b7c71fceceb6a72cd82da1498a43f62915fecff3f663",
+    "tests/test_job_status.c": "6f71f03ebc2aa788c33ae2fc633654308e1dcc028332f56ebf584344241f16b1",
+    "tests/test_jobs.c": "b20af6be482b260baf41ed2bad2fc054908b494437cfad3b6d502ce6e7dc31c4",
+    "tests/test_list_messages.c": "e392bb8b95edffd371452dde7db2bc120cb421ffd5f9ad786a8b748bfc4a4423",
+    "tests/test_log.c": "6cbd192127872049a57c84611a31fa416cc2902ac032cbe4692f8682e0c677c1",
+    "tests/test_messages.c": "e005edff51884661749f8dd8b08070c4379868b17b30e36109c54c8d698c6f99",
+    "tests/test_net.c": "be8cf9180cb72a7b116796a8b83bc6c0fab84178da2ca217b5b095afb3bbf38b",
+    "tests/test_protocol.c": "28b6f57129030473e8a312cecd77fa96f5cb259c6304bbb3d92e352ef152645d",
+    "tests/test_scheduler.c": "6056a5d5a3b542f879f336b69ec256921022c869834f414d48f6bcc2568b4da9",
+    "tests/test_stats.c": "2d0019e0727ed5f4dbe1c2f5a40d5ae7f281ad77d6815eda24730bb2822481be",
+    "tests/test_tasks.c": "6b600ed10e4fbb6bace3830ad802339b03ee8e725893591f85ebfecab9c9913e",
+    "tests/test_wal.c": "45fa80dc63b0bde697be74c89921b372c5d49c7659079dabe0dd535f1eca738b",
+    "tests/test_wal_replay.c": "883e2bea4570f614f281d0ba22b26ccd56234c041e3ea7f50822ae9c6e3421bc",
+    "tests/test_wal_writer.c": "60f694cbba4dadd78ef35e3ab2f3118c2f370f8540d8aa870b7564022632db23",
+    "tests/test_worker_registry.c": "5f89f9b3b5182dd38444a5072500acf74cc286c8d882f6e5ae82b4163ac7d9ac"
+  },
+  "build": {
+    "compiler": "/usr/bin/clang",
+    "compiler_version": "Apple clang version 21.0.0 (clang-2100.3.34.2)\nTarget: arm64-apple-darwin27.0.0\nThread model: posix\nInstalledDir: /Library/Developer/CommandLineTools/usr/bin\n",
+    "make_version": "GNU Make 3.81\nCopyright (C) 2006  Free Software Foundation, Inc.\nThis is free software; see the source for copying conditions.\nThere is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A\nPARTICULAR PURPOSE.\n\nThis program built for i386-apple-darwin11.3.0\n",
+    "build": {
+      "argv": [
+        "env",
+        "-u",
+        "MAKEFLAGS",
+        "-u",
+        "MFLAGS",
+        "-u",
+        "MAKEOVERRIDES",
+        "-u",
+        "CFLAGS",
+        "-u",
+        "CPPFLAGS",
+        "-u",
+        "LDFLAGS",
+        "-u",
+        "LDLIBS",
+        "-u",
+        "CC",
+        "-u",
+        "SANITIZE",
+        "-u",
+        "ASAN_OPTIONS",
+        "-u",
+        "UBSAN_OPTIONS",
+        "PYTHONDONTWRITEBYTECODE=1",
+        "make",
+        "-C",
+        "/Users/farukumar/Developer/faultline",
+        "BUILD_DIR=build/benchmarks/recovery-7yblm_u2/bin",
+        "CC=/usr/bin/clang",
+        "SANITIZE=0",
+        "CFLAGS=-O2 -g -Werror",
+        "PYTHON=/Library/Developer/CommandLineTools/usr/bin/python3",
+        "--jobs=2",
+        "all"
+      ],
+      "stdout": "0005-optimized-build.stdout.log",
+      "stderr": "0005-optimized-build.stderr.log",
+      "exit_code": 0
+    },
+    "correctness": {
+      "argv": [
+        "env",
+        "-u",
+        "MAKEFLAGS",
+        "-u",
+        "MFLAGS",
+        "-u",
+        "MAKEOVERRIDES",
+        "-u",
+        "CFLAGS",
+        "-u",
+        "CPPFLAGS",
+        "-u",
+        "LDFLAGS",
+        "-u",
+        "LDLIBS",
+        "-u",
+        "CC",
+        "-u",
+        "SANITIZE",
+        "-u",
+        "ASAN_OPTIONS",
+        "-u",
+        "UBSAN_OPTIONS",
+        "PYTHONDONTWRITEBYTECODE=1",
+        "make",
+        "-C",
+        "/Users/farukumar/Developer/faultline",
+        "BUILD_DIR=build/benchmarks/recovery-7yblm_u2/bin",
+        "CC=/usr/bin/clang",
+        "SANITIZE=0",
+        "CFLAGS=-O2 -g -Werror",
+        "PYTHON=/Library/Developer/CommandLineTools/usr/bin/python3",
+        "test"
+      ],
+      "stdout": "0006-optimized-tests.stdout.log",
+      "stderr": "0006-optimized-tests.stderr.log",
+      "exit_code": 0
+    },
+    "cflags": "-O2 -g -Werror",
+    "sanitize": 0,
+    "binaries": {
+      "faultline": "5a4718ad93970a6aaed40b4bb0fd1eeb3b097cc67aa9853a0a2b7b956046554e",
+      "faultline-worker": "4dd8c0638a96dadda33670dce6910af93c519d9eac324e65612cf6f2392a2abb",
+      "faultline-coordinator": "85a5c5b971a5813bd188982df08f85d44991626ce41e152060f82fb82d32521b"
+    }
+  },
+  "machine": {
+    "hardware": {
+      "machdep.cpu.brand_string": "Apple M4",
+      "hw.model": "Mac16,12",
+      "hw.physicalcpu": "10",
+      "hw.logicalcpu": "10",
+      "hw.memsize": "17179869184",
+      "hw.perflevel0.name": "Performance",
+      "hw.perflevel0.physicalcpu": "4",
+      "hw.perflevel1.name": "Efficiency",
+      "hw.perflevel1.physicalcpu": "6"
+    },
+    "os": "ProductName:\t\tmacOS\nProductVersion:\t\t27.0.1\nBuildVersion:\t\t26A434\n",
+    "kernel": {
+      "system": "Darwin",
+      "release": "27.0.0",
+      "version": "Darwin Kernel Version 27.0.0: Tue Aug 11 21:02:57 PDT 2026; root:xnu-13432.1.9~1/RELEASE_ARM64_T8132",
+      "machine": "arm64"
+    },
+    "storage": {
+      "FilesystemType": "apfs",
+      "TotalSize": 494384795648,
+      "SolidState": true,
+      "Internal": true
+    },
+    "python": "3.9.6 (default, Aug 25 2026, 21:26:21) \n[Clang 21.0.0 (clang-2100.3.34.2)]"
+  },
+  "samples": [
+    {
+      "campaign_index": 0,
+      "stage": "warmup",
+      "measured_round": null,
+      "scenario": "no_fault",
+      "workers": 4,
+      "path": "00-warmup-no_fault",
+      "created_utc": "2026-10-02T19:55:08.903919+00:00",
+      "elapsed_ms": 83362,
+      "machine_observations": {
+        "before": {
+          "observed_monotonic_ns": 227466200958,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 99013496832,
+          "load_average": [
+            1.7275390625,
+            2.43505859375,
+            2.9970703125
+          ]
+        },
+        "after": {
+          "observed_monotonic_ns": 310379667416,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 99007037440,
+          "load_average": [
+            2.12158203125,
+            2.40087890625,
+            2.93212890625
+          ]
+        }
+      },
+      "metrics": {
+        "batch_elapsed_ms": 80288.651709,
+        "admission_ms": 497.695834,
+        "completed_jobs_per_second": 0.39856193022124126,
+        "mean_accepted_latency_ms": 44880.46875,
+        "p95_accepted_latency_ms": 79746,
+        "actual_faults": 0,
+        "attempts": 32,
+        "retries": 0,
+        "terminal_failures": 0,
+        "intervention_lateness_ms": 6.918041,
+        "observed_detection_ms": null,
+        "observed_reassignment_ms": null,
+        "observed_recovery_to_completion_ms": null,
+        "coordinator_loss_to_assignment_ms": null,
+        "coordinator_loss_to_completion_ms": null
+      },
+      "fault": {
+        "scenario": "no_fault",
+        "target": {
+          "job_id": 1,
+          "worker_id": 1,
+          "attempt": 1,
+          "slot": 0,
+          "pid": 80560,
+          "fd": "6"
+        },
+        "started_observed_ns": 228021464750,
+        "scheduled_ns": 228521464750,
+        "checkpoint_ns": 228528382791
+      },
+      "accounting": {
+        "submitted": 32,
+        "completed": 32,
+        "terminally_failed": 0
+      },
+      "cleanup": {
+        "ok": true,
+        "errors": [],
+        "remaining": [],
+        "elapsed_ms": 52
+      },
+      "children": 513,
+      "overhead": {
+        "startup_ms": 866.1292909999929,
+        "verification_ms": 2102.528083,
+        "cleanup_ms": 52
+      },
+      "gap_from_previous_verdict_to_first_spawn_ms": null,
+      "inspections": {
+        "count": 390,
+        "maximum_duration_ms": 21.049083,
+        "maximum_start_interval_ms": 214.089042
+      },
+      "artifacts_sha256": {
+        "manifest.json": "d569f735364e1597b711ce79f51c9c7090f23b015e741f76d4341e9741fca73b",
+        "summary.json": "2a085fd5c17c79936123763d6878b20551281154f76780972d4f6696b37ee7b0",
+        "accounting.json": "ab7b0a1b63be0b4abddca534f88540ee6f375267a1b22366648c642c79898c0e",
+        "submissions.json": "ffa61278217a9daa365ee9a1944ccbee7ed752bd5268115e333c676d0426e5da",
+        "final-snapshots.json": "d3ffa7fd80df62ede69736c0f2c6bfa3406c0504a52e702f71608ecc095eed22",
+        "timings.json": "bf181ab43873c06cbe807f7d152278aaa2c06cca87c81b74abd885ce25708ffb",
+        "fault.json": "36c20246d984a2702f76630f3a4a459431e4bae28715c401c455416218eff6c7",
+        "latencies.json": "7014db9221ca92293627f580fead012815e39f7b5f7d062493b3010434fb017d",
+        "machine.json": "56d8b661a19e0258bb5ab980d149d7edf7693da4c71e6bc607814006c998ed4a",
+        "events.jsonl": "5c137dff3f5cae5892732501f5d0f9f9e6bedd04539f7269016cfdabea67bbb7",
+        "coordinator.wal": "d77db377af9ee5aaaafd34baa80a830b6c6fca0b24d56d367df8d8c8c78082f3"
+      }
+    },
+    {
+      "campaign_index": 1,
+      "stage": "warmup",
+      "measured_round": null,
+      "scenario": "sigkill",
+      "workers": 4,
+      "path": "01-warmup-sigkill",
+      "created_utc": "2026-10-02T19:57:02.407890+00:00",
+      "elapsed_ms": 83804,
+      "machine_observations": {
+        "before": {
+          "observed_monotonic_ns": 341005365250,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 99003191296,
+          "load_average": [
+            2.162109375,
+            2.37841796875,
+            2.90478515625
+          ]
+        },
+        "after": {
+          "observed_monotonic_ns": 424394156000,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 98985881600,
+          "load_average": [
+            2.35546875,
+            2.396484375,
+            2.8603515625
+          ]
+        }
+      },
+      "metrics": {
+        "batch_elapsed_ms": 80689.937,
+        "admission_ms": 499.7865,
+        "completed_jobs_per_second": 0.3965798114329919,
+        "mean_accepted_latency_ms": 44958.5625,
+        "p95_accepted_latency_ms": 79677,
+        "actual_faults": 1,
+        "attempts": 33,
+        "retries": 1,
+        "terminal_failures": 0,
+        "intervention_lateness_ms": 8.880708,
+        "observed_detection_ms": 12.324459,
+        "observed_reassignment_ms": 70051.0435,
+        "observed_recovery_to_completion_ms": 80069.089834,
+        "coordinator_loss_to_assignment_ms": 70051,
+        "coordinator_loss_to_completion_ms": 80057,
+        "signal_syscall_ms": 0.012417,
+        "replacement_launch_delay_ms": 0.313416,
+        "replacement_registration_ms": 15.195334
+      },
+      "fault": {
+        "scenario": "sigkill",
+        "target": {
+          "job_id": 1,
+          "worker_id": 1,
+          "attempt": 1,
+          "slot": 0,
+          "pid": 81611,
+          "fd": "6"
+        },
+        "started_observed_ns": 341560519625,
+        "scheduled_ns": 342060519625,
+        "checkpoint_ns": 342069400333,
+        "signal_before_ns": 342069403416,
+        "signal_return_ns": 342069415833,
+        "loss": {
+          "job_id": "1",
+          "state": "QUEUED",
+          "worker_id": "0",
+          "attempt": "1",
+          "retry_count": "1",
+          "pending": "29",
+          "result_bytes": "0",
+          "task": "sleep",
+          "max_retries": "1",
+          "failure": "WORKER_LOST",
+          "outcome": "REQUEUED",
+          "previous_worker_id": "1",
+          "durable": "1",
+          "wal_sequence": "45",
+          "pid": "81609",
+          "monotonic_ms": "98180349",
+          "event": "job_worker_lost",
+          "observed_ns": 342081727875
+        },
+        "accepted_warnings": [
+          {
+            "event": "job_worker_lost",
+            "fields": {
+              "job_id": "1",
+              "state": "QUEUED",
+              "worker_id": "0",
+              "attempt": "1",
+              "retry_count": "1",
+              "pending": "29",
+              "result_bytes": "0",
+              "task": "sleep",
+              "max_retries": "1",
+              "failure": "WORKER_LOST",
+              "outcome": "REQUEUED",
+              "previous_worker_id": "1",
+              "durable": "1",
+              "wal_sequence": "45",
+              "pid": "81609",
+              "monotonic_ms": "98180349"
+            }
+          },
+          {
+            "event": "worker_dead",
+            "fields": {
+              "worker_id": "1",
+              "fd": "6",
+              "state": "DEAD",
+              "last_heartbeat_ms": "98179549",
+              "reason": "eof",
+              "pid": "81609",
+              "monotonic_ms": "98180349"
+            }
+          }
+        ],
+        "death": {
+          "worker_id": "1",
+          "fd": "6",
+          "state": "DEAD",
+          "last_heartbeat_ms": "98179549",
+          "reason": "eof",
+          "pid": "81609",
+          "monotonic_ms": "98180349",
+          "observed_ns": 342081801708
+        },
+        "closed": {
+          "fd": "6",
+          "worker_id": "1",
+          "reason": "eof",
+          "pid": "81609",
+          "monotonic_ms": "98180349",
+          "observed_ns": 342081836500
+        },
+        "replacement_launch_before_ns": 342082041291,
+        "replacement_launch_return_ns": 342083424375,
+        "replacement_registered_ns": 342097236625,
+        "replacement_worker_id": 5,
+        "replacement_pid": 81656,
+        "reassigned": {
+          "job_id": "1",
+          "state": "ASSIGNED",
+          "worker_id": "5",
+          "attempt": "2",
+          "retry_count": "1",
+          "pending": "0",
+          "result_bytes": "0",
+          "task": "sleep",
+          "max_retries": "1",
+          "failure": "NONE",
+          "outcome": "ASSIGNED",
+          "previous_worker_id": "0",
+          "durable": "1",
+          "wal_sequence": "131",
+          "pid": "81609",
+          "monotonic_ms": "98250400",
+          "event": "job_assigned",
+          "observed_ns": 412132771375
+        },
+        "restarted": {
+          "job_id": "1",
+          "state": "RUNNING",
+          "worker_id": "5",
+          "attempt": "2",
+          "retry_count": "1",
+          "pending": "0",
+          "result_bytes": "0",
+          "task": "sleep",
+          "max_retries": "1",
+          "failure": "NONE",
+          "outcome": "RUNNING",
+          "previous_worker_id": "0",
+          "durable": "1",
+          "wal_sequence": "132",
+          "pid": "81609",
+          "monotonic_ms": "98250400",
+          "event": "job_started",
+          "observed_ns": 412132977208
+        },
+        "completed": {
+          "job_id": "1",
+          "state": "DONE",
+          "worker_id": "5",
+          "attempt": "2",
+          "retry_count": "1",
+          "pending": "0",
+          "result_bytes": "14",
+          "task": "sleep",
+          "max_retries": "1",
+          "failure": "NONE",
+          "outcome": "COMPLETED",
+          "previous_worker_id": "0",
+          "durable": "1",
+          "wal_sequence": "136",
+          "result": "slept_ms=10000",
+          "pid": "81609",
+          "monotonic_ms": "98260406",
+          "event": "job_completed",
+          "observed_ns": 422138493250
+        }
+      },
+      "accounting": {
+        "submitted": 32,
+        "completed": 32,
+        "terminally_failed": 0
+      },
+      "cleanup": {
+        "ok": true,
+        "errors": [],
+        "remaining": [],
+        "elapsed_ms": 27
+      },
+      "children": 515,
+      "overhead": {
+        "startup_ms": 857.0914580000135,
+        "verification_ms": 2177.128667,
+        "cleanup_ms": 27
+      },
+      "gap_from_previous_verdict_to_first_spawn_ms": 30196.881625,
+      "inspections": {
+        "count": 391,
+        "maximum_duration_ms": 34.011875,
+        "maximum_start_interval_ms": 213.269375
+      },
+      "artifacts_sha256": {
+        "manifest.json": "d9cfb57f169efa9313d46b487fb2fd2923d598140ba68db940d061a1e3d2157c",
+        "summary.json": "39539efaf9782b564208b82a120c124c52cc1b2ad30c09b6978caa511740bb85",
+        "accounting.json": "f5c9d87721aa46f3884846eacba0d17fb583f802ed1b5a0791e6faf2a3b60e1c",
+        "submissions.json": "a76c5ee7be224b5556ea442581ebbf2d35d635af32d75ae8248511e6d0c4b80a",
+        "final-snapshots.json": "9051097552e92eccb17ca655e4d6465ef52f575d6c01d3e83ac1d96d18490688",
+        "timings.json": "ddce43b59092f1cf6367f5f52955095a366db50b95f552d33566bc39a508894c",
+        "fault.json": "0f3554f120b75924060c93e02b83153f2311949cef942bbb15d049d54cb3806a",
+        "latencies.json": "6605f79fb21d37047edcf8a95c690875e819341815c5ccbfea87ab7a7127334f",
+        "machine.json": "f50f83ffbda686bc1d8cddd2e3bdc3817c0f00417f0141836d0eb822d6232174",
+        "events.jsonl": "b7ee9529f0f62d9e817b5754812c956b1c86588d32d4ec9beca035b2c2563ccc",
+        "coordinator.wal": "995ef11123431f745255c762464a1274cd741a6d2eafccae30ed30f069762842"
+      }
+    },
+    {
+      "campaign_index": 2,
+      "stage": "warmup",
+      "measured_round": null,
+      "scenario": "heartbeat_expiry",
+      "workers": 4,
+      "path": "02-warmup-heartbeat_expiry",
+      "created_utc": "2026-10-02T19:58:56.348113+00:00",
+      "elapsed_ms": 89336,
+      "machine_observations": {
+        "before": {
+          "observed_monotonic_ns": 454874337333,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 98979729408,
+          "load_average": [
+            1.78076171875,
+            2.24658203125,
+            2.7890625
+          ]
+        },
+        "after": {
+          "observed_monotonic_ns": 543844715250,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 98957893632,
+          "load_average": [
+            2.3505859375,
+            2.3681640625,
+            2.78271484375
+          ]
+        }
+      },
+      "metrics": {
+        "batch_elapsed_ms": 85989.762625,
+        "admission_ms": 500.897958,
+        "completed_jobs_per_second": 0.37213732220138224,
+        "mean_accepted_latency_ms": 46287.125,
+        "p95_accepted_latency_ms": 79690,
+        "actual_faults": 1,
+        "attempts": 33,
+        "retries": 1,
+        "terminal_failures": 0,
+        "intervention_lateness_ms": 10.949833,
+        "observed_detection_ms": 5183.905625,
+        "observed_reassignment_ms": 70171.720542,
+        "observed_recovery_to_completion_ms": 85361.421,
+        "coordinator_loss_to_assignment_ms": 70161,
+        "coordinator_loss_to_completion_ms": 80172,
+        "signal_syscall_ms": 0.004042,
+        "replacement_launch_delay_ms": 0.565,
+        "replacement_registration_ms": 17.719042
+      },
+      "fault": {
+        "scenario": "heartbeat_expiry",
+        "target": {
+          "job_id": 1,
+          "worker_id": 1,
+          "attempt": 1,
+          "slot": 0,
+          "pid": 82666,
+          "fd": "6"
+        },
+        "started_observed_ns": 455448011958,
+        "scheduled_ns": 455948011958,
+        "checkpoint_ns": 455958961791,
+        "signal_before_ns": 455958965458,
+        "signal_return_ns": 455958969500,
+        "stopped_observed_ns": 455959003750,
+        "timeout": {
+          "worker_id": "1",
+          "fd": "6",
+          "timeout_ms": "6000",
+          "detected_at_ms": "98299420",
+          "silence_ms": "6001",
+          "pid": "82664",
+          "monotonic_ms": "98299420",
+          "observed_ns": 461142639791
+        },
+        "accepted_warnings": [
+          {
+            "event": "heartbeat_timeout",
+            "fields": {
+              "worker_id": "1",
+              "fd": "6",
+              "timeout_ms": "6000",
+              "detected_at_ms": "98299420",
+              "silence_ms": "6001",
+              "pid": "82664",
+              "monotonic_ms": "98299420"
+            }
+          },
+          {
+            "event": "job_worker_lost",
+            "fields": {
+              "job_id": "1",
+              "state": "QUEUED",
+              "worker_id": "0",
+              "attempt": "1",
+              "retry_count": "1",
+              "pending": "29",
+              "result_bytes": "0",
+              "task": "sleep",
+              "max_retries": "1",
+              "failure": "WORKER_LOST",
+              "outcome": "REQUEUED",
+              "previous_worker_id": "1",
+              "durable": "1",
+              "wal_sequence": "45",
+              "pid": "82664",
+              "monotonic_ms": "98299420"
+            }
+          },
+          {
+            "event": "worker_dead",
+            "fields": {
+              "worker_id": "1",
+              "fd": "6",
+              "state": "DEAD",
+              "last_heartbeat_ms": "98293419",
+              "reason": "heartbeat_timeout",
+              "pid": "82664",
+              "monotonic_ms": "98299420"
+            }
+          },
+          {
+            "event": "client_closed",
+            "fields": {
+              "fd": "6",
+              "worker_id": "1",
+              "reason": "heartbeat_timeout",
+              "pid": "82664",
+              "monotonic_ms": "98299420"
+            }
+          }
+        ],
+        "loss": {
+          "job_id": "1",
+          "state": "QUEUED",
+          "worker_id": "0",
+          "attempt": "1",
+          "retry_count": "1",
+          "pending": "29",
+          "result_bytes": "0",
+          "task": "sleep",
+          "max_retries": "1",
+          "failure": "WORKER_LOST",
+          "outcome": "REQUEUED",
+          "previous_worker_id": "1",
+          "durable": "1",
+          "wal_sequence": "45",
+          "pid": "82664",
+          "monotonic_ms": "98299420",
+          "event": "job_worker_lost",
+          "observed_ns": 461142871083
+        },
+        "death": {
+          "worker_id": "1",
+          "fd": "6",
+          "state": "DEAD",
+          "last_heartbeat_ms": "98293419",
+          "reason": "heartbeat_timeout",
+          "pid": "82664",
+          "monotonic_ms": "98299420",
+          "observed_ns": 461143068916
+        },
+        "closed": {
+          "fd": "6",
+          "worker_id": "1",
+          "reason": "heartbeat_timeout",
+          "pid": "82664",
+          "monotonic_ms": "98299420",
+          "observed_ns": 461143130875
+        },
+        "replacement_launch_before_ns": 461143436083,
+        "replacement_launch_return_ns": 461146704666,
+        "replacement_registered_ns": 461161155125,
+        "replacement_worker_id": 5,
+        "replacement_pid": 82774,
+        "resume_before_ns": 465971269000,
+        "resume_return_ns": 465971280750,
+        "reassigned": {
+          "job_id": "1",
+          "state": "ASSIGNED",
+          "worker_id": "5",
+          "attempt": "2",
+          "retry_count": "1",
+          "pending": "0",
+          "result_bytes": "0",
+          "task": "sleep",
+          "max_retries": "1",
+          "failure": "NONE",
+          "outcome": "ASSIGNED",
+          "previous_worker_id": "0",
+          "durable": "1",
+          "wal_sequence": "131",
+          "pid": "82664",
+          "monotonic_ms": "98369581",
+          "event": "job_assigned",
+          "observed_ns": 531314591625
+        },
+        "restarted": {
+          "job_id": "1",
+          "state": "RUNNING",
+          "worker_id": "5",
+          "attempt": "2",
+          "retry_count": "1",
+          "pending": "0",
+          "result_bytes": "0",
+          "task": "sleep",
+          "max_retries": "1",
+          "failure": "NONE",
+          "outcome": "RUNNING",
+          "previous_worker_id": "0",
+          "durable": "1",
+          "wal_sequence": "132",
+          "pid": "82664",
+          "monotonic_ms": "98369581",
+          "event": "job_started",
+          "observed_ns": 531314720625
+        },
+        "completed": {
+          "job_id": "1",
+          "state": "DONE",
+          "worker_id": "5",
+          "attempt": "2",
+          "retry_count": "1",
+          "pending": "0",
+          "result_bytes": "14",
+          "task": "sleep",
+          "max_retries": "1",
+          "failure": "NONE",
+          "outcome": "COMPLETED",
+          "previous_worker_id": "0",
+          "durable": "1",
+          "wal_sequence": "136",
+          "result": "slept_ms=10000",
+          "pid": "82664",
+          "monotonic_ms": "98379592",
+          "event": "job_completed",
+          "observed_ns": 541320386458
+        }
+      },
+      "accounting": {
+        "submitted": 32,
+        "completed": 32,
+        "terminally_failed": 0
+      },
+      "cleanup": {
+        "ok": true,
+        "errors": [],
+        "remaining": [],
+        "elapsed_ms": 23
+      },
+      "children": 540,
+      "overhead": {
+        "startup_ms": 817.6716670000133,
+        "verification_ms": 2458.17475,
+        "cleanup_ms": 23
+      },
+      "gap_from_previous_verdict_to_first_spawn_ms": 30114.177333,
+      "inspections": {
+        "count": 416,
+        "maximum_duration_ms": 94.542833,
+        "maximum_start_interval_ms": 223.989125
+      },
+      "artifacts_sha256": {
+        "manifest.json": "ec5406d74729ef7957447f778f70f7ec5b130643397acd4b72a3fe9cec129ddf",
+        "summary.json": "e911ec3ec918a1cb21ae383c6aee1a8dea69943f00d6fbe63ac4fad4c42f1705",
+        "accounting.json": "12fe37cb35e1e64be4620471326d9dc2b70384c9870237d3dcd969935cdf34a0",
+        "submissions.json": "65bac173c1177de477198419da330f2312d2e045f9e64c8110edda0efa5bcdfe",
+        "final-snapshots.json": "f13b3ee5af76236e0f3d78c2d9ef0a9bbc2ee66b5bf01d329f48b8607563e546",
+        "timings.json": "e35dc8459b760233f7db07523246bdbd742dcd8faa8b3aff4eebacad94132dc8",
+        "fault.json": "75ed7b666fb9a51c3bb4dc16e2e60bc56a02fa796ed5eaed3a5c0654a9f8977f",
+        "latencies.json": "1926fe99d1e966d5b28d0fd6a3db136ff2e0e91b8c2f1faf07d76cf1245b904a",
+        "machine.json": "ed80565d9553b7ba2c328e03e0128d15e24f1cbda3f2b740300cb5cc41581d2a",
+        "events.jsonl": "a257407c8297bfe0db53caee0ee966a7c3e33ab0c77e2b4953af2e54eea32e55",
+        "coordinator.wal": "e0d4e39967c33eda42c9ed843984756757a706a7b0d7aff0f1e380728a95157a"
+      }
+    },
+    {
+      "campaign_index": 3,
+      "stage": "measured",
+      "measured_round": 1,
+      "scenario": "no_fault",
+      "workers": 4,
+      "path": "03-measured-r1-no_fault",
+      "created_utc": "2026-10-02T20:00:55.807091+00:00",
+      "elapsed_ms": 83282,
+      "machine_observations": {
+        "before": {
+          "observed_monotonic_ns": 574328549625,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 98978201600,
+          "load_average": [
+            2.25048828125,
+            2.3466796875,
+            2.75927734375
+          ]
+        },
+        "after": {
+          "observed_monotonic_ns": 657259112041,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 98980597760,
+          "load_average": [
+            2.52587890625,
+            2.5009765625,
+            2.78515625
+          ]
+        }
+      },
+      "metrics": {
+        "batch_elapsed_ms": 80296.831333,
+        "admission_ms": 517.431958,
+        "completed_jobs_per_second": 0.39852132978065347,
+        "mean_accepted_latency_ms": 44835.03125,
+        "p95_accepted_latency_ms": 79649,
+        "actual_faults": 0,
+        "attempts": 32,
+        "retries": 0,
+        "terminal_failures": 0,
+        "intervention_lateness_ms": 0.375,
+        "observed_detection_ms": null,
+        "observed_reassignment_ms": null,
+        "observed_recovery_to_completion_ms": null,
+        "coordinator_loss_to_assignment_ms": null,
+        "coordinator_loss_to_completion_ms": null
+      },
+      "fault": {
+        "scenario": "no_fault",
+        "target": {
+          "job_id": 1,
+          "worker_id": 1,
+          "attempt": 1,
+          "slot": 0,
+          "pid": 84239,
+          "fd": "6"
+        },
+        "started_observed_ns": 574895206625,
+        "scheduled_ns": 575395206625,
+        "checkpoint_ns": 575395581625
+      },
+      "accounting": {
+        "submitted": 32,
+        "completed": 32,
+        "terminally_failed": 0
+      },
+      "cleanup": {
+        "ok": true,
+        "errors": [],
+        "remaining": [],
+        "elapsed_ms": 27
+      },
+      "children": 513,
+      "overhead": {
+        "startup_ms": 817.4464579999494,
+        "verification_ms": 2096.22925,
+        "cleanup_ms": 27
+      },
+      "gap_from_previous_verdict_to_first_spawn_ms": 30127.0645,
+      "inspections": {
+        "count": 390,
+        "maximum_duration_ms": 34.518625,
+        "maximum_start_interval_ms": 213.682833
+      },
+      "artifacts_sha256": {
+        "manifest.json": "d0e3c3e5b40b5835b4eba36306866d23638eb3085b66c27b20c8340330e83858",
+        "summary.json": "f71d3310786140041ee529e5e66728955350068dde6777e10669613a3a7276e2",
+        "accounting.json": "d1e295127735bce949fca1b7c717ce5e203056822c15b64064eee7bd8045a4ac",
+        "submissions.json": "49741b76015a9325eb1d1914938fda4bf19f73fb18fce4754b44181d350ca898",
+        "final-snapshots.json": "ca82ad3a08158d55282bb1654cba8a92703b1302031c70c445223f2bde6ad1db",
+        "timings.json": "d8b5e92eaa9be7eadab99aa685377d7c3007f6baf7528e5b0f88bb64d0bbaeec",
+        "fault.json": "5a610fb493196bfe13984b26a35e461b0212c269dfd4b8bbd11ea50cc6901bb9",
+        "latencies.json": "eab75c0541af97b526638e4e4eb469ddafcefb209b0bf184b26f07a20af62cfe",
+        "machine.json": "1d80b0bf990c7e7e7e9441e9b0eddded05d9c538b858ceae2cb02397e97e9c73",
+        "events.jsonl": "8b23afa13b739905fcaece985021401c4deeb6786fa5a73f37b56e1934aac8c4",
+        "coordinator.wal": "58eb3ab69923cd2f90c81227fd8b239ce915efe8833f983fad04bf8fbf3b722b"
+      }
+    },
+    {
+      "campaign_index": 4,
+      "stage": "measured",
+      "measured_round": 1,
+      "scenario": "sigkill",
+      "workers": 4,
+      "path": "04-measured-r1-sigkill",
+      "created_utc": "2026-10-02T20:02:49.229316+00:00",
+      "elapsed_ms": 83765,
+      "machine_observations": {
+        "before": {
+          "observed_monotonic_ns": 687789074000,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 99000295424,
+          "load_average": [
+            2.1669921875,
+            2.412109375,
+            2.73974609375
+          ]
+        },
+        "after": {
+          "observed_monotonic_ns": 771144080833,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 98971209728,
+          "load_average": [
+            1.65234375,
+            2.20263671875,
+            2.63037109375
+          ]
+        }
+      },
+      "metrics": {
+        "batch_elapsed_ms": 80688.991208,
+        "admission_ms": 503.662333,
+        "completed_jobs_per_second": 0.39658445992354063,
+        "mean_accepted_latency_ms": 44967.4375,
+        "p95_accepted_latency_ms": 79691,
+        "actual_faults": 1,
+        "attempts": 33,
+        "retries": 1,
+        "terminal_failures": 0,
+        "intervention_lateness_ms": 0.085333,
+        "observed_detection_ms": 11.119291,
+        "observed_reassignment_ms": 70041.543292,
+        "observed_recovery_to_completion_ms": 80059.154458,
+        "coordinator_loss_to_assignment_ms": 70049,
+        "coordinator_loss_to_completion_ms": 80054,
+        "signal_syscall_ms": 0.006,
+        "replacement_launch_delay_ms": 0.380417,
+        "replacement_registration_ms": 15.697833
+      },
+      "fault": {
+        "scenario": "sigkill",
+        "target": {
+          "job_id": 1,
+          "worker_id": 1,
+          "attempt": 1,
+          "slot": 0,
+          "pid": 85330,
+          "fd": "6"
+        },
+        "started_observed_ns": 688354215083,
+        "scheduled_ns": 688854215083,
+        "checkpoint_ns": 688854300416,
+        "signal_before_ns": 688854302875,
+        "signal_return_ns": 688854308875,
+        "loss": {
+          "job_id": "1",
+          "state": "QUEUED",
+          "worker_id": "0",
+          "attempt": "1",
+          "retry_count": "1",
+          "pending": "29",
+          "result_bytes": "0",
+          "task": "sleep",
+          "max_retries": "1",
+          "failure": "WORKER_LOST",
+          "outcome": "REQUEUED",
+          "previous_worker_id": "1",
+          "durable": "1",
+          "wal_sequence": "45",
+          "pid": "85328",
+          "monotonic_ms": "98527135",
+          "event": "job_worker_lost",
+          "observed_ns": 688865422166
+        },
+        "accepted_warnings": [
+          {
+            "event": "job_worker_lost",
+            "fields": {
+              "job_id": "1",
+              "state": "QUEUED",
+              "worker_id": "0",
+              "attempt": "1",
+              "retry_count": "1",
+              "pending": "29",
+              "result_bytes": "0",
+              "task": "sleep",
+              "max_retries": "1",
+              "failure": "WORKER_LOST",
+              "outcome": "REQUEUED",
+              "previous_worker_id": "1",
+              "durable": "1",
+              "wal_sequence": "45",
+              "pid": "85328",
+              "monotonic_ms": "98527135"
+            }
+          },
+          {
+            "event": "worker_dead",
+            "fields": {
+              "worker_id": "1",
+              "fd": "6",
+              "state": "DEAD",
+              "last_heartbeat_ms": "98526335",
+              "reason": "eof",
+              "pid": "85328",
+              "monotonic_ms": "98527135"
+            }
+          }
+        ],
+        "death": {
+          "worker_id": "1",
+          "fd": "6",
+          "state": "DEAD",
+          "last_heartbeat_ms": "98526335",
+          "reason": "eof",
+          "pid": "85328",
+          "monotonic_ms": "98527135",
+          "observed_ns": 688865515833
+        },
+        "closed": {
+          "fd": "6",
+          "worker_id": "1",
+          "reason": "eof",
+          "pid": "85328",
+          "monotonic_ms": "98527135",
+          "observed_ns": 688865551333
+        },
+        "replacement_launch_before_ns": 688865802583,
+        "replacement_launch_return_ns": 688867640000,
+        "replacement_registered_ns": 688881500416,
+        "replacement_worker_id": 5,
+        "replacement_pid": 85383,
+        "reassigned": {
+          "job_id": "1",
+          "state": "ASSIGNED",
+          "worker_id": "5",
+          "attempt": "2",
+          "retry_count": "1",
+          "pending": "0",
+          "result_bytes": "0",
+          "task": "sleep",
+          "max_retries": "1",
+          "failure": "NONE",
+          "outcome": "ASSIGNED",
+          "previous_worker_id": "0",
+          "durable": "1",
+          "wal_sequence": "131",
+          "pid": "85328",
+          "monotonic_ms": "98597184",
+          "event": "job_assigned",
+          "observed_ns": 758906965458
+        },
+        "restarted": {
+          "job_id": "1",
+          "state": "RUNNING",
+          "worker_id": "5",
+          "attempt": "2",
+          "retry_count": "1",
+          "pending": "0",
+          "result_bytes": "0",
+          "task": "sleep",
+          "max_retries": "1",
+          "failure": "NONE",
+          "outcome": "RUNNING",
+          "previous_worker_id": "0",
+          "durable": "1",
+          "wal_sequence": "132",
+          "pid": "85328",
+          "monotonic_ms": "98597184",
+          "event": "job_started",
+          "observed_ns": 758907086750
+        },
+        "completed": {
+          "job_id": "1",
+          "state": "DONE",
+          "worker_id": "5",
+          "attempt": "2",
+          "retry_count": "1",
+          "pending": "0",
+          "result_bytes": "14",
+          "task": "sleep",
+          "max_retries": "1",
+          "failure": "NONE",
+          "outcome": "COMPLETED",
+          "previous_worker_id": "0",
+          "durable": "1",
+          "wal_sequence": "136",
+          "result": "slept_ms=10000",
+          "pid": "85328",
+          "monotonic_ms": "98607189",
+          "event": "job_completed",
+          "observed_ns": 768913457333
+        }
+      },
+      "accounting": {
+        "submitted": 32,
+        "completed": 32,
+        "terminally_failed": 0
+      },
+      "cleanup": {
+        "ok": true,
+        "errors": [],
+        "remaining": [],
+        "elapsed_ms": 52
+      },
+      "children": 515,
+      "overhead": {
+        "startup_ms": 835.4009580000366,
+        "verification_ms": 2134.235209,
+        "cleanup_ms": 52
+      },
+      "gap_from_previous_verdict_to_first_spawn_ms": 30161.142458,
+      "inspections": {
+        "count": 391,
+        "maximum_duration_ms": 31.935125,
+        "maximum_start_interval_ms": 213.319625
+      },
+      "artifacts_sha256": {
+        "manifest.json": "4b7b5b6bae3316d18a01f800160a322d0616a036c7631f14749362013b93d9b4",
+        "summary.json": "2b8796e9d5f3c2cd867f0884a61919a0c2bae2c56c5d2cccc267dea72aabf439",
+        "accounting.json": "1f8bfed134f0655ce6181b6c3fda1464bfce99f5ca5ebcec06056eec238cd103",
+        "submissions.json": "7a1de73caf5d73922bcc93e5190eff353aeb5f8b1c647276ad8441a41f83be70",
+        "final-snapshots.json": "aab3a7ec8475e090dc14a2d2ff1556964f9e32364e83bc2dfb4ba9113b57fc3d",
+        "timings.json": "f578ce2747cd1fa76337222ce1821e16e1fe18448066877caad1388ddb90bb06",
+        "fault.json": "dd0316c1049481e1397854995f8fc81e80478b5ab743b7f2d48554525ebfe5d3",
+        "latencies.json": "23a0100164a4fdb77618b3854dbd97eecc503723c1cb379cb64d25bb71022f93",
+        "machine.json": "95a0afe9294ad850bdee8ad46c2afa9a4b77604e1b8e10077e78c5fe2f61daba",
+        "events.jsonl": "f103bb0a23fa0719cda0c9a08ea038bdd3952e784695d34782a636b7451722c5",
+        "coordinator.wal": "749d6d6af251a35f41fc5312fc47e8c28f2b05ce8d6d2134579e6c2d8de7f6b9"
+      }
+    },
+    {
+      "campaign_index": 5,
+      "stage": "measured",
+      "measured_round": 1,
+      "scenario": "heartbeat_expiry",
+      "workers": 4,
+      "path": "05-measured-r1-heartbeat_expiry",
+      "created_utc": "2026-10-02T20:04:43.134509+00:00",
+      "elapsed_ms": 88836,
+      "machine_observations": {
+        "before": {
+          "observed_monotonic_ns": 801675472500,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 98968563712,
+          "load_average": [
+            1.81201171875,
+            2.18310546875,
+            2.60693359375
+          ]
+        },
+        "after": {
+          "observed_monotonic_ns": 890100670208,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 98952683520,
+          "load_average": [
+            2.4501953125,
+            2.302734375,
+            2.60693359375
+          ]
+        }
+      },
+      "metrics": {
+        "batch_elapsed_ms": 85776.548125,
+        "admission_ms": 501.088666,
+        "completed_jobs_per_second": 0.3730623427905633,
+        "mean_accepted_latency_ms": 46254.09375,
+        "p95_accepted_latency_ms": 79647,
+        "actual_faults": 1,
+        "attempts": 33,
+        "retries": 1,
+        "terminal_failures": 0,
+        "intervention_lateness_ms": 10.362583,
+        "observed_detection_ms": 5197.592292,
+        "observed_reassignment_ms": 70044.443292,
+        "observed_recovery_to_completion_ms": 85245.527875,
+        "coordinator_loss_to_assignment_ms": 70045,
+        "coordinator_loss_to_completion_ms": 80049,
+        "signal_syscall_ms": 0.003917,
+        "replacement_launch_delay_ms": 0.547042,
+        "replacement_registration_ms": 16.646291
+      },
+      "fault": {
+        "scenario": "heartbeat_expiry",
+        "target": {
+          "job_id": 1,
+          "worker_id": 1,
+          "attempt": 1,
+          "slot": 0,
+          "pid": 86421,
+          "fd": "6"
+        },
+        "started_observed_ns": 802229744708,
+        "scheduled_ns": 802729744708,
+        "checkpoint_ns": 802740107291,
+        "signal_before_ns": 802740112666,
+        "signal_return_ns": 802740116583,
+        "stopped_observed_ns": 802740133625,
+        "timeout": {
+          "worker_id": "1",
+          "fd": "6",
+          "timeout_ms": "6000",
+          "detected_at_ms": "98646217",
+          "silence_ms": "6001",
+          "pid": "86419",
+          "monotonic_ms": "98646217",
+          "observed_ns": 807937546250
+        },
+        "accepted_warnings": [
+          {
+            "event": "heartbeat_timeout",
+            "fields": {
+              "worker_id": "1",
+              "fd": "6",
+              "timeout_ms": "6000",
+              "detected_at_ms": "98646217",
+              "silence_ms": "6001",
+              "pid": "86419",
+              "monotonic_ms": "98646217"
+            }
+          },
+          {
+            "event": "job_worker_lost",
+            "fields": {
+              "job_id": "1",
+              "state": "QUEUED",
+              "worker_id": "0",
+              "attempt": "1",
+              "retry_count": "1",
+              "pending": "29",
+              "result_bytes": "0",
+              "task": "sleep",
+              "max_retries": "1",
+              "failure": "WORKER_LOST",
+              "outcome": "REQUEUED",
+              "previous_worker_id": "1",
+              "durable": "1",
+              "wal_sequence": "45",
+              "pid": "86419",
+              "monotonic_ms": "98646217"
+            }
+          },
+          {
+            "event": "worker_dead",
+            "fields": {
+              "worker_id": "1",
+              "fd": "6",
+              "state": "DEAD",
+              "last_heartbeat_ms": "98640216",
+              "reason": "heartbeat_timeout",
+              "pid": "86419",
+              "monotonic_ms": "98646217"
+            }
+          },
+          {
+            "event": "client_closed",
+            "fields": {
+              "fd": "6",
+              "worker_id": "1",
+              "reason": "heartbeat_timeout",
+              "pid": "86419",
+              "monotonic_ms": "98646217"
+            }
+          }
+        ],
+        "loss": {
+          "job_id": "1",
+          "state": "QUEUED",
+          "worker_id": "0",
+          "attempt": "1",
+          "retry_count": "1",
+          "pending": "29",
+          "result_bytes": "0",
+          "task": "sleep",
+          "max_retries": "1",
+          "failure": "WORKER_LOST",
+          "outcome": "REQUEUED",
+          "previous_worker_id": "1",
+          "durable": "1",
+          "wal_sequence": "45",
+          "pid": "86419",
+          "monotonic_ms": "98646217",
+          "event": "job_worker_lost",
+          "observed_ns": 807937704958
+        },
+        "death": {
+          "worker_id": "1",
+          "fd": "6",
+          "state": "DEAD",
+          "last_heartbeat_ms": "98640216",
+          "reason": "heartbeat_timeout",
+          "pid": "86419",
+          "monotonic_ms": "98646217",
+          "observed_ns": 807937845208
+        },
+        "closed": {
+          "fd": "6",
+          "worker_id": "1",
+          "reason": "heartbeat_timeout",
+          "pid": "86419",
+          "monotonic_ms": "98646217",
+          "observed_ns": 807937907875
+        },
+        "replacement_launch_before_ns": 807938252000,
+        "replacement_launch_return_ns": 807940865541,
+        "replacement_registered_ns": 807954898291,
+        "replacement_worker_id": 5,
+        "replacement_pid": 86529,
+        "resume_before_ns": 812744737750,
+        "resume_return_ns": 812744746541,
+        "reassigned": {
+          "job_id": "1",
+          "state": "ASSIGNED",
+          "worker_id": "5",
+          "attempt": "2",
+          "retry_count": "1",
+          "pending": "0",
+          "result_bytes": "0",
+          "task": "sleep",
+          "max_retries": "1",
+          "failure": "NONE",
+          "outcome": "ASSIGNED",
+          "previous_worker_id": "0",
+          "durable": "1",
+          "wal_sequence": "131",
+          "pid": "86419",
+          "monotonic_ms": "98716262",
+          "event": "job_assigned",
+          "observed_ns": 877982148250
+        },
+        "restarted": {
+          "job_id": "1",
+          "state": "RUNNING",
+          "worker_id": "5",
+          "attempt": "2",
+          "retry_count": "1",
+          "pending": "0",
+          "result_bytes": "0",
+          "task": "sleep",
+          "max_retries": "1",
+          "failure": "NONE",
+          "outcome": "RUNNING",
+          "previous_worker_id": "0",
+          "durable": "1",
+          "wal_sequence": "132",
+          "pid": "86419",
+          "monotonic_ms": "98716262",
+          "event": "job_started",
+          "observed_ns": 877982376250
+        },
+        "completed": {
+          "job_id": "1",
+          "state": "DONE",
+          "worker_id": "5",
+          "attempt": "2",
+          "retry_count": "1",
+          "pending": "0",
+          "result_bytes": "14",
+          "task": "sleep",
+          "max_retries": "1",
+          "failure": "NONE",
+          "outcome": "COMPLETED",
+          "previous_worker_id": "0",
+          "durable": "1",
+          "wal_sequence": "136",
+          "result": "slept_ms=10000",
+          "pid": "86419",
+          "monotonic_ms": "98726266",
+          "event": "job_completed",
+          "observed_ns": 887985640541
+        }
+      },
+      "accounting": {
+        "submitted": 32,
+        "completed": 32,
+        "terminally_failed": 0
+      },
+      "cleanup": {
+        "ok": true,
+        "errors": [],
+        "remaining": [],
+        "elapsed_ms": 48
+      },
+      "children": 540,
+      "overhead": {
+        "startup_ms": 827.0947089999936,
+        "verification_ms": 2127.908625,
+        "cleanup_ms": 48
+      },
+      "gap_from_previous_verdict_to_first_spawn_ms": 30122.280375,
+      "inspections": {
+        "count": 416,
+        "maximum_duration_ms": 21.840625,
+        "maximum_start_interval_ms": 213.657208
+      },
+      "artifacts_sha256": {
+        "manifest.json": "152dc584efa59a8a79e592657be00a50083d8b8d249c6e21b2894fa7b7d305c8",
+        "summary.json": "09c7902bc270ad11ba4bf1a13d94a542d56177bc6ddbe1f24695eb2fbfd758d6",
+        "accounting.json": "6d848fd0df26b3afc6efd92c1eadbdc4194cb7e371b1809464a3e60ca7e4ecf2",
+        "submissions.json": "82fdd1db572a0ddcdba2f9c15080a1ee4001483785fa085c650c1230c89dbe7f",
+        "final-snapshots.json": "174226f3893d8f1e8987c76485ff10edcfdcfab853ba35fcd1e32ba2325eb07d",
+        "timings.json": "d095045f5bb87dbfa195ffda0c7bd112072878d8ce46db6dc9bfbd7d39560c0f",
+        "fault.json": "529b839c826a32a6e4b3e4dc4c437513093073ef6378df8f686d8b5c337d5103",
+        "latencies.json": "79f0004fbd43c3ac3346da1dcf27a2129db9c5b127329d462073cb440e3af00a",
+        "machine.json": "beec29f23c41cb95a4d09e36b1bcb0f6e3922ad9e21740589802e5e551f031db",
+        "events.jsonl": "98474aa87fd41e80d08db856327ed46d677f426835e3b0eee727f10e3e763de0",
+        "coordinator.wal": "1df344d5593cb3bb368e485697375669ea0737a2c9df7be95d2b63bc49d8259d"
+      }
+    },
+    {
+      "campaign_index": 6,
+      "stage": "measured",
+      "measured_round": 2,
+      "scenario": "sigkill",
+      "workers": 4,
+      "path": "06-measured-r2-sigkill",
+      "created_utc": "2026-10-02T20:06:42.125131+00:00",
+      "elapsed_ms": 83636,
+      "machine_observations": {
+        "before": {
+          "observed_monotonic_ns": 920656279458,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 98950696960,
+          "load_average": [
+            2.642578125,
+            2.3544921875,
+            2.61279296875
+          ]
+        },
+        "after": {
+          "observed_monotonic_ns": 1003896841666,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 98942418944,
+          "load_average": [
+            2.41064453125,
+            2.3271484375,
+            2.5732421875
+          ]
+        }
+      },
+      "metrics": {
+        "batch_elapsed_ms": 80604.110625,
+        "admission_ms": 490.347625,
+        "completed_jobs_per_second": 0.39700208527671477,
+        "mean_accepted_latency_ms": 44964.03125,
+        "p95_accepted_latency_ms": 79652,
+        "actual_faults": 1,
+        "attempts": 33,
+        "retries": 1,
+        "terminal_failures": 0,
+        "intervention_lateness_ms": 0.856292,
+        "observed_detection_ms": 12.9225,
+        "observed_reassignment_ms": 70043.7355,
+        "observed_recovery_to_completion_ms": 80058.440125,
+        "coordinator_loss_to_assignment_ms": 70050,
+        "coordinator_loss_to_completion_ms": 80055,
+        "signal_syscall_ms": 0.005666,
+        "replacement_launch_delay_ms": 0.446541,
+        "replacement_registration_ms": 14.369
+      },
+      "fault": {
+        "scenario": "sigkill",
+        "target": {
+          "job_id": 1,
+          "worker_id": 1,
+          "attempt": 1,
+          "slot": 0,
+          "pid": 87534,
+          "fd": "6"
+        },
+        "started_observed_ns": 921229656833,
+        "scheduled_ns": 921729656833,
+        "checkpoint_ns": 921730513125,
+        "signal_before_ns": 921730517625,
+        "signal_return_ns": 921730523291,
+        "loss": {
+          "job_id": "1",
+          "state": "QUEUED",
+          "worker_id": "0",
+          "attempt": "1",
+          "retry_count": "1",
+          "pending": "29",
+          "result_bytes": "0",
+          "task": "sleep",
+          "max_retries": "1",
+          "failure": "WORKER_LOST",
+          "outcome": "REQUEUED",
+          "previous_worker_id": "1",
+          "durable": "1",
+          "wal_sequence": "45",
+          "pid": "87532",
+          "monotonic_ms": "98760014",
+          "event": "job_worker_lost",
+          "observed_ns": 921743440125
+        },
+        "accepted_warnings": [
+          {
+            "event": "job_worker_lost",
+            "fields": {
+              "job_id": "1",
+              "state": "QUEUED",
+              "worker_id": "0",
+              "attempt": "1",
+              "retry_count": "1",
+              "pending": "29",
+              "result_bytes": "0",
+              "task": "sleep",
+              "max_retries": "1",
+              "failure": "WORKER_LOST",
+              "outcome": "REQUEUED",
+              "previous_worker_id": "1",
+              "durable": "1",
+              "wal_sequence": "45",
+              "pid": "87532",
+              "monotonic_ms": "98760014"
+            }
+          },
+          {
+            "event": "worker_dead",
+            "fields": {
+              "worker_id": "1",
+              "fd": "6",
+              "state": "DEAD",
+              "last_heartbeat_ms": "98759202",
+              "reason": "eof",
+              "pid": "87532",
+              "monotonic_ms": "98760014"
+            }
+          }
+        ],
+        "death": {
+          "worker_id": "1",
+          "fd": "6",
+          "state": "DEAD",
+          "last_heartbeat_ms": "98759202",
+          "reason": "eof",
+          "pid": "87532",
+          "monotonic_ms": "98760014",
+          "observed_ns": 921743610791
+        },
+        "closed": {
+          "fd": "6",
+          "worker_id": "1",
+          "reason": "eof",
+          "pid": "87532",
+          "monotonic_ms": "98760014",
+          "observed_ns": 921743641916
+        },
+        "replacement_launch_before_ns": 921743886666,
+        "replacement_launch_return_ns": 921745339416,
+        "replacement_registered_ns": 921758255666,
+        "replacement_worker_id": 5,
+        "replacement_pid": 87589,
+        "reassigned": {
+          "job_id": "1",
+          "state": "ASSIGNED",
+          "worker_id": "5",
+          "attempt": "2",
+          "retry_count": "1",
+          "pending": "0",
+          "result_bytes": "0",
+          "task": "sleep",
+          "max_retries": "1",
+          "failure": "NONE",
+          "outcome": "ASSIGNED",
+          "previous_worker_id": "0",
+          "durable": "1",
+          "wal_sequence": "131",
+          "pid": "87532",
+          "monotonic_ms": "98830064",
+          "event": "job_assigned",
+          "observed_ns": 991787175625
+        },
+        "restarted": {
+          "job_id": "1",
+          "state": "RUNNING",
+          "worker_id": "5",
+          "attempt": "2",
+          "retry_count": "1",
+          "pending": "0",
+          "result_bytes": "0",
+          "task": "sleep",
+          "max_retries": "1",
+          "failure": "NONE",
+          "outcome": "RUNNING",
+          "previous_worker_id": "0",
+          "durable": "1",
+          "wal_sequence": "132",
+          "pid": "87532",
+          "monotonic_ms": "98830064",
+          "event": "job_started",
+          "observed_ns": 991787384375
+        },
+        "completed": {
+          "job_id": "1",
+          "state": "DONE",
+          "worker_id": "5",
+          "attempt": "2",
+          "retry_count": "1",
+          "pending": "0",
+          "result_bytes": "14",
+          "task": "sleep",
+          "max_retries": "1",
+          "failure": "NONE",
+          "outcome": "COMPLETED",
+          "previous_worker_id": "0",
+          "durable": "1",
+          "wal_sequence": "136",
+          "result": "slept_ms=10000",
+          "pid": "87532",
+          "monotonic_ms": "98840069",
+          "event": "job_completed",
+          "observed_ns": 1001788957750
+        }
+      },
+      "accounting": {
+        "submitted": 32,
+        "completed": 32,
+        "terminally_failed": 0
+      },
+      "cleanup": {
+        "ok": true,
+        "errors": [],
+        "remaining": [],
+        "elapsed_ms": 52
+      },
+      "children": 515,
+      "overhead": {
+        "startup_ms": 814.9646659999235,
+        "verification_ms": 2107.943042,
+        "cleanup_ms": 52
+      },
+      "gap_from_previous_verdict_to_first_spawn_ms": 30169.152334,
+      "inspections": {
+        "count": 391,
+        "maximum_duration_ms": 22.643041,
+        "maximum_start_interval_ms": 213.241959
+      },
+      "artifacts_sha256": {
+        "manifest.json": "be5d835c6037980966e3752438b82d6fb200cec6214d324f52303c40d802fc0a",
+        "summary.json": "76c3bdb1649a9d59562c3948c908f6ac48b81fc01ac07e137d970aa01c3732bf",
+        "accounting.json": "ea5c586e469af4be3401d58eb52a4e0f4b2a58765b0fc5be8ca61c6cdfa85c67",
+        "submissions.json": "ccebb3360625429d7ed01a5bcaadb2ec1cac4b36969120ad3460fc588ac9a593",
+        "final-snapshots.json": "532755155111028b5017e7629a33be30b7bbf55623e3a08c4447ec6ba1078c2b",
+        "timings.json": "56bd1d260c830a7a180245f8e7a0c6b9abc3973cf32d0559d3de28f220a233c0",
+        "fault.json": "6995210bbf53eb9b8abe5237c9474714393727b08420357abf4456205dcc89bc",
+        "latencies.json": "586aaaaf69a0a99fd541a3b83247d9111191b221b3544a2a65f6c0eb1e67238c",
+        "machine.json": "2c0d110eccb707be545d56c8d4817b84bb8f64f22bb613788c633c8ea4f2f86b",
+        "events.jsonl": "54b054fb0861b0ab8edbb5a28d88a4f9e09ce5d34f44c2d915f98f9d0593bdb9",
+        "coordinator.wal": "6ede24e5365758b8015d106d18e93ef89b690d90a9014af8231d3a04c16718ae"
+      }
+    },
+    {
+      "campaign_index": 7,
+      "stage": "measured",
+      "measured_round": 2,
+      "scenario": "heartbeat_expiry",
+      "workers": 4,
+      "path": "07-measured-r2-heartbeat_expiry",
+      "created_utc": "2026-10-02T20:08:35.914519+00:00",
+      "elapsed_ms": 88800,
+      "machine_observations": {
+        "before": {
+          "observed_monotonic_ns": 1034463072833,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 98942083072,
+          "load_average": [
+            1.97900390625,
+            2.22998046875,
+            2.529296875
+          ]
+        },
+        "after": {
+          "observed_monotonic_ns": 1122862829583,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 98931228672,
+          "load_average": [
+            2.5947265625,
+            2.4189453125,
+            2.57421875
+          ]
+        }
+      },
+      "metrics": {
+        "batch_elapsed_ms": 85788.010875,
+        "admission_ms": 511.110667,
+        "completed_jobs_per_second": 0.37301249526144814,
+        "mean_accepted_latency_ms": 46290.625,
+        "p95_accepted_latency_ms": 79765,
+        "actual_faults": 1,
+        "attempts": 33,
+        "retries": 1,
+        "terminal_failures": 0,
+        "intervention_lateness_ms": 6.583416,
+        "observed_detection_ms": 5195.880125,
+        "observed_reassignment_ms": 70041.993542,
+        "observed_recovery_to_completion_ms": 85247.485125,
+        "coordinator_loss_to_assignment_ms": 70040,
+        "coordinator_loss_to_completion_ms": 80044,
+        "signal_syscall_ms": 0.005417,
+        "replacement_launch_delay_ms": 0.408083,
+        "replacement_registration_ms": 16.269042
+      },
+      "fault": {
+        "scenario": "heartbeat_expiry",
+        "target": {
+          "job_id": 1,
+          "worker_id": 1,
+          "attempt": 1,
+          "slot": 0,
+          "pid": 88591,
+          "fd": "6"
+        },
+        "started_observed_ns": 1035025718750,
+        "scheduled_ns": 1035525718750,
+        "checkpoint_ns": 1035532302166,
+        "signal_before_ns": 1035532305208,
+        "signal_return_ns": 1035532310625,
+        "stopped_observed_ns": 1035532334583,
+        "timeout": {
+          "worker_id": "1",
+          "fd": "6",
+          "timeout_ms": "6000",
+          "detected_at_ms": "98879010",
+          "silence_ms": "6001",
+          "pid": "88589",
+          "monotonic_ms": "98879010",
+          "observed_ns": 1040728028416
+        },
+        "accepted_warnings": [
+          {
+            "event": "heartbeat_timeout",
+            "fields": {
+              "worker_id": "1",
+              "fd": "6",
+              "timeout_ms": "6000",
+              "detected_at_ms": "98879010",
+              "silence_ms": "6001",
+              "pid": "88589",
+              "monotonic_ms": "98879010"
+            }
+          },
+          {
+            "event": "job_worker_lost",
+            "fields": {
+              "job_id": "1",
+              "state": "QUEUED",
+              "worker_id": "0",
+              "attempt": "1",
+              "retry_count": "1",
+              "pending": "29",
+              "result_bytes": "0",
+              "task": "sleep",
+              "max_retries": "1",
+              "failure": "WORKER_LOST",
+              "outcome": "REQUEUED",
+              "previous_worker_id": "1",
+              "durable": "1",
+              "wal_sequence": "45",
+              "pid": "88589",
+              "monotonic_ms": "98879011"
+            }
+          },
+          {
+            "event": "worker_dead",
+            "fields": {
+              "worker_id": "1",
+              "fd": "6",
+              "state": "DEAD",
+              "last_heartbeat_ms": "98873009",
+              "reason": "heartbeat_timeout",
+              "pid": "88589",
+              "monotonic_ms": "98879011"
+            }
+          },
+          {
+            "event": "client_closed",
+            "fields": {
+              "fd": "6",
+              "worker_id": "1",
+              "reason": "heartbeat_timeout",
+              "pid": "88589",
+              "monotonic_ms": "98879011"
+            }
+          }
+        ],
+        "loss": {
+          "job_id": "1",
+          "state": "QUEUED",
+          "worker_id": "0",
+          "attempt": "1",
+          "retry_count": "1",
+          "pending": "29",
+          "result_bytes": "0",
+          "task": "sleep",
+          "max_retries": "1",
+          "failure": "WORKER_LOST",
+          "outcome": "REQUEUED",
+          "previous_worker_id": "1",
+          "durable": "1",
+          "wal_sequence": "45",
+          "pid": "88589",
+          "monotonic_ms": "98879011",
+          "event": "job_worker_lost",
+          "observed_ns": 1040728185333
+        },
+        "death": {
+          "worker_id": "1",
+          "fd": "6",
+          "state": "DEAD",
+          "last_heartbeat_ms": "98873009",
+          "reason": "heartbeat_timeout",
+          "pid": "88589",
+          "monotonic_ms": "98879011",
+          "observed_ns": 1040728310333
+        },
+        "closed": {
+          "fd": "6",
+          "worker_id": "1",
+          "reason": "heartbeat_timeout",
+          "pid": "88589",
+          "monotonic_ms": "98879011",
+          "observed_ns": 1040728366458
+        },
+        "replacement_launch_before_ns": 1040728593416,
+        "replacement_launch_return_ns": 1040730592000,
+        "replacement_registered_ns": 1040744862458,
+        "replacement_worker_id": 5,
+        "replacement_pid": 88696,
+        "resume_before_ns": 1045536476541,
+        "resume_return_ns": 1045536498416,
+        "reassigned": {
+          "job_id": "1",
+          "state": "ASSIGNED",
+          "worker_id": "5",
+          "attempt": "2",
+          "retry_count": "1",
+          "pending": "0",
+          "result_bytes": "0",
+          "task": "sleep",
+          "max_retries": "1",
+          "failure": "NONE",
+          "outcome": "ASSIGNED",
+          "previous_worker_id": "0",
+          "durable": "1",
+          "wal_sequence": "131",
+          "pid": "88589",
+          "monotonic_ms": "98949051",
+          "event": "job_assigned",
+          "observed_ns": 1110770178875
+        },
+        "restarted": {
+          "job_id": "1",
+          "state": "RUNNING",
+          "worker_id": "5",
+          "attempt": "2",
+          "retry_count": "1",
+          "pending": "0",
+          "result_bytes": "0",
+          "task": "sleep",
+          "max_retries": "1",
+          "failure": "NONE",
+          "outcome": "RUNNING",
+          "previous_worker_id": "0",
+          "durable": "1",
+          "wal_sequence": "132",
+          "pid": "88589",
+          "monotonic_ms": "98949051",
+          "event": "job_started",
+          "observed_ns": 1110770302375
+        },
+        "completed": {
+          "job_id": "1",
+          "state": "DONE",
+          "worker_id": "5",
+          "attempt": "2",
+          "retry_count": "1",
+          "pending": "0",
+          "result_bytes": "14",
+          "task": "sleep",
+          "max_retries": "1",
+          "failure": "NONE",
+          "outcome": "COMPLETED",
+          "previous_worker_id": "0",
+          "durable": "1",
+          "wal_sequence": "136",
+          "result": "slept_ms=10000",
+          "pid": "88589",
+          "monotonic_ms": "98959055",
+          "event": "job_completed",
+          "observed_ns": 1120779790333
+        }
+      },
+      "accounting": {
+        "submitted": 32,
+        "completed": 32,
+        "terminally_failed": 0
+      },
+      "cleanup": {
+        "ok": true,
+        "errors": [],
+        "remaining": [],
+        "elapsed_ms": 48
+      },
+      "children": 540,
+      "overhead": {
+        "startup_ms": 831.2123750001774,
+        "verification_ms": 2080.62025,
+        "cleanup_ms": 48
+      },
+      "gap_from_previous_verdict_to_first_spawn_ms": 30160.478583,
+      "inspections": {
+        "count": 416,
+        "maximum_duration_ms": 23.319542,
+        "maximum_start_interval_ms": 213.399583
+      },
+      "artifacts_sha256": {
+        "manifest.json": "909157e426a69140ea0b63886559ee50eb83989033e15e32e38ab438c15e7f31",
+        "summary.json": "260439375bf5a2e4e2a8e21fcdb25a4f900a3f7e8b5da76df9d86e8dc96adf81",
+        "accounting.json": "2991551f000fdd8387577dc6ef8a40d64394098a11478a53b3025dfb2ad9c7c5",
+        "submissions.json": "85685e10c5f1261cd274cba392b5ea9a8ccdfa792ccd9f727d1c5abbcd311b2b",
+        "final-snapshots.json": "361887613dc8e18d058f656ffa02af731a377e4a60e1b4466376ac16fb47b0fa",
+        "timings.json": "54646476eee29c5f3442f48322208e22605c6a3679370f889f8dfca16ea626d2",
+        "fault.json": "f367a6418ded191ca5408be02dfe161619a07c83fec5438501207b2ec9cd902d",
+        "latencies.json": "9903fe317d511a20114da5bf49c24a431548dcc21bc1631945d9a486e1d5644a",
+        "machine.json": "126563252ff85ee27ccb8854036ec118116fa34e9b74b64023dbbf33190e2775",
+        "events.jsonl": "13b5e1c56c4686718644c7cd12bd380fa4a7a09d85e008f48dc363560353a8bb",
+        "coordinator.wal": "a9c4f89d360b45d8dd18a308267c8eb8efd0c5fbd5d7eca679e571816cf91dd4"
+      }
+    },
+    {
+      "campaign_index": 8,
+      "stage": "measured",
+      "measured_round": 2,
+      "scenario": "no_fault",
+      "workers": 4,
+      "path": "08-measured-r2-no_fault",
+      "created_utc": "2026-10-02T20:10:34.885561+00:00",
+      "elapsed_ms": 83209,
+      "machine_observations": {
+        "before": {
+          "observed_monotonic_ns": 1153427298833,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 98936410112,
+          "load_average": [
+            2.158203125,
+            2.32958984375,
+            2.5361328125
+          ]
+        },
+        "after": {
+          "observed_monotonic_ns": 1236229501791,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 98931355648,
+          "load_average": [
+            1.9560546875,
+            2.2041015625,
+            2.4658203125
+          ]
+        }
+      },
+      "metrics": {
+        "batch_elapsed_ms": 80186.217833,
+        "admission_ms": 500.391458,
+        "completed_jobs_per_second": 0.39907107311938406,
+        "mean_accepted_latency_ms": 44851.8125,
+        "p95_accepted_latency_ms": 79692,
+        "actual_faults": 0,
+        "attempts": 32,
+        "retries": 0,
+        "terminal_failures": 0,
+        "intervention_lateness_ms": 9.934167,
+        "observed_detection_ms": null,
+        "observed_reassignment_ms": null,
+        "observed_recovery_to_completion_ms": null,
+        "coordinator_loss_to_assignment_ms": null,
+        "coordinator_loss_to_completion_ms": null
+      },
+      "fault": {
+        "scenario": "no_fault",
+        "target": {
+          "job_id": 1,
+          "worker_id": 1,
+          "attempt": 1,
+          "slot": 0,
+          "pid": 89703,
+          "fd": "6"
+        },
+        "started_observed_ns": 1153983761583,
+        "scheduled_ns": 1154483761583,
+        "checkpoint_ns": 1154493695750
+      },
+      "accounting": {
+        "submitted": 32,
+        "completed": 32,
+        "terminally_failed": 0
+      },
+      "cleanup": {
+        "ok": true,
+        "errors": [],
+        "remaining": [],
+        "elapsed_ms": 52
+      },
+      "children": 512,
+      "overhead": {
+        "startup_ms": 824.4898750001539,
+        "verification_ms": 2092.230084,
+        "cleanup_ms": 52
+      },
+      "gap_from_previous_verdict_to_first_spawn_ms": 30167.181,
+      "inspections": {
+        "count": 389,
+        "maximum_duration_ms": 25.471292,
+        "maximum_start_interval_ms": 269.637875
+      },
+      "artifacts_sha256": {
+        "manifest.json": "ff1ded337ed05296ea73006e239cc6313c5972c2101607db7e684620961a4a06",
+        "summary.json": "6fb764155beb00edb13f1f4e9c8683f55c61ff6a296de315da2ac4caa73b3492",
+        "accounting.json": "0f37b65ac86209ce73d1c244a1adcd3654cd26ee03de686b19240224804ead37",
+        "submissions.json": "01199f295721c8a38fad1e7b9bfa624e4da89f6df61e535896e0ba7d9536aa67",
+        "final-snapshots.json": "3c8b9d9ede9b24287e2051e314ea42a96e29ccd0d1a155bb30476d3105b43dc6",
+        "timings.json": "dcc64747f811b6afce878ff308e82ee9f91ca7ac3a7da1c95d583d6b4a51319c",
+        "fault.json": "dd909455892bbb86e754cf016614e78b70c32eada89c4541eec44b58cee0c018",
+        "latencies.json": "efe190fe2ad863a7f6ce92f270e042b0fd76fbdd24ad15e6d2d63eecc8bda15f",
+        "machine.json": "82e3c20d3baa071e1c0122ed852a888841d71ffe601859b7b3c1758545521416",
+        "events.jsonl": "b485a5dc86a06d317b4045a519509c82fdf7d9170c3c1c6377e952b36b19d8ca",
+        "coordinator.wal": "4971f1e6807cfd494c63bd9f4e3c9d037a290ef244e9964d6c2d7b4e476f9b92"
+      }
+    },
+    {
+      "campaign_index": 9,
+      "stage": "measured",
+      "measured_round": 3,
+      "scenario": "heartbeat_expiry",
+      "workers": 4,
+      "path": "09-measured-r3-heartbeat_expiry",
+      "created_utc": "2026-10-02T20:12:28.246716+00:00",
+      "elapsed_ms": 89038,
+      "machine_observations": {
+        "before": {
+          "observed_monotonic_ns": 1266770362125,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 98929303552,
+          "load_average": [
+            1.80615234375,
+            2.13720703125,
+            2.4306640625
+          ]
+        },
+        "after": {
+          "observed_monotonic_ns": 1355404565875,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 98917838848,
+          "load_average": [
+            1.9462890625,
+            2.0390625,
+            2.3564453125
+          ]
+        }
+      },
+      "metrics": {
+        "batch_elapsed_ms": 85961.780792,
+        "admission_ms": 493.450959,
+        "completed_jobs_per_second": 0.3722584584122304,
+        "mean_accepted_latency_ms": 46259.6875,
+        "p95_accepted_latency_ms": 79653,
+        "actual_faults": 1,
+        "attempts": 33,
+        "retries": 1,
+        "terminal_failures": 0,
+        "intervention_lateness_ms": 1.92125,
+        "observed_detection_ms": 5204.533042,
+        "observed_reassignment_ms": 70042.650958,
+        "observed_recovery_to_completion_ms": 85260.362917,
+        "coordinator_loss_to_assignment_ms": 70042,
+        "coordinator_loss_to_completion_ms": 80047,
+        "signal_syscall_ms": 0.004542,
+        "replacement_launch_delay_ms": 0.890833,
+        "replacement_registration_ms": 19.330625
+      },
+      "fault": {
+        "scenario": "heartbeat_expiry",
+        "target": {
+          "job_id": 1,
+          "worker_id": 1,
+          "attempt": 1,
+          "slot": 0,
+          "pid": 90768,
+          "fd": "6"
+        },
+        "started_observed_ns": 1267332780416,
+        "scheduled_ns": 1267832780416,
+        "checkpoint_ns": 1267834701666,
+        "signal_before_ns": 1267834704208,
+        "signal_return_ns": 1267834708750,
+        "stopped_observed_ns": 1267834728000,
+        "timeout": {
+          "worker_id": "1",
+          "fd": "6",
+          "timeout_ms": "6000",
+          "detected_at_ms": "99111320",
+          "silence_ms": "6000",
+          "pid": "90766",
+          "monotonic_ms": "99111320",
+          "observed_ns": 1273038937291
+        },
+        "accepted_warnings": [
+          {
+            "event": "heartbeat_timeout",
+            "fields": {
+              "worker_id": "1",
+              "fd": "6",
+              "timeout_ms": "6000",
+              "detected_at_ms": "99111320",
+              "silence_ms": "6000",
+              "pid": "90766",
+              "monotonic_ms": "99111320"
+            }
+          },
+          {
+            "event": "job_worker_lost",
+            "fields": {
+              "job_id": "1",
+              "state": "QUEUED",
+              "worker_id": "0",
+              "attempt": "1",
+              "retry_count": "1",
+              "pending": "29",
+              "result_bytes": "0",
+              "task": "sleep",
+              "max_retries": "1",
+              "failure": "WORKER_LOST",
+              "outcome": "REQUEUED",
+              "previous_worker_id": "1",
+              "durable": "1",
+              "wal_sequence": "45",
+              "pid": "90766",
+              "monotonic_ms": "99111320"
+            }
+          },
+          {
+            "event": "worker_dead",
+            "fields": {
+              "worker_id": "1",
+              "fd": "6",
+              "state": "DEAD",
+              "last_heartbeat_ms": "99105320",
+              "reason": "heartbeat_timeout",
+              "pid": "90766",
+              "monotonic_ms": "99111320"
+            }
+          },
+          {
+            "event": "client_closed",
+            "fields": {
+              "fd": "6",
+              "worker_id": "1",
+              "reason": "heartbeat_timeout",
+              "pid": "90766",
+              "monotonic_ms": "99111320"
+            }
+          }
+        ],
+        "loss": {
+          "job_id": "1",
+          "state": "QUEUED",
+          "worker_id": "0",
+          "attempt": "1",
+          "retry_count": "1",
+          "pending": "29",
+          "result_bytes": "0",
+          "task": "sleep",
+          "max_retries": "1",
+          "failure": "WORKER_LOST",
+          "outcome": "REQUEUED",
+          "previous_worker_id": "1",
+          "durable": "1",
+          "wal_sequence": "45",
+          "pid": "90766",
+          "monotonic_ms": "99111320",
+          "event": "job_worker_lost",
+          "observed_ns": 1273039237250
+        },
+        "death": {
+          "worker_id": "1",
+          "fd": "6",
+          "state": "DEAD",
+          "last_heartbeat_ms": "99105320",
+          "reason": "heartbeat_timeout",
+          "pid": "90766",
+          "monotonic_ms": "99111320",
+          "observed_ns": 1273039486416
+        },
+        "closed": {
+          "fd": "6",
+          "worker_id": "1",
+          "reason": "heartbeat_timeout",
+          "pid": "90766",
+          "monotonic_ms": "99111320",
+          "observed_ns": 1273039585083
+        },
+        "replacement_launch_before_ns": 1273040128083,
+        "replacement_launch_return_ns": 1273043899875,
+        "replacement_registered_ns": 1273059458708,
+        "replacement_worker_id": 5,
+        "replacement_pid": 90863,
+        "resume_before_ns": 1277840636166,
+        "resume_return_ns": 1277840655166,
+        "reassigned": {
+          "job_id": "1",
+          "state": "ASSIGNED",
+          "worker_id": "5",
+          "attempt": "2",
+          "retry_count": "1",
+          "pending": "0",
+          "result_bytes": "0",
+          "task": "sleep",
+          "max_retries": "1",
+          "failure": "NONE",
+          "outcome": "ASSIGNED",
+          "previous_worker_id": "0",
+          "durable": "1",
+          "wal_sequence": "131",
+          "pid": "90766",
+          "monotonic_ms": "99181362",
+          "event": "job_assigned",
+          "observed_ns": 1343081888208
+        },
+        "restarted": {
+          "job_id": "1",
+          "state": "RUNNING",
+          "worker_id": "5",
+          "attempt": "2",
+          "retry_count": "1",
+          "pending": "0",
+          "result_bytes": "0",
+          "task": "sleep",
+          "max_retries": "1",
+          "failure": "NONE",
+          "outcome": "RUNNING",
+          "previous_worker_id": "0",
+          "durable": "1",
+          "wal_sequence": "132",
+          "pid": "90766",
+          "monotonic_ms": "99181362",
+          "event": "job_started",
+          "observed_ns": 1343082011708
+        },
+        "completed": {
+          "job_id": "1",
+          "state": "DONE",
+          "worker_id": "5",
+          "attempt": "2",
+          "retry_count": "1",
+          "pending": "0",
+          "result_bytes": "14",
+          "task": "sleep",
+          "max_retries": "1",
+          "failure": "NONE",
+          "outcome": "COMPLETED",
+          "previous_worker_id": "0",
+          "durable": "1",
+          "wal_sequence": "136",
+          "result": "slept_ms=10000",
+          "pid": "90766",
+          "monotonic_ms": "99191367",
+          "event": "job_completed",
+          "observed_ns": 1353095067125
+        }
+      },
+      "accounting": {
+        "submitted": 32,
+        "completed": 32,
+        "terminally_failed": 0
+      },
+      "cleanup": {
+        "ok": true,
+        "errors": [],
+        "remaining": [],
+        "elapsed_ms": 52
+      },
+      "children": 541,
+      "overhead": {
+        "startup_ms": 823.01587500001,
+        "verification_ms": 2143.072792,
+        "cleanup_ms": 52
+      },
+      "gap_from_previous_verdict_to_first_spawn_ms": 30144.388792,
+      "inspections": {
+        "count": 417,
+        "maximum_duration_ms": 31.123792,
+        "maximum_start_interval_ms": 213.549625
+      },
+      "artifacts_sha256": {
+        "manifest.json": "51ca73ca72d7d0cd627497a1d1e6c05a1d55c9cfbb63dfe8678c38033f014be9",
+        "summary.json": "0c5d3bc976808dacda9337e86de568b37ec975820f7f5050c7d73893399e64a6",
+        "accounting.json": "773335f20e8413d86372afc9f03a980035ca95cbda813931ae160ffe08e85eda",
+        "submissions.json": "283e7c79b89301020949f20dd01987e5cc75179981e33af00a4cb70c9e2f3eee",
+        "final-snapshots.json": "e30e60ed8dfbc0bcd254654aa81dd0344b1a505fe38d4378ecb2b5d42c4735e5",
+        "timings.json": "b9ff106e58f49e4added71bbf7b3a93281348cd7c649e5e526ff859244005aa8",
+        "fault.json": "9afd4710ce3272af74841060af4500e5e01e33d5cd7336191068372f640a4409",
+        "latencies.json": "9ca2413ce30eeee77ee0570723a5eb1dd69489591206400a96f3dd98aa62b532",
+        "machine.json": "722695ef1ce9bea99099ec4d2d02191ea0237c88e0dbc46dc5dbba1148361f05",
+        "events.jsonl": "5943bfd8c3697109adfefdd400e0ddab9af6e693a3ea3b46d4a5bbfc6b52e5ae",
+        "coordinator.wal": "a2214b84f7bb845da053b488ed43d5947240b7ed5e42fd0de45d13f3271190e5"
+      }
+    },
+    {
+      "campaign_index": 10,
+      "stage": "measured",
+      "measured_round": 3,
+      "scenario": "no_fault",
+      "workers": 4,
+      "path": "10-measured-r3-no_fault",
+      "created_utc": "2026-10-02T20:14:27.402376+00:00",
+      "elapsed_ms": 83319,
+      "machine_observations": {
+        "before": {
+          "observed_monotonic_ns": 1385953427416,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 98897154048,
+          "load_average": [
+            1.8642578125,
+            2.00390625,
+            2.3310546875
+          ]
+        },
+        "after": {
+          "observed_monotonic_ns": 1468854916708,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 98887909376,
+          "load_average": [
+            1.8271484375,
+            1.9677734375,
+            2.28759765625
+          ]
+        }
+      },
+      "metrics": {
+        "batch_elapsed_ms": 80264.134833,
+        "admission_ms": 501.748375,
+        "completed_jobs_per_second": 0.3986836719361664,
+        "mean_accepted_latency_ms": 44854.6875,
+        "p95_accepted_latency_ms": 79708,
+        "actual_faults": 0,
+        "attempts": 32,
+        "retries": 0,
+        "terminal_failures": 0,
+        "intervention_lateness_ms": 8.81275,
+        "observed_detection_ms": null,
+        "observed_reassignment_ms": null,
+        "observed_recovery_to_completion_ms": null,
+        "coordinator_loss_to_assignment_ms": null,
+        "coordinator_loss_to_completion_ms": null
+      },
+      "fault": {
+        "scenario": "no_fault",
+        "target": {
+          "job_id": 1,
+          "worker_id": 1,
+          "attempt": 1,
+          "slot": 0,
+          "pid": 91868,
+          "fd": "6"
+        },
+        "started_observed_ns": 1386504780500,
+        "scheduled_ns": 1387004780500,
+        "checkpoint_ns": 1387013593250
+      },
+      "accounting": {
+        "submitted": 32,
+        "completed": 32,
+        "terminally_failed": 0
+      },
+      "cleanup": {
+        "ok": true,
+        "errors": [],
+        "remaining": [],
+        "elapsed_ms": 52
+      },
+      "children": 513,
+      "overhead": {
+        "startup_ms": 835.710416999973,
+        "verification_ms": 2119.198042,
+        "cleanup_ms": 52
+      },
+      "gap_from_previous_verdict_to_first_spawn_ms": 30124.432834,
+      "inspections": {
+        "count": 390,
+        "maximum_duration_ms": 23.8435,
+        "maximum_start_interval_ms": 214.276333
+      },
+      "artifacts_sha256": {
+        "manifest.json": "b91220cde524734089dc083d719434d478bb60c815309769020c41e38df5c62c",
+        "summary.json": "8d44c5fe8b4e37b8f881e36f02d32009e69102ed839d856373dd1e6bda9cbafc",
+        "accounting.json": "1e039ddf101d7b9243367a8b67b012fa1eb263cd72ea48ac1b4857d4e6b665c9",
+        "submissions.json": "24adfff77bf8a383b64a75ece3d7d1823b9cd1f51511514307485ac6802178a4",
+        "final-snapshots.json": "49d32ac8d87e6c4438a83b6682db06d6e28a0a9064b66f609b52ade0353e7756",
+        "timings.json": "d3fba70097989d62223a1eeaf749514ddc0e64374c8e9f817b9625112f0a986c",
+        "fault.json": "39749c56a958235386a4149fe72eda4dda62d43195541427c804162e4de61861",
+        "latencies.json": "3c2656211a0ebced01b32ff010af439980494f55df0daafbddf7209667dd6fed",
+        "machine.json": "d5966cb7cc26ffdfa0e8d05e609d7d99dcf118776c944798341d74c5873df45c",
+        "events.jsonl": "ad9f300d632295118f2a1403b476c808e439ca51ece7fb566c0fbfbf4aaaed88",
+        "coordinator.wal": "4ee1adbfc6289abcdc9e41b0b1b65e1cac8e0fbb9fdbcff43df6993f7d6a9271"
+      }
+    },
+    {
+      "campaign_index": 11,
+      "stage": "measured",
+      "measured_round": 3,
+      "scenario": "sigkill",
+      "workers": 4,
+      "path": "11-measured-r3-sigkill",
+      "created_utc": "2026-10-02T20:16:20.859237+00:00",
+      "elapsed_ms": 83851,
+      "machine_observations": {
+        "before": {
+          "observed_monotonic_ns": 1499410428041,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 98884300800,
+          "load_average": [
+            1.5,
+            1.8740234375,
+            2.2412109375
+          ]
+        },
+        "after": {
+          "observed_monotonic_ns": 1582872163375,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 98851053568,
+          "load_average": [
+            2.47265625,
+            2.0107421875,
+            2.25146484375
+          ]
+        }
+      },
+      "metrics": {
+        "batch_elapsed_ms": 80804.753208,
+        "admission_ms": 496.544458,
+        "completed_jobs_per_second": 0.39601630757572653,
+        "mean_accepted_latency_ms": 44971.65625,
+        "p95_accepted_latency_ms": 79688,
+        "actual_faults": 1,
+        "attempts": 33,
+        "retries": 1,
+        "terminal_failures": 0,
+        "intervention_lateness_ms": 5.890417,
+        "observed_detection_ms": 10.702333,
+        "observed_reassignment_ms": 70046.177792,
+        "observed_recovery_to_completion_ms": 80104.50875,
+        "coordinator_loss_to_assignment_ms": 70050,
+        "coordinator_loss_to_completion_ms": 80104,
+        "signal_syscall_ms": 0.005708,
+        "replacement_launch_delay_ms": 0.401,
+        "replacement_registration_ms": 15.613917
+      },
+      "fault": {
+        "scenario": "sigkill",
+        "target": {
+          "job_id": 1,
+          "worker_id": 1,
+          "attempt": 1,
+          "slot": 0,
+          "pid": 92916,
+          "fd": "6"
+        },
+        "started_observed_ns": 1499966420916,
+        "scheduled_ns": 1500466420916,
+        "checkpoint_ns": 1500472311333,
+        "signal_before_ns": 1500472314208,
+        "signal_return_ns": 1500472319916,
+        "loss": {
+          "job_id": "1",
+          "state": "QUEUED",
+          "worker_id": "0",
+          "attempt": "1",
+          "retry_count": "1",
+          "pending": "29",
+          "result_bytes": "0",
+          "task": "sleep",
+          "max_retries": "1",
+          "failure": "WORKER_LOST",
+          "outcome": "REQUEUED",
+          "previous_worker_id": "1",
+          "durable": "1",
+          "wal_sequence": "45",
+          "pid": "92914",
+          "monotonic_ms": "99338757",
+          "event": "job_worker_lost",
+          "observed_ns": 1500483016541
+        },
+        "accepted_warnings": [
+          {
+            "event": "job_worker_lost",
+            "fields": {
+              "job_id": "1",
+              "state": "QUEUED",
+              "worker_id": "0",
+              "attempt": "1",
+              "retry_count": "1",
+              "pending": "29",
+              "result_bytes": "0",
+              "task": "sleep",
+              "max_retries": "1",
+              "failure": "WORKER_LOST",
+              "outcome": "REQUEUED",
+              "previous_worker_id": "1",
+              "durable": "1",
+              "wal_sequence": "45",
+              "pid": "92914",
+              "monotonic_ms": "99338757"
+            }
+          },
+          {
+            "event": "worker_dead",
+            "fields": {
+              "worker_id": "1",
+              "fd": "6",
+              "state": "DEAD",
+              "last_heartbeat_ms": "99337959",
+              "reason": "eof",
+              "pid": "92914",
+              "monotonic_ms": "99338757"
+            }
+          }
+        ],
+        "death": {
+          "worker_id": "1",
+          "fd": "6",
+          "state": "DEAD",
+          "last_heartbeat_ms": "99337959",
+          "reason": "eof",
+          "pid": "92914",
+          "monotonic_ms": "99338757",
+          "observed_ns": 1500483115333
+        },
+        "closed": {
+          "fd": "6",
+          "worker_id": "1",
+          "reason": "eof",
+          "pid": "92914",
+          "monotonic_ms": "99338757",
+          "observed_ns": 1500483151375
+        },
+        "replacement_launch_before_ns": 1500483417541,
+        "replacement_launch_return_ns": 1500485182083,
+        "replacement_registered_ns": 1500499031458,
+        "replacement_worker_id": 5,
+        "replacement_pid": 92973,
+        "reassigned": {
+          "job_id": "1",
+          "state": "ASSIGNED",
+          "worker_id": "5",
+          "attempt": "2",
+          "retry_count": "1",
+          "pending": "0",
+          "result_bytes": "0",
+          "task": "sleep",
+          "max_retries": "1",
+          "failure": "NONE",
+          "outcome": "ASSIGNED",
+          "previous_worker_id": "0",
+          "durable": "1",
+          "wal_sequence": "131",
+          "pid": "92914",
+          "monotonic_ms": "99408807",
+          "event": "job_assigned",
+          "observed_ns": 1570529194333
+        },
+        "restarted": {
+          "job_id": "1",
+          "state": "RUNNING",
+          "worker_id": "5",
+          "attempt": "2",
+          "retry_count": "1",
+          "pending": "0",
+          "result_bytes": "0",
+          "task": "sleep",
+          "max_retries": "1",
+          "failure": "NONE",
+          "outcome": "RUNNING",
+          "previous_worker_id": "0",
+          "durable": "1",
+          "wal_sequence": "132",
+          "pid": "92914",
+          "monotonic_ms": "99408807",
+          "event": "job_started",
+          "observed_ns": 1570529377000
+        },
+        "completed": {
+          "job_id": "1",
+          "state": "DONE",
+          "worker_id": "5",
+          "attempt": "2",
+          "retry_count": "1",
+          "pending": "0",
+          "result_bytes": "14",
+          "task": "sleep",
+          "max_retries": "1",
+          "failure": "NONE",
+          "outcome": "COMPLETED",
+          "previous_worker_id": "0",
+          "durable": "1",
+          "wal_sequence": "136",
+          "result": "slept_ms=10000",
+          "pid": "92914",
+          "monotonic_ms": "99418861",
+          "event": "job_completed",
+          "observed_ns": 1580576822958
+        }
+      },
+      "accounting": {
+        "submitted": 32,
+        "completed": 32,
+        "terminally_failed": 0
+      },
+      "cleanup": {
+        "ok": true,
+        "errors": [],
+        "remaining": [],
+        "elapsed_ms": 25
+      },
+      "children": 516,
+      "overhead": {
+        "startup_ms": 836.1670419999427,
+        "verification_ms": 2132.672792,
+        "cleanup_ms": 25
+      },
+      "gap_from_previous_verdict_to_first_spawn_ms": 30157.659166,
+      "inspections": {
+        "count": 392,
+        "maximum_duration_ms": 37.573083,
+        "maximum_start_interval_ms": 213.800291
+      },
+      "artifacts_sha256": {
+        "manifest.json": "5366b7870e9b02382b7f9cffe2cb0fd1239f3a93a3ba122a6db6d77c8d9879a9",
+        "summary.json": "07ca198c9b14a1a7f795d4b31ac8e338762cb75ccf1da05af84d6f70b3ffe40b",
+        "accounting.json": "15becca94b94750411e2e18eda4e73c927d921054ca7f99708f026d71a8cd6f0",
+        "submissions.json": "e0b7e551fe9c49a24fd2e341205f82dc312db57d060ff4f34d646c060eb87d10",
+        "final-snapshots.json": "95470e9d705024171c55bcd1b3325f7c669b888e3ff39b4461b540ff47ee3974",
+        "timings.json": "5c02d498db6dcff20a7589fd835c53a3444e151fc7fcacc66ac8add43da97002",
+        "fault.json": "a1bdc6be1084818cd7fdf73a4e456d39218ff57e3aa8160e0177809aea28ec67",
+        "latencies.json": "8c94a5b8176431346f297cd879ef720d95e28b73cae752d85580f001e2c749d6",
+        "machine.json": "1674a49183ebd8b86365eace1882229e3af55bc362d5855446e8e10d5aa60e55",
+        "events.jsonl": "3bdef0edf6b438bb5477a159173292fed736050d00a0d2c7308aed9f2e7a1b0d",
+        "coordinator.wal": "ce48955dd96f3d3871397cdbc7993945cca568633ecf87f6575236702eb2b363"
+      }
+    },
+    {
+      "campaign_index": 12,
+      "stage": "measured",
+      "measured_round": 4,
+      "scenario": "heartbeat_expiry",
+      "workers": 4,
+      "path": "12-measured-r4-heartbeat_expiry",
+      "created_utc": "2026-10-02T20:18:14.826005+00:00",
+      "elapsed_ms": 89128,
+      "machine_observations": {
+        "before": {
+          "observed_monotonic_ns": 1613342193375,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 98837209088,
+          "load_average": [
+            2.0732421875,
+            1.9599609375,
+            2.224609375
+          ]
+        },
+        "after": {
+          "observed_monotonic_ns": 1702086256583,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 98821267456,
+          "load_average": [
+            3.0283203125,
+            2.24462890625,
+            2.30029296875
+          ]
+        }
+      },
+      "metrics": {
+        "batch_elapsed_ms": 86049.44475,
+        "admission_ms": 533.77775,
+        "completed_jobs_per_second": 0.3718792154088827,
+        "mean_accepted_latency_ms": 46260.5,
+        "p95_accepted_latency_ms": 79682,
+        "actual_faults": 1,
+        "attempts": 33,
+        "retries": 1,
+        "terminal_failures": 0,
+        "intervention_lateness_ms": 11.274292,
+        "observed_detection_ms": 5189.582917,
+        "observed_reassignment_ms": 70148.067458,
+        "observed_recovery_to_completion_ms": 85332.422,
+        "coordinator_loss_to_assignment_ms": 70140,
+        "coordinator_loss_to_completion_ms": 80146,
+        "signal_syscall_ms": 0.003625,
+        "replacement_launch_delay_ms": 0.397125,
+        "replacement_registration_ms": 16.184542
+      },
+      "fault": {
+        "scenario": "heartbeat_expiry",
+        "target": {
+          "job_id": 1,
+          "worker_id": 1,
+          "attempt": 1,
+          "slot": 0,
+          "pid": 94398,
+          "fd": "6"
+        },
+        "started_observed_ns": 1613911176833,
+        "scheduled_ns": 1614411176833,
+        "checkpoint_ns": 1614422451125,
+        "signal_before_ns": 1614422453791,
+        "signal_return_ns": 1614422457416,
+        "stopped_observed_ns": 1614422478250,
+        "timeout": {
+          "worker_id": "1",
+          "fd": "6",
+          "timeout_ms": "6000",
+          "detected_at_ms": "99457894",
+          "silence_ms": "6001",
+          "pid": "94396",
+          "monotonic_ms": "99457894",
+          "observed_ns": 1619611912458
+        },
+        "accepted_warnings": [
+          {
+            "event": "heartbeat_timeout",
+            "fields": {
+              "worker_id": "1",
+              "fd": "6",
+              "timeout_ms": "6000",
+              "detected_at_ms": "99457894",
+              "silence_ms": "6001",
+              "pid": "94396",
+              "monotonic_ms": "99457894"
+            }
+          },
+          {
+            "event": "job_worker_lost",
+            "fields": {
+              "job_id": "1",
+              "state": "QUEUED",
+              "worker_id": "0",
+              "attempt": "1",
+              "retry_count": "1",
+              "pending": "29",
+              "result_bytes": "0",
+              "task": "sleep",
+              "max_retries": "1",
+              "failure": "WORKER_LOST",
+              "outcome": "REQUEUED",
+              "previous_worker_id": "1",
+              "durable": "1",
+              "wal_sequence": "45",
+              "pid": "94396",
+              "monotonic_ms": "99457894"
+            }
+          },
+          {
+            "event": "worker_dead",
+            "fields": {
+              "worker_id": "1",
+              "fd": "6",
+              "state": "DEAD",
+              "last_heartbeat_ms": "99451893",
+              "reason": "heartbeat_timeout",
+              "pid": "94396",
+              "monotonic_ms": "99457894"
+            }
+          },
+          {
+            "event": "client_closed",
+            "fields": {
+              "fd": "6",
+              "worker_id": "1",
+              "reason": "heartbeat_timeout",
+              "pid": "94396",
+              "monotonic_ms": "99457894"
+            }
+          }
+        ],
+        "loss": {
+          "job_id": "1",
+          "state": "QUEUED",
+          "worker_id": "0",
+          "attempt": "1",
+          "retry_count": "1",
+          "pending": "29",
+          "result_bytes": "0",
+          "task": "sleep",
+          "max_retries": "1",
+          "failure": "WORKER_LOST",
+          "outcome": "REQUEUED",
+          "previous_worker_id": "1",
+          "durable": "1",
+          "wal_sequence": "45",
+          "pid": "94396",
+          "monotonic_ms": "99457894",
+          "event": "job_worker_lost",
+          "observed_ns": 1619612036708
+        },
+        "death": {
+          "worker_id": "1",
+          "fd": "6",
+          "state": "DEAD",
+          "last_heartbeat_ms": "99451893",
+          "reason": "heartbeat_timeout",
+          "pid": "94396",
+          "monotonic_ms": "99457894",
+          "observed_ns": 1619612162041
+        },
+        "closed": {
+          "fd": "6",
+          "worker_id": "1",
+          "reason": "heartbeat_timeout",
+          "pid": "94396",
+          "monotonic_ms": "99457894",
+          "observed_ns": 1619612204875
+        },
+        "replacement_launch_before_ns": 1619612433833,
+        "replacement_launch_return_ns": 1619614357875,
+        "replacement_registered_ns": 1619628618375,
+        "replacement_worker_id": 5,
+        "replacement_pid": 94512,
+        "resume_before_ns": 1624427954500,
+        "resume_return_ns": 1624427968250,
+        "reassigned": {
+          "job_id": "1",
+          "state": "ASSIGNED",
+          "worker_id": "5",
+          "attempt": "2",
+          "retry_count": "1",
+          "pending": "0",
+          "result_bytes": "0",
+          "task": "sleep",
+          "max_retries": "1",
+          "failure": "NONE",
+          "outcome": "ASSIGNED",
+          "previous_worker_id": "0",
+          "durable": "1",
+          "wal_sequence": "131",
+          "pid": "94396",
+          "monotonic_ms": "99528034",
+          "event": "job_assigned",
+          "observed_ns": 1689760104166
+        },
+        "restarted": {
+          "job_id": "1",
+          "state": "RUNNING",
+          "worker_id": "5",
+          "attempt": "2",
+          "retry_count": "1",
+          "pending": "0",
+          "result_bytes": "0",
+          "task": "sleep",
+          "max_retries": "1",
+          "failure": "NONE",
+          "outcome": "RUNNING",
+          "previous_worker_id": "0",
+          "durable": "1",
+          "wal_sequence": "132",
+          "pid": "94396",
+          "monotonic_ms": "99528034",
+          "event": "job_started",
+          "observed_ns": 1689760235083
+        },
+        "completed": {
+          "job_id": "1",
+          "state": "DONE",
+          "worker_id": "5",
+          "attempt": "2",
+          "retry_count": "1",
+          "pending": "0",
+          "result_bytes": "14",
+          "task": "sleep",
+          "max_retries": "1",
+          "failure": "NONE",
+          "outcome": "COMPLETED",
+          "previous_worker_id": "0",
+          "durable": "1",
+          "wal_sequence": "136",
+          "result": "slept_ms=10000",
+          "pid": "94396",
+          "monotonic_ms": "99538040",
+          "event": "job_completed",
+          "observed_ns": 1699754875791
+        }
+      },
+      "accounting": {
+        "submitted": 32,
+        "completed": 32,
+        "terminally_failed": 0
+      },
+      "cleanup": {
+        "ok": true,
+        "errors": [],
+        "remaining": [],
+        "elapsed_ms": 27
+      },
+      "children": 541,
+      "overhead": {
+        "startup_ms": 818.3729170000333,
+        "verification_ms": 2157.061291,
+        "cleanup_ms": 27
+      },
+      "gap_from_previous_verdict_to_first_spawn_ms": 30110.790667,
+      "inspections": {
+        "count": 417,
+        "maximum_duration_ms": 118.338125,
+        "maximum_start_interval_ms": 228.378625
+      },
+      "artifacts_sha256": {
+        "manifest.json": "45a86920c4256656ed3b7ff3d5f4d32f954a4db68ac5a2af67c41ac05e49aaab",
+        "summary.json": "b65d767819966eb6c1a7ff6dc778355b478a27140db0604661eefe2e7afa8821",
+        "accounting.json": "b72ca664f2b6e71f2fe750e74f2e9bde17830493f5bb92af60817ae61efb0d67",
+        "submissions.json": "1a53d7fdb009c1bd04c3e133952487806d57cb1876f8b34122e0b9843a301cc3",
+        "final-snapshots.json": "0fe7bee3bd96d58995954dd5cbff0f347ec67e0fbdfaa3c99a7b90cf3db94571",
+        "timings.json": "96df9f3bad2916dc1ec823ad7c64048b32124020e224d41a86856af2435f2ba6",
+        "fault.json": "0d36e918ce1eff50193ea0110248bd4e91995b5cb941d52387521f5d7da6bf2c",
+        "latencies.json": "1752d8c7ce5bb7159c9a3191a8ddf5e35109f5018a13200f7a31174ad41f8630",
+        "machine.json": "5f2b84d9dfdaa1cf8f5efb9d52354eced136332dc7ce3d4ae85fdc84d6ba5276",
+        "events.jsonl": "ca57c4838875f4a69ff1e413f8c33d08b01aa6b1058169479d4b77eb4abd9f44",
+        "coordinator.wal": "27244b21cb3b6dcc5a91b3aa5a2fd5cb61fff2d96e811e3f571ea61209cd8c73"
+      }
+    },
+    {
+      "campaign_index": 13,
+      "stage": "measured",
+      "measured_round": 4,
+      "scenario": "sigkill",
+      "workers": 4,
+      "path": "13-measured-r4-sigkill",
+      "created_utc": "2026-10-02T20:20:14.066166+00:00",
+      "elapsed_ms": 83762,
+      "machine_observations": {
+        "before": {
+          "observed_monotonic_ns": 1732595926958,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 98817294336,
+          "load_average": [
+            3.521484375,
+            2.4423828125,
+            2.369140625
+          ]
+        },
+        "after": {
+          "observed_monotonic_ns": 1815960656208,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 98816778240,
+          "load_average": [
+            2.9111328125,
+            2.56640625,
+            2.42333984375
+          ]
+        }
+      },
+      "metrics": {
+        "batch_elapsed_ms": 80685.931333,
+        "admission_ms": 504.6525,
+        "completed_jobs_per_second": 0.39659949970624203,
+        "mean_accepted_latency_ms": 44965.8125,
+        "p95_accepted_latency_ms": 79717,
+        "actual_faults": 1,
+        "attempts": 33,
+        "retries": 1,
+        "terminal_failures": 0,
+        "intervention_lateness_ms": 0.380625,
+        "observed_detection_ms": 0.687583,
+        "observed_reassignment_ms": 70099.41875,
+        "observed_recovery_to_completion_ms": 80101.640916,
+        "coordinator_loss_to_assignment_ms": 70088,
+        "coordinator_loss_to_completion_ms": 80094,
+        "signal_syscall_ms": 0.006333,
+        "replacement_launch_delay_ms": 0.332542,
+        "replacement_registration_ms": 15.429583
+      },
+      "fault": {
+        "scenario": "sigkill",
+        "target": {
+          "job_id": 1,
+          "worker_id": 1,
+          "attempt": 1,
+          "slot": 0,
+          "pid": 95660,
+          "fd": "6"
+        },
+        "started_observed_ns": 1733157439208,
+        "scheduled_ns": 1733657439208,
+        "checkpoint_ns": 1733657819833,
+        "signal_before_ns": 1733657824250,
+        "signal_return_ns": 1733657830583,
+        "loss": {
+          "job_id": "1",
+          "state": "QUEUED",
+          "worker_id": "0",
+          "attempt": "1",
+          "retry_count": "1",
+          "pending": "29",
+          "result_bytes": "0",
+          "task": "sleep",
+          "max_retries": "1",
+          "failure": "WORKER_LOST",
+          "outcome": "REQUEUED",
+          "previous_worker_id": "1",
+          "durable": "1",
+          "wal_sequence": "45",
+          "pid": "95658",
+          "monotonic_ms": "99571938",
+          "event": "job_worker_lost",
+          "observed_ns": 1733658511833
+        },
+        "accepted_warnings": [
+          {
+            "event": "job_worker_lost",
+            "fields": {
+              "job_id": "1",
+              "state": "QUEUED",
+              "worker_id": "0",
+              "attempt": "1",
+              "retry_count": "1",
+              "pending": "29",
+              "result_bytes": "0",
+              "task": "sleep",
+              "max_retries": "1",
+              "failure": "WORKER_LOST",
+              "outcome": "REQUEUED",
+              "previous_worker_id": "1",
+              "durable": "1",
+              "wal_sequence": "45",
+              "pid": "95658",
+              "monotonic_ms": "99571938"
+            }
+          },
+          {
+            "event": "worker_dead",
+            "fields": {
+              "worker_id": "1",
+              "fd": "6",
+              "state": "DEAD",
+              "last_heartbeat_ms": "99571141",
+              "reason": "eof",
+              "pid": "95658",
+              "monotonic_ms": "99571938"
+            }
+          }
+        ],
+        "death": {
+          "worker_id": "1",
+          "fd": "6",
+          "state": "DEAD",
+          "last_heartbeat_ms": "99571141",
+          "reason": "eof",
+          "pid": "95658",
+          "monotonic_ms": "99571938",
+          "observed_ns": 1733658590666
+        },
+        "closed": {
+          "fd": "6",
+          "worker_id": "1",
+          "reason": "eof",
+          "pid": "95658",
+          "monotonic_ms": "99571938",
+          "observed_ns": 1733658625583
+        },
+        "replacement_launch_before_ns": 1733658844375,
+        "replacement_launch_return_ns": 1733660455083,
+        "replacement_registered_ns": 1733674273958,
+        "replacement_worker_id": 5,
+        "replacement_pid": 95718,
+        "reassigned": {
+          "job_id": "1",
+          "state": "ASSIGNED",
+          "worker_id": "5",
+          "attempt": "2",
+          "retry_count": "1",
+          "pending": "0",
+          "result_bytes": "0",
+          "task": "sleep",
+          "max_retries": "1",
+          "failure": "NONE",
+          "outcome": "ASSIGNED",
+          "previous_worker_id": "0",
+          "durable": "1",
+          "wal_sequence": "131",
+          "pid": "95658",
+          "monotonic_ms": "99642026",
+          "event": "job_assigned",
+          "observed_ns": 1803757930583
+        },
+        "restarted": {
+          "job_id": "1",
+          "state": "RUNNING",
+          "worker_id": "5",
+          "attempt": "2",
+          "retry_count": "1",
+          "pending": "0",
+          "result_bytes": "0",
+          "task": "sleep",
+          "max_retries": "1",
+          "failure": "NONE",
+          "outcome": "RUNNING",
+          "previous_worker_id": "0",
+          "durable": "1",
+          "wal_sequence": "132",
+          "pid": "95658",
+          "monotonic_ms": "99642026",
+          "event": "job_started",
+          "observed_ns": 1803758210833
+        },
+        "completed": {
+          "job_id": "1",
+          "state": "DONE",
+          "worker_id": "5",
+          "attempt": "2",
+          "retry_count": "1",
+          "pending": "0",
+          "result_bytes": "14",
+          "task": "sleep",
+          "max_retries": "1",
+          "failure": "NONE",
+          "outcome": "COMPLETED",
+          "previous_worker_id": "0",
+          "durable": "1",
+          "wal_sequence": "136",
+          "result": "slept_ms=10000",
+          "pid": "95658",
+          "monotonic_ms": "99652032",
+          "event": "job_completed",
+          "observed_ns": 1813759465166
+        }
+      },
+      "accounting": {
+        "submitted": 32,
+        "completed": 32,
+        "terminally_failed": 0
+      },
+      "cleanup": {
+        "ok": true,
+        "errors": [],
+        "remaining": [],
+        "elapsed_ms": 52
+      },
+      "children": 514,
+      "overhead": {
+        "startup_ms": 820.923958999856,
+        "verification_ms": 2150.575375,
+        "cleanup_ms": 52
+      },
+      "gap_from_previous_verdict_to_first_spawn_ms": 30119.192458,
+      "inspections": {
+        "count": 390,
+        "maximum_duration_ms": 74.185875,
+        "maximum_start_interval_ms": 224.223125
+      },
+      "artifacts_sha256": {
+        "manifest.json": "b6d3c0bb8ea48e7341163071778b5ee4d6d2fff70915f86d0271e23e63ba2c6b",
+        "summary.json": "38f1fa0c6d7b134f200fe3d811947fe5ffccdb8a29f74e465b862248e40b652f",
+        "accounting.json": "9079d42198ae3d3a4a6516071a91a6ea83508f2ccdde0d33a1794d647fe7db40",
+        "submissions.json": "cbf886df2d157aad82d9ba1bf2aca4306e87bc2df839e48c120a207898ee091d",
+        "final-snapshots.json": "352b56da346edebf197a6d44b785821de8f757ad61cd9757d9df83e1de2dfeef",
+        "timings.json": "3154d6f66647ff1a126a4c57dd988fc46b35c5602ebaa434e22ece0206f3cac6",
+        "fault.json": "dbe8713777439dd2c0d81083b87687ec43f31176357364891ce7b6f52f80dcf4",
+        "latencies.json": "8ffcd36ea68158f622953322c00288659809aa3f759102a5389bdeefa249439f",
+        "machine.json": "f1b1330f72c6fd0f96fd4597e7bad64643c31dd454c818dabb3f0a38ba9be361",
+        "events.jsonl": "82e6d55903a9cabb72b04976d10b7551fb6c5e84759bb0e5d08e7e09145bfd82",
+        "coordinator.wal": "ec7c9237e862b860bfafc527c2dd35d954bb3e2e5422e8d7d7e80f2031b10c57"
+      }
+    },
+    {
+      "campaign_index": 14,
+      "stage": "measured",
+      "measured_round": 4,
+      "scenario": "no_fault",
+      "workers": 4,
+      "path": "14-measured-r4-no_fault",
+      "created_utc": "2026-10-02T20:22:07.940378+00:00",
+      "elapsed_ms": 83392,
+      "machine_observations": {
+        "before": {
+          "observed_monotonic_ns": 1846477891875,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 98814013440,
+          "load_average": [
+            3.48046875,
+            2.73486328125,
+            2.48779296875
+          ]
+        },
+        "after": {
+          "observed_monotonic_ns": 1929433413333,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 98811527168,
+          "load_average": [
+            2.0703125,
+            2.44873046875,
+            2.39990234375
+          ]
+        }
+      },
+      "metrics": {
+        "batch_elapsed_ms": 80358.29125,
+        "admission_ms": 500.043875,
+        "completed_jobs_per_second": 0.39821653126552764,
+        "mean_accepted_latency_ms": 44842.28125,
+        "p95_accepted_latency_ms": 79672,
+        "actual_faults": 0,
+        "attempts": 32,
+        "retries": 0,
+        "terminal_failures": 0,
+        "intervention_lateness_ms": 7.668959,
+        "observed_detection_ms": null,
+        "observed_reassignment_ms": null,
+        "observed_recovery_to_completion_ms": null,
+        "coordinator_loss_to_assignment_ms": null,
+        "coordinator_loss_to_completion_ms": null
+      },
+      "fault": {
+        "scenario": "no_fault",
+        "target": {
+          "job_id": 1,
+          "worker_id": 1,
+          "attempt": 1,
+          "slot": 0,
+          "pid": 96777,
+          "fd": "6"
+        },
+        "started_observed_ns": 1847037478291,
+        "scheduled_ns": 1847537478291,
+        "checkpoint_ns": 1847545147250
+      },
+      "accounting": {
+        "submitted": 32,
+        "completed": 32,
+        "terminally_failed": 0
+      },
+      "cleanup": {
+        "ok": true,
+        "errors": [],
+        "remaining": [],
+        "elapsed_ms": 51
+      },
+      "children": 513,
+      "overhead": {
+        "startup_ms": 824.3594169998687,
+        "verification_ms": 2067.580625,
+        "cleanup_ms": 51
+      },
+      "gap_from_previous_verdict_to_first_spawn_ms": 30117.265041,
+      "inspections": {
+        "count": 390,
+        "maximum_duration_ms": 21.228125,
+        "maximum_start_interval_ms": 212.979209
+      },
+      "artifacts_sha256": {
+        "manifest.json": "d3b6fad84e39ac92ef707861f4720a71c5baf52aff5cfa8a7fe890e8a343eb85",
+        "summary.json": "1c3026580288bbfe2a00c03086ab6f8eec4386a29e9674f0e13e99a8fa8abdc3",
+        "accounting.json": "6ee92b49ca5a0cdefb0404c8e3cffb5534e249aaac6e94b2b85d7d61c52ae24c",
+        "submissions.json": "59a7500629fd3fa3636b05b071bfc0d83305fdebddd6db4dcf1344359fb57359",
+        "final-snapshots.json": "f7d61e87c98085e4dd295b8517628f7d7b100bafeba68720612665a47bb5ac79",
+        "timings.json": "c25d853b9e9f6ca157df1ed0438dfc8801926eee58d611a94c0a80320b3526ce",
+        "fault.json": "29dbb285bc00ec65e2657cf0e8f5092381a993b33a5b3effb071bbea0392418f",
+        "latencies.json": "3c2a0e15a1ec23bea5dfd3699242c110be2a349541bc4bd5e196b14e5cd88d66",
+        "machine.json": "28f7ba518daf23447e8a4b629d05022cef91383182e0fcdbf94611943cdf831a",
+        "events.jsonl": "354859c224efb1faf919af9868c69f8680f099b3fede58bef0cb2eb982b37657",
+        "coordinator.wal": "4982d00f1ec0f40e1ff4baf7b39d056e58477471b14da9e33c2717014bcadf8d"
+      }
+    },
+    {
+      "campaign_index": 15,
+      "stage": "measured",
+      "measured_round": 5,
+      "scenario": "sigkill",
+      "workers": 4,
+      "path": "15-measured-r5-sigkill",
+      "created_utc": "2026-10-02T20:24:01.469159+00:00",
+      "elapsed_ms": 83800,
+      "machine_observations": {
+        "before": {
+          "observed_monotonic_ns": 1959993029833,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 98810138624,
+          "load_average": [
+            1.7578125,
+            2.33984375,
+            2.36181640625
+          ]
+        },
+        "after": {
+          "observed_monotonic_ns": 2043381071125,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 98798002176,
+          "load_average": [
+            2.13134765625,
+            2.28857421875,
+            2.33447265625
+          ]
+        }
+      },
+      "metrics": {
+        "batch_elapsed_ms": 80709.62575,
+        "admission_ms": 495.492042,
+        "completed_jobs_per_second": 0.39648306757264323,
+        "mean_accepted_latency_ms": 44957.03125,
+        "p95_accepted_latency_ms": 79644,
+        "actual_faults": 1,
+        "attempts": 33,
+        "retries": 1,
+        "terminal_failures": 0,
+        "intervention_lateness_ms": 4.712583,
+        "observed_detection_ms": 12.88825,
+        "observed_reassignment_ms": 70046.406958,
+        "observed_recovery_to_completion_ms": 80065.50375,
+        "coordinator_loss_to_assignment_ms": 70052,
+        "coordinator_loss_to_completion_ms": 80057,
+        "signal_syscall_ms": 0.010166,
+        "replacement_launch_delay_ms": 0.3145,
+        "replacement_registration_ms": 15.307166
+      },
+      "fault": {
+        "scenario": "sigkill",
+        "target": {
+          "job_id": 1,
+          "worker_id": 1,
+          "attempt": 1,
+          "slot": 0,
+          "pid": 97844,
+          "fd": "6"
+        },
+        "started_observed_ns": 1960562525250,
+        "scheduled_ns": 1961062525250,
+        "checkpoint_ns": 1961067237833,
+        "signal_before_ns": 1961067240750,
+        "signal_return_ns": 1961067250916,
+        "loss": {
+          "job_id": "1",
+          "state": "QUEUED",
+          "worker_id": "0",
+          "attempt": "1",
+          "retry_count": "1",
+          "pending": "29",
+          "result_bytes": "0",
+          "task": "sleep",
+          "max_retries": "1",
+          "failure": "WORKER_LOST",
+          "outcome": "REQUEUED",
+          "previous_worker_id": "1",
+          "durable": "1",
+          "wal_sequence": "45",
+          "pid": "97833",
+          "monotonic_ms": "99799346",
+          "event": "job_worker_lost",
+          "observed_ns": 1961080129000
+        },
+        "accepted_warnings": [
+          {
+            "event": "job_worker_lost",
+            "fields": {
+              "job_id": "1",
+              "state": "QUEUED",
+              "worker_id": "0",
+              "attempt": "1",
+              "retry_count": "1",
+              "pending": "29",
+              "result_bytes": "0",
+              "task": "sleep",
+              "max_retries": "1",
+              "failure": "WORKER_LOST",
+              "outcome": "REQUEUED",
+              "previous_worker_id": "1",
+              "durable": "1",
+              "wal_sequence": "45",
+              "pid": "97833",
+              "monotonic_ms": "99799346"
+            }
+          },
+          {
+            "event": "worker_dead",
+            "fields": {
+              "worker_id": "1",
+              "fd": "6",
+              "state": "DEAD",
+              "last_heartbeat_ms": "99798536",
+              "reason": "eof",
+              "pid": "97833",
+              "monotonic_ms": "99799346"
+            }
+          }
+        ],
+        "death": {
+          "worker_id": "1",
+          "fd": "6",
+          "state": "DEAD",
+          "last_heartbeat_ms": "99798536",
+          "reason": "eof",
+          "pid": "97833",
+          "monotonic_ms": "99799346",
+          "observed_ns": 1961080200875
+        },
+        "closed": {
+          "fd": "6",
+          "worker_id": "1",
+          "reason": "eof",
+          "pid": "97833",
+          "monotonic_ms": "99799346",
+          "observed_ns": 1961080235250
+        },
+        "replacement_launch_before_ns": 1961080443500,
+        "replacement_launch_return_ns": 1961081961708,
+        "replacement_registered_ns": 1961095750666,
+        "replacement_worker_id": 5,
+        "replacement_pid": 97890,
+        "reassigned": {
+          "job_id": "1",
+          "state": "ASSIGNED",
+          "worker_id": "5",
+          "attempt": "2",
+          "retry_count": "1",
+          "pending": "0",
+          "result_bytes": "0",
+          "task": "sleep",
+          "max_retries": "1",
+          "failure": "NONE",
+          "outcome": "ASSIGNED",
+          "previous_worker_id": "0",
+          "durable": "1",
+          "wal_sequence": "131",
+          "pid": "97833",
+          "monotonic_ms": "99869398",
+          "event": "job_assigned",
+          "observed_ns": 2031126535958
+        },
+        "restarted": {
+          "job_id": "1",
+          "state": "RUNNING",
+          "worker_id": "5",
+          "attempt": "2",
+          "retry_count": "1",
+          "pending": "0",
+          "result_bytes": "0",
+          "task": "sleep",
+          "max_retries": "1",
+          "failure": "NONE",
+          "outcome": "RUNNING",
+          "previous_worker_id": "0",
+          "durable": "1",
+          "wal_sequence": "132",
+          "pid": "97833",
+          "monotonic_ms": "99869398",
+          "event": "job_started",
+          "observed_ns": 2031126669041
+        },
+        "completed": {
+          "job_id": "1",
+          "state": "DONE",
+          "worker_id": "5",
+          "attempt": "2",
+          "retry_count": "1",
+          "pending": "0",
+          "result_bytes": "14",
+          "task": "sleep",
+          "max_retries": "1",
+          "failure": "NONE",
+          "outcome": "COMPLETED",
+          "previous_worker_id": "0",
+          "durable": "1",
+          "wal_sequence": "136",
+          "result": "slept_ms=10000",
+          "pid": "97833",
+          "monotonic_ms": "99879403",
+          "event": "job_completed",
+          "observed_ns": 2041132744500
+        }
+      },
+      "accounting": {
+        "submitted": 32,
+        "completed": 32,
+        "terminally_failed": 0
+      },
+      "cleanup": {
+        "ok": true,
+        "errors": [],
+        "remaining": [],
+        "elapsed_ms": 27
+      },
+      "children": 515,
+      "overhead": {
+        "startup_ms": 831.4768750001349,
+        "verification_ms": 2145.971042,
+        "cleanup_ms": 27
+      },
+      "gap_from_previous_verdict_to_first_spawn_ms": 30141.423,
+      "inspections": {
+        "count": 391,
+        "maximum_duration_ms": 23.595,
+        "maximum_start_interval_ms": 213.396458
+      },
+      "artifacts_sha256": {
+        "manifest.json": "a90d68b861a554382a6aa2ea210ba2c9d9004994431edb8f56ad1c7b7222d4aa",
+        "summary.json": "b1d0a9df8dbe60cbc2401c63bbe52a511327d09b30edf5f4130faee781f7646a",
+        "accounting.json": "f17d79fb201815cb78a973c3369c4b80076b45a6fc176798bb618d9c8b213e5b",
+        "submissions.json": "e98722c8a6397c848057ceff29733529fde89cee6dd91a87fbdbc3b25ce0c3bc",
+        "final-snapshots.json": "ad10379ec87e77a62be7087eba31f0b4066ac5d34c644aecbb2af9cb86accc1f",
+        "timings.json": "36fd0235fd0c17be95694829b25789b74c7bd12b918f47dbfeb6dc4434fd86ba",
+        "fault.json": "19a2d32b2529fd133d20b6ad1590640e0c153e5e71c708fb56e95575d8fb66d9",
+        "latencies.json": "657dfdc596df0eea05ee2e126adc8aa0ea9325dc5660084265899af362cfa8ff",
+        "machine.json": "6d6c8defab01c872d262dd10cfcb2eeee8dbdb96447cae8cba289d82f48b0756",
+        "events.jsonl": "3db54b4e0861c3076f33c3643ec46101580acdacbfb8b54356d387ec5c520e22",
+        "coordinator.wal": "8dab2d39c4b9e8bfe66ff382fa1101dea3ce412f9d1fd701008f96317154b5c9"
+      }
+    },
+    {
+      "campaign_index": 16,
+      "stage": "measured",
+      "measured_round": 5,
+      "scenario": "no_fault",
+      "workers": 4,
+      "path": "16-measured-r5-no_fault",
+      "created_utc": "2026-10-02T20:25:55.380785+00:00",
+      "elapsed_ms": 83550,
+      "machine_observations": {
+        "before": {
+          "observed_monotonic_ns": 2073920808333,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 98795515904,
+          "load_average": [
+            2.11865234375,
+            2.26171875,
+            2.322265625
+          ]
+        },
+        "after": {
+          "observed_monotonic_ns": 2157051093750,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 98805092352,
+          "load_average": [
+            2.5703125,
+            2.32568359375,
+            2.33740234375
+          ]
+        }
+      },
+      "metrics": {
+        "batch_elapsed_ms": 80232.539584,
+        "admission_ms": 507.746917,
+        "completed_jobs_per_second": 0.3988406719507786,
+        "mean_accepted_latency_ms": 44866.125,
+        "p95_accepted_latency_ms": 79720,
+        "actual_faults": 0,
+        "attempts": 32,
+        "retries": 0,
+        "terminal_failures": 0,
+        "intervention_lateness_ms": 3.328708,
+        "observed_detection_ms": null,
+        "observed_reassignment_ms": null,
+        "observed_recovery_to_completion_ms": null,
+        "coordinator_loss_to_assignment_ms": null,
+        "coordinator_loss_to_completion_ms": null
+      },
+      "fault": {
+        "scenario": "no_fault",
+        "target": {
+          "job_id": 1,
+          "worker_id": 1,
+          "attempt": 1,
+          "slot": 0,
+          "pid": 98919,
+          "fd": "6"
+        },
+        "started_observed_ns": 2074486404375,
+        "scheduled_ns": 2074986404375,
+        "checkpoint_ns": 2074989733083
+      },
+      "accounting": {
+        "submitted": 32,
+        "completed": 32,
+        "terminally_failed": 0
+      },
+      "cleanup": {
+        "ok": true,
+        "errors": [],
+        "remaining": [],
+        "elapsed_ms": 32
+      },
+      "children": 511,
+      "overhead": {
+        "startup_ms": 833.6889160000283,
+        "verification_ms": 2370.642916,
+        "cleanup_ms": 32
+      },
+      "gap_from_previous_verdict_to_first_spawn_ms": 30123.182792,
+      "inspections": {
+        "count": 388,
+        "maximum_duration_ms": 85.669625,
+        "maximum_start_interval_ms": 215.399917
+      },
+      "artifacts_sha256": {
+        "manifest.json": "fad0632ec02b756f0f0b0644b975f7040e7511471e1a2b146ac5321eb72155c9",
+        "summary.json": "91877e9ad831d2b33b6359e56edb2a469c9069481f9eba8c33f889c09396140e",
+        "accounting.json": "09870a18cc382befeae57a2287a1954df9bde46dff8136f9c5cdf3cd84e45ff6",
+        "submissions.json": "5dad93b5e0e812ae7e72d32d66489e0d06aefd085cc308b558d543c916d6e28b",
+        "final-snapshots.json": "67bb6ea06c113a8f2a5d7ad1931d90b2d8b86bf6f0c3d4f9f51689a03ca3a162",
+        "timings.json": "8ffd36be8ca91ac5b2a11f5641381e2204442feb3013de3b3c318124986eda64",
+        "fault.json": "2c87ba29f621cea3efceffd74a1eae4d8ea6cc4f90af46b0730f2128952e7374",
+        "latencies.json": "f62bf8985a84f18459d9ac6e6436009cd20367ff615815fc3087e3b3a973d65a",
+        "machine.json": "e4ae93c22cf5abc78b027975d9db1e06545be84cb78a707f4eca18d483b3c8a3",
+        "events.jsonl": "de1ae1f5e70cfe0908d547663a7510d6c2bb3ca46b5d7802c6922106575827a7",
+        "coordinator.wal": "e466b430eea1ef9a46c090a57dfbeb1a6d51145ca98b638178d21da0811cf7e3"
+      }
+    },
+    {
+      "campaign_index": 17,
+      "stage": "measured",
+      "measured_round": 5,
+      "scenario": "heartbeat_expiry",
+      "workers": 4,
+      "path": "17-measured-r5-heartbeat_expiry",
+      "created_utc": "2026-10-02T20:27:49.053204+00:00",
+      "elapsed_ms": 89054,
+      "machine_observations": {
+        "before": {
+          "observed_monotonic_ns": 2187609299541,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 98804252672,
+          "load_average": [
+            2.52294921875,
+            2.33984375,
+            2.34033203125
+          ]
+        },
+        "after": {
+          "observed_monotonic_ns": 2276223474208,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 98789740544,
+          "load_average": [
+            2.4453125,
+            2.4091796875,
+            2.36669921875
+          ]
+        }
+      },
+      "metrics": {
+        "batch_elapsed_ms": 85939.139583,
+        "admission_ms": 550.255625,
+        "completed_jobs_per_second": 0.3723565322537865,
+        "mean_accepted_latency_ms": 46285.875,
+        "p95_accepted_latency_ms": 79724,
+        "actual_faults": 1,
+        "attempts": 33,
+        "retries": 1,
+        "terminal_failures": 0,
+        "intervention_lateness_ms": 0.442083,
+        "observed_detection_ms": 5195.319208,
+        "observed_reassignment_ms": 70113.678917,
+        "observed_recovery_to_completion_ms": 85312.438041,
+        "coordinator_loss_to_assignment_ms": 70114,
+        "coordinator_loss_to_completion_ms": 80119,
+        "signal_syscall_ms": 0.004875,
+        "replacement_launch_delay_ms": 0.329958,
+        "replacement_registration_ms": 18.245792
+      },
+      "fault": {
+        "scenario": "heartbeat_expiry",
+        "target": {
+          "job_id": 1,
+          "worker_id": 1,
+          "attempt": 1,
+          "slot": 0,
+          "pid": 113,
+          "fd": "6"
+        },
+        "started_observed_ns": 2188191640083,
+        "scheduled_ns": 2188691640083,
+        "checkpoint_ns": 2188692082166,
+        "signal_before_ns": 2188692085625,
+        "signal_return_ns": 2188692090500,
+        "stopped_observed_ns": 2188692106041,
+        "timeout": {
+          "worker_id": "1",
+          "fd": "6",
+          "timeout_ms": "6000",
+          "detected_at_ms": "100032160",
+          "silence_ms": "6002",
+          "pid": "111",
+          "monotonic_ms": "100032160",
+          "observed_ns": 2193887281958
+        },
+        "accepted_warnings": [
+          {
+            "event": "heartbeat_timeout",
+            "fields": {
+              "worker_id": "1",
+              "fd": "6",
+              "timeout_ms": "6000",
+              "detected_at_ms": "100032160",
+              "silence_ms": "6002",
+              "pid": "111",
+              "monotonic_ms": "100032160"
+            }
+          },
+          {
+            "event": "job_worker_lost",
+            "fields": {
+              "job_id": "1",
+              "state": "QUEUED",
+              "worker_id": "0",
+              "attempt": "1",
+              "retry_count": "1",
+              "pending": "29",
+              "result_bytes": "0",
+              "task": "sleep",
+              "max_retries": "1",
+              "failure": "WORKER_LOST",
+              "outcome": "REQUEUED",
+              "previous_worker_id": "1",
+              "durable": "1",
+              "wal_sequence": "45",
+              "pid": "111",
+              "monotonic_ms": "100032160"
+            }
+          },
+          {
+            "event": "worker_dead",
+            "fields": {
+              "worker_id": "1",
+              "fd": "6",
+              "state": "DEAD",
+              "last_heartbeat_ms": "100026158",
+              "reason": "heartbeat_timeout",
+              "pid": "111",
+              "monotonic_ms": "100032160"
+            }
+          },
+          {
+            "event": "client_closed",
+            "fields": {
+              "fd": "6",
+              "worker_id": "1",
+              "reason": "heartbeat_timeout",
+              "pid": "111",
+              "monotonic_ms": "100032160"
+            }
+          }
+        ],
+        "loss": {
+          "job_id": "1",
+          "state": "QUEUED",
+          "worker_id": "0",
+          "attempt": "1",
+          "retry_count": "1",
+          "pending": "29",
+          "result_bytes": "0",
+          "task": "sleep",
+          "max_retries": "1",
+          "failure": "WORKER_LOST",
+          "outcome": "REQUEUED",
+          "previous_worker_id": "1",
+          "durable": "1",
+          "wal_sequence": "45",
+          "pid": "111",
+          "monotonic_ms": "100032160",
+          "event": "job_worker_lost",
+          "observed_ns": 2193887404833
+        },
+        "death": {
+          "worker_id": "1",
+          "fd": "6",
+          "state": "DEAD",
+          "last_heartbeat_ms": "100026158",
+          "reason": "heartbeat_timeout",
+          "pid": "111",
+          "monotonic_ms": "100032160",
+          "observed_ns": 2193887501833
+        },
+        "closed": {
+          "fd": "6",
+          "worker_id": "1",
+          "reason": "heartbeat_timeout",
+          "pid": "111",
+          "monotonic_ms": "100032160",
+          "observed_ns": 2193887544208
+        },
+        "replacement_launch_before_ns": 2193887734791,
+        "replacement_launch_return_ns": 2193889671583,
+        "replacement_registered_ns": 2193905980583,
+        "replacement_worker_id": 5,
+        "replacement_pid": 216,
+        "resume_before_ns": 2198696140666,
+        "resume_return_ns": 2198696157291,
+        "reassigned": {
+          "job_id": "1",
+          "state": "ASSIGNED",
+          "worker_id": "5",
+          "attempt": "2",
+          "retry_count": "1",
+          "pending": "0",
+          "result_bytes": "0",
+          "task": "sleep",
+          "max_retries": "1",
+          "failure": "NONE",
+          "outcome": "ASSIGNED",
+          "previous_worker_id": "0",
+          "durable": "1",
+          "wal_sequence": "131",
+          "pid": "111",
+          "monotonic_ms": "100102274",
+          "event": "job_assigned",
+          "observed_ns": 2264001083750
+        },
+        "restarted": {
+          "job_id": "1",
+          "state": "RUNNING",
+          "worker_id": "5",
+          "attempt": "2",
+          "retry_count": "1",
+          "pending": "0",
+          "result_bytes": "0",
+          "task": "sleep",
+          "max_retries": "1",
+          "failure": "NONE",
+          "outcome": "RUNNING",
+          "previous_worker_id": "0",
+          "durable": "1",
+          "wal_sequence": "132",
+          "pid": "111",
+          "monotonic_ms": "100102275",
+          "event": "job_started",
+          "observed_ns": 2264001294916
+        },
+        "completed": {
+          "job_id": "1",
+          "state": "DONE",
+          "worker_id": "5",
+          "attempt": "2",
+          "retry_count": "1",
+          "pending": "0",
+          "result_bytes": "14",
+          "task": "sleep",
+          "max_retries": "1",
+          "failure": "NONE",
+          "outcome": "COMPLETED",
+          "previous_worker_id": "0",
+          "durable": "1",
+          "wal_sequence": "136",
+          "result": "slept_ms=10000",
+          "pid": "111",
+          "monotonic_ms": "100112279",
+          "event": "job_completed",
+          "observed_ns": 2274004523666
+        }
+      },
+      "accounting": {
+        "submitted": 32,
+        "completed": 32,
+        "terminally_failed": 0
+      },
+      "cleanup": {
+        "ok": true,
+        "errors": [],
+        "remaining": [],
+        "elapsed_ms": 52
+      },
+      "children": 539,
+      "overhead": {
+        "startup_ms": 867.6510420000341,
+        "verification_ms": 2126.109917,
+        "cleanup_ms": 52
+      },
+      "gap_from_previous_verdict_to_first_spawn_ms": 30123.705708,
+      "inspections": {
+        "count": 415,
+        "maximum_duration_ms": 98.957916,
+        "maximum_start_interval_ms": 215.876125
+      },
+      "artifacts_sha256": {
+        "manifest.json": "b7293130331e6ffb336589b7c3f0e63be3e92f91696b6d22403db0881ee5b08d",
+        "summary.json": "bf0015a1ccb4d360a8cb0f1bc2ab450d16dbd3856b13f8c98f26096c60c9bc85",
+        "accounting.json": "fbc2f4a8715bf90c6781f725eb58ea8082c64e14f7f618d335f0151b39f6790c",
+        "submissions.json": "db566a336835ea76c8a810befbfaa9fa0dfbb070fee4ea49d588dcba77a7ddc9",
+        "final-snapshots.json": "8d3cddb90393baec3e7d7c76c31be6c3387e4a2ed8188f23d664f84202f87a38",
+        "timings.json": "08c9f079329b7e0afc8e290459b2296ac7dfd952df1ef2f46db1691d04fbf885",
+        "fault.json": "8c7d306fdfa08934fa6ee0722bc8186fea1322f471f7114d93e1a4f91efd1bba",
+        "latencies.json": "4af09766be7dd1cbc4c6d644f1fd9238b737f78515b92dac2a9ea7ae7464ecc9",
+        "machine.json": "2ca7ba6996bc9fa8d844a4a9c338c50c639b9ab529210f369e716855b676983e",
+        "events.jsonl": "1235d1134a67b9acd9741648793392abf6129068b5294e2b5872f0ecf5d403c9",
+        "coordinator.wal": "b36072af563abe0049089546b821b5d7515b4ff2c792b201bb50fc6c34bb6c8d"
+      }
+    }
+  ],
+  "aggregate": {
+    "no_fault": {
+      "sample_indices": [
+        3,
+        8,
+        10,
+        14,
+        16
+      ],
+      "metrics": {
+        "batch_elapsed_ms": {
+          "values": [
+            80296.831333,
+            80186.217833,
+            80264.134833,
+            80358.29125,
+            80232.539584
+          ],
+          "median": 80264.134833,
+          "minimum": 80186.217833,
+          "maximum": 80358.29125
+        },
+        "admission_ms": {
+          "values": [
+            517.431958,
+            500.391458,
+            501.748375,
+            500.043875,
+            507.746917
+          ],
+          "median": 501.748375,
+          "minimum": 500.043875,
+          "maximum": 517.431958
+        },
+        "completed_jobs_per_second": {
+          "values": [
+            0.39852132978065347,
+            0.39907107311938406,
+            0.3986836719361664,
+            0.39821653126552764,
+            0.3988406719507786
+          ],
+          "median": 0.3986836719361664,
+          "minimum": 0.39821653126552764,
+          "maximum": 0.39907107311938406
+        },
+        "mean_accepted_latency_ms": {
+          "values": [
+            44835.03125,
+            44851.8125,
+            44854.6875,
+            44842.28125,
+            44866.125
+          ],
+          "median": 44851.8125,
+          "minimum": 44835.03125,
+          "maximum": 44866.125
+        },
+        "p95_accepted_latency_ms": {
+          "values": [
+            79649,
+            79692,
+            79708,
+            79672,
+            79720
+          ],
+          "median": 79692,
+          "minimum": 79649,
+          "maximum": 79720
+        },
+        "actual_faults": {
+          "values": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "minimum": 0,
+          "maximum": 0
+        },
+        "attempts": {
+          "values": [
+            32,
+            32,
+            32,
+            32,
+            32
+          ],
+          "median": 32,
+          "minimum": 32,
+          "maximum": 32
+        },
+        "retries": {
+          "values": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "minimum": 0,
+          "maximum": 0
+        },
+        "terminal_failures": {
+          "values": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "minimum": 0,
+          "maximum": 0
+        },
+        "intervention_lateness_ms": {
+          "values": [
+            0.375,
+            9.934167,
+            8.81275,
+            7.668959,
+            3.328708
+          ],
+          "median": 7.668959,
+          "minimum": 0.375,
+          "maximum": 9.934167
+        }
+      },
+      "pairs": []
+    },
+    "sigkill": {
+      "sample_indices": [
+        4,
+        6,
+        11,
+        13,
+        15
+      ],
+      "metrics": {
+        "batch_elapsed_ms": {
+          "values": [
+            80688.991208,
+            80604.110625,
+            80804.753208,
+            80685.931333,
+            80709.62575
+          ],
+          "median": 80688.991208,
+          "minimum": 80604.110625,
+          "maximum": 80804.753208
+        },
+        "admission_ms": {
+          "values": [
+            503.662333,
+            490.347625,
+            496.544458,
+            504.6525,
+            495.492042
+          ],
+          "median": 496.544458,
+          "minimum": 490.347625,
+          "maximum": 504.6525
+        },
+        "completed_jobs_per_second": {
+          "values": [
+            0.39658445992354063,
+            0.39700208527671477,
+            0.39601630757572653,
+            0.39659949970624203,
+            0.39648306757264323
+          ],
+          "median": 0.39658445992354063,
+          "minimum": 0.39601630757572653,
+          "maximum": 0.39700208527671477
+        },
+        "mean_accepted_latency_ms": {
+          "values": [
+            44967.4375,
+            44964.03125,
+            44971.65625,
+            44965.8125,
+            44957.03125
+          ],
+          "median": 44965.8125,
+          "minimum": 44957.03125,
+          "maximum": 44971.65625
+        },
+        "p95_accepted_latency_ms": {
+          "values": [
+            79691,
+            79652,
+            79688,
+            79717,
+            79644
+          ],
+          "median": 79688,
+          "minimum": 79644,
+          "maximum": 79717
+        },
+        "actual_faults": {
+          "values": [
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          "median": 1,
+          "minimum": 1,
+          "maximum": 1
+        },
+        "attempts": {
+          "values": [
+            33,
+            33,
+            33,
+            33,
+            33
+          ],
+          "median": 33,
+          "minimum": 33,
+          "maximum": 33
+        },
+        "retries": {
+          "values": [
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          "median": 1,
+          "minimum": 1,
+          "maximum": 1
+        },
+        "terminal_failures": {
+          "values": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "minimum": 0,
+          "maximum": 0
+        },
+        "intervention_lateness_ms": {
+          "values": [
+            0.085333,
+            0.856292,
+            5.890417,
+            0.380625,
+            4.712583
+          ],
+          "median": 0.856292,
+          "minimum": 0.085333,
+          "maximum": 5.890417
+        },
+        "observed_detection_ms": {
+          "values": [
+            11.119291,
+            12.9225,
+            10.702333,
+            0.687583,
+            12.88825
+          ],
+          "median": 11.119291,
+          "minimum": 0.687583,
+          "maximum": 12.9225
+        },
+        "observed_reassignment_ms": {
+          "values": [
+            70041.543292,
+            70043.7355,
+            70046.177792,
+            70099.41875,
+            70046.406958
+          ],
+          "median": 70046.177792,
+          "minimum": 70041.543292,
+          "maximum": 70099.41875
+        },
+        "observed_recovery_to_completion_ms": {
+          "values": [
+            80059.154458,
+            80058.440125,
+            80104.50875,
+            80101.640916,
+            80065.50375
+          ],
+          "median": 80065.50375,
+          "minimum": 80058.440125,
+          "maximum": 80104.50875
+        },
+        "coordinator_loss_to_assignment_ms": {
+          "values": [
+            70049,
+            70050,
+            70050,
+            70088,
+            70052
+          ],
+          "median": 70050,
+          "minimum": 70049,
+          "maximum": 70088
+        },
+        "coordinator_loss_to_completion_ms": {
+          "values": [
+            80054,
+            80055,
+            80104,
+            80094,
+            80057
+          ],
+          "median": 80057,
+          "minimum": 80054,
+          "maximum": 80104
+        },
+        "signal_syscall_ms": {
+          "values": [
+            0.006,
+            0.005666,
+            0.005708,
+            0.006333,
+            0.010166
+          ],
+          "median": 0.006,
+          "minimum": 0.005666,
+          "maximum": 0.010166
+        },
+        "replacement_launch_delay_ms": {
+          "values": [
+            0.380417,
+            0.446541,
+            0.401,
+            0.332542,
+            0.3145
+          ],
+          "median": 0.380417,
+          "minimum": 0.3145,
+          "maximum": 0.446541
+        },
+        "replacement_registration_ms": {
+          "values": [
+            15.697833,
+            14.369,
+            15.613917,
+            15.429583,
+            15.307166
+          ],
+          "median": 15.429583,
+          "minimum": 14.369,
+          "maximum": 15.697833
+        },
+        "extra_completion_ms": {
+          "values": [
+            392.1598750000121,
+            417.89279199999874,
+            540.6183749999909,
+            327.6400830000057,
+            477.08616600000823
+          ],
+          "median": 417.89279199999874,
+          "minimum": 327.6400830000057,
+          "maximum": 540.6183749999909
+        },
+        "overhead_percent": {
+          "values": [
+            0.48838773397381147,
+            0.521152890475922,
+            0.6735491214411242,
+            0.407724054236912,
+            0.5946292719558249
+          ],
+          "median": 0.521152890475922,
+          "minimum": 0.407724054236912,
+          "maximum": 0.6735491214411242
+        }
+      },
+      "pairs": [
+        {
+          "measured_round": 1,
+          "fault_index": 4,
+          "control_index": 3,
+          "extra_completion_ms": 392.1598750000121,
+          "overhead_percent": 0.48838773397381147
+        },
+        {
+          "measured_round": 2,
+          "fault_index": 6,
+          "control_index": 8,
+          "extra_completion_ms": 417.89279199999874,
+          "overhead_percent": 0.521152890475922
+        },
+        {
+          "measured_round": 3,
+          "fault_index": 11,
+          "control_index": 10,
+          "extra_completion_ms": 540.6183749999909,
+          "overhead_percent": 0.6735491214411242
+        },
+        {
+          "measured_round": 4,
+          "fault_index": 13,
+          "control_index": 14,
+          "extra_completion_ms": 327.6400830000057,
+          "overhead_percent": 0.407724054236912
+        },
+        {
+          "measured_round": 5,
+          "fault_index": 15,
+          "control_index": 16,
+          "extra_completion_ms": 477.08616600000823,
+          "overhead_percent": 0.5946292719558249
+        }
+      ]
+    },
+    "heartbeat_expiry": {
+      "sample_indices": [
+        5,
+        7,
+        9,
+        12,
+        17
+      ],
+      "metrics": {
+        "batch_elapsed_ms": {
+          "values": [
+            85776.548125,
+            85788.010875,
+            85961.780792,
+            86049.44475,
+            85939.139583
+          ],
+          "median": 85939.139583,
+          "minimum": 85776.548125,
+          "maximum": 86049.44475
+        },
+        "admission_ms": {
+          "values": [
+            501.088666,
+            511.110667,
+            493.450959,
+            533.77775,
+            550.255625
+          ],
+          "median": 511.110667,
+          "minimum": 493.450959,
+          "maximum": 550.255625
+        },
+        "completed_jobs_per_second": {
+          "values": [
+            0.3730623427905633,
+            0.37301249526144814,
+            0.3722584584122304,
+            0.3718792154088827,
+            0.3723565322537865
+          ],
+          "median": 0.3723565322537865,
+          "minimum": 0.3718792154088827,
+          "maximum": 0.3730623427905633
+        },
+        "mean_accepted_latency_ms": {
+          "values": [
+            46254.09375,
+            46290.625,
+            46259.6875,
+            46260.5,
+            46285.875
+          ],
+          "median": 46260.5,
+          "minimum": 46254.09375,
+          "maximum": 46290.625
+        },
+        "p95_accepted_latency_ms": {
+          "values": [
+            79647,
+            79765,
+            79653,
+            79682,
+            79724
+          ],
+          "median": 79682,
+          "minimum": 79647,
+          "maximum": 79765
+        },
+        "actual_faults": {
+          "values": [
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          "median": 1,
+          "minimum": 1,
+          "maximum": 1
+        },
+        "attempts": {
+          "values": [
+            33,
+            33,
+            33,
+            33,
+            33
+          ],
+          "median": 33,
+          "minimum": 33,
+          "maximum": 33
+        },
+        "retries": {
+          "values": [
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          "median": 1,
+          "minimum": 1,
+          "maximum": 1
+        },
+        "terminal_failures": {
+          "values": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "median": 0,
+          "minimum": 0,
+          "maximum": 0
+        },
+        "intervention_lateness_ms": {
+          "values": [
+            10.362583,
+            6.583416,
+            1.92125,
+            11.274292,
+            0.442083
+          ],
+          "median": 6.583416,
+          "minimum": 0.442083,
+          "maximum": 11.274292
+        },
+        "observed_detection_ms": {
+          "values": [
+            5197.592292,
+            5195.880125,
+            5204.533042,
+            5189.582917,
+            5195.319208
+          ],
+          "median": 5195.880125,
+          "minimum": 5189.582917,
+          "maximum": 5204.533042
+        },
+        "observed_reassignment_ms": {
+          "values": [
+            70044.443292,
+            70041.993542,
+            70042.650958,
+            70148.067458,
+            70113.678917
+          ],
+          "median": 70044.443292,
+          "minimum": 70041.993542,
+          "maximum": 70148.067458
+        },
+        "observed_recovery_to_completion_ms": {
+          "values": [
+            85245.527875,
+            85247.485125,
+            85260.362917,
+            85332.422,
+            85312.438041
+          ],
+          "median": 85260.362917,
+          "minimum": 85245.527875,
+          "maximum": 85332.422
+        },
+        "coordinator_loss_to_assignment_ms": {
+          "values": [
+            70045,
+            70040,
+            70042,
+            70140,
+            70114
+          ],
+          "median": 70045,
+          "minimum": 70040,
+          "maximum": 70140
+        },
+        "coordinator_loss_to_completion_ms": {
+          "values": [
+            80049,
+            80044,
+            80047,
+            80146,
+            80119
+          ],
+          "median": 80049,
+          "minimum": 80044,
+          "maximum": 80146
+        },
+        "signal_syscall_ms": {
+          "values": [
+            0.003917,
+            0.005417,
+            0.004542,
+            0.003625,
+            0.004875
+          ],
+          "median": 0.004542,
+          "minimum": 0.003625,
+          "maximum": 0.005417
+        },
+        "replacement_launch_delay_ms": {
+          "values": [
+            0.547042,
+            0.408083,
+            0.890833,
+            0.397125,
+            0.329958
+          ],
+          "median": 0.408083,
+          "minimum": 0.329958,
+          "maximum": 0.890833
+        },
+        "replacement_registration_ms": {
+          "values": [
+            16.646291,
+            16.269042,
+            19.330625,
+            16.184542,
+            18.245792
+          ],
+          "median": 16.646291,
+          "minimum": 16.184542,
+          "maximum": 19.330625
+        },
+        "extra_completion_ms": {
+          "values": [
+            5479.7167920000065,
+            5601.793042000005,
+            5697.645959000001,
+            5691.1535,
+            5706.599998999998
+          ],
+          "median": 5691.1535,
+          "minimum": 5479.7167920000065,
+          "maximum": 5706.599998999998
+        },
+        "overhead_percent": {
+          "values": [
+            6.824325071153809,
+            6.985979877073877,
+            7.098620038519939,
+            7.0822231427177105,
+            7.112575556735849
+          ],
+          "median": 7.0822231427177105,
+          "minimum": 6.824325071153809,
+          "maximum": 7.112575556735849
+        }
+      },
+      "pairs": [
+        {
+          "measured_round": 1,
+          "fault_index": 5,
+          "control_index": 3,
+          "extra_completion_ms": 5479.7167920000065,
+          "overhead_percent": 6.824325071153809
+        },
+        {
+          "measured_round": 2,
+          "fault_index": 7,
+          "control_index": 8,
+          "extra_completion_ms": 5601.793042000005,
+          "overhead_percent": 6.985979877073877
+        },
+        {
+          "measured_round": 3,
+          "fault_index": 9,
+          "control_index": 10,
+          "extra_completion_ms": 5697.645959000001,
+          "overhead_percent": 7.098620038519939
+        },
+        {
+          "measured_round": 4,
+          "fault_index": 12,
+          "control_index": 14,
+          "extra_completion_ms": 5691.1535,
+          "overhead_percent": 7.0822231427177105
+        },
+        {
+          "measured_round": 5,
+          "fault_index": 17,
+          "control_index": 16,
+          "extra_completion_ms": 5706.599998999998,
+          "overhead_percent": 7.112575556735849
+        }
+      ]
+    }
+  },
+  "validation": {
+    "standalone_regressions": [
+      {
+        "path": "build/recovery-final-debug.log",
+        "checks": 15,
+        "sha256": "8a142f558406ede851f19b7d685cda61cf1706e98aac8ac485f93796b8b2b1e3"
+      },
+      {
+        "path": "build/recovery-final-sanitize.log",
+        "checks": 15,
+        "sha256": "34d16ee34e9fe5961d9908693d97cb96647769bffaeac88bd22ac39cfd6411f9"
+      },
+      {
+        "path": "build/recovery-existing-benchmark.log",
+        "checks": 25,
+        "sha256": "8b1ca6d121b4c6f7d56baa5374e888f23c0ec19479d1645e16c9e6d89c0bff60"
+      },
+      {
+        "path": "build/recovery-existing-batch.log",
+        "checks": 22,
+        "sha256": "d45bf187d4201af3354e024c7b1f0564c6b39122bde50ef2e3a3d89ff1068c6a"
+      },
+      {
+        "path": "build/recovery-existing-chaos.log",
+        "checks": 35,
+        "sha256": "f13cf50d89934d534a48a014df6113ce740068b7cbc76ac7f53712bc25c7e21d"
+      }
+    ],
+    "optimized_c_groups": 131,
+    "optimized_integration_discovered": 143,
+    "optimized_integration_passed": 141,
+    "optimized_integration_skipped": 2,
+    "optimized_recovery_regressions": 15,
+    "optimized_correctness_stdout_sha256": "de8731658f7e7f4a692d02d1cee68493175abcc252fcfc1fcb44bce9842499df",
+    "optimized_correctness_stderr_sha256": "642bac5fc0060e2be8fb0f37b8f9bf660388271e2f2e8aeb341a7a73cb223ded",
+    "recovery_regressions_stderr_sha256": "bce1fbc3211475119b2653d7b881bf2b9ccd613ac90aaefb6f0a28dd1a921c4e"
+  },
+  "audit": {
+    "runs": 18,
+    "jobs": 576,
+    "measured_jobs": 480,
+    "completed": 576,
+    "terminally_failed": 0,
+    "retries": 12,
+    "tracked_children": 9450,
+    "checks": [
+      {
+        "path": "00-warmup-no_fault",
+        "exact_ids_results_histories": true,
+        "metrics_recomputed": true,
+        "cleanup_verified": true
+      },
+      {
+        "path": "01-warmup-sigkill",
+        "exact_ids_results_histories": true,
+        "metrics_recomputed": true,
+        "cleanup_verified": true
+      },
+      {
+        "path": "02-warmup-heartbeat_expiry",
+        "exact_ids_results_histories": true,
+        "metrics_recomputed": true,
+        "cleanup_verified": true
+      },
+      {
+        "path": "03-measured-r1-no_fault",
+        "exact_ids_results_histories": true,
+        "metrics_recomputed": true,
+        "cleanup_verified": true
+      },
+      {
+        "path": "04-measured-r1-sigkill",
+        "exact_ids_results_histories": true,
+        "metrics_recomputed": true,
+        "cleanup_verified": true
+      },
+      {
+        "path": "05-measured-r1-heartbeat_expiry",
+        "exact_ids_results_histories": true,
+        "metrics_recomputed": true,
+        "cleanup_verified": true
+      },
+      {
+        "path": "06-measured-r2-sigkill",
+        "exact_ids_results_histories": true,
+        "metrics_recomputed": true,
+        "cleanup_verified": true
+      },
+      {
+        "path": "07-measured-r2-heartbeat_expiry",
+        "exact_ids_results_histories": true,
+        "metrics_recomputed": true,
+        "cleanup_verified": true
+      },
+      {
+        "path": "08-measured-r2-no_fault",
+        "exact_ids_results_histories": true,
+        "metrics_recomputed": true,
+        "cleanup_verified": true
+      },
+      {
+        "path": "09-measured-r3-heartbeat_expiry",
+        "exact_ids_results_histories": true,
+        "metrics_recomputed": true,
+        "cleanup_verified": true
+      },
+      {
+        "path": "10-measured-r3-no_fault",
+        "exact_ids_results_histories": true,
+        "metrics_recomputed": true,
+        "cleanup_verified": true
+      },
+      {
+        "path": "11-measured-r3-sigkill",
+        "exact_ids_results_histories": true,
+        "metrics_recomputed": true,
+        "cleanup_verified": true
+      },
+      {
+        "path": "12-measured-r4-heartbeat_expiry",
+        "exact_ids_results_histories": true,
+        "metrics_recomputed": true,
+        "cleanup_verified": true
+      },
+      {
+        "path": "13-measured-r4-sigkill",
+        "exact_ids_results_histories": true,
+        "metrics_recomputed": true,
+        "cleanup_verified": true
+      },
+      {
+        "path": "14-measured-r4-no_fault",
+        "exact_ids_results_histories": true,
+        "metrics_recomputed": true,
+        "cleanup_verified": true
+      },
+      {
+        "path": "15-measured-r5-sigkill",
+        "exact_ids_results_histories": true,
+        "metrics_recomputed": true,
+        "cleanup_verified": true
+      },
+      {
+        "path": "16-measured-r5-no_fault",
+        "exact_ids_results_histories": true,
+        "metrics_recomputed": true,
+        "cleanup_verified": true
+      },
+      {
+        "path": "17-measured-r5-heartbeat_expiry",
+        "exact_ids_results_histories": true,
+        "metrics_recomputed": true,
+        "cleanup_verified": true
+      }
+    ],
+    "campaign_cleanup": {
+      "ok": true,
+      "errors": [],
+      "remaining": [],
+      "elapsed_ms": 0
+    },
+    "campaign_elapsed_ms": 2276388,
+    "audit_script_sha256": "5f47ce883dae996de41dbd29ef6c405287a76602a5dbcf8f19238dab206e6d8d"
+  },
+  "evidence": {
+    "local_directory": "build/benchmarks/recovery-7yblm_u2",
+    "git_ignored": true,
+    "summary_sha256": "541655437f5bbf5e730f0c6241ec033690569c9a58c81897c4964f631e733334",
+    "provenance_sha256": "07822ff9dc22768617b9886216984ff15d659a2d435055f9df345bd9e68dfe63"
+  },
+  "excluded_campaigns": [
+    {
+      "directory": "build/benchmarks/recovery-20261002",
+      "verdict": "FAIL",
+      "first_failure": "RunFailure: 14-measured-r4-no_fault failed; no replacement sample",
+      "source_revision": "5a96292b8156646981ce050273d3acb9e8a0d427",
+      "successful_samples": 14,
+      "failed_sample": "14-measured-r4-no_fault",
+      "failed_sample_reason": "RunFailure: AC power is required",
+      "failed_sample_accounting": {
+        "submitted": 32,
+        "completed": 32,
+        "terminally_failed": 0
+      },
+      "cleanup_verified_for_all_samples": true,
+      "sample_count": 15,
+      "included_in_published_aggregates": false,
+      "resolution": "Entire campaign must restart from fresh coordinator state and new output directory after AC power is stable.",
+      "summary_sha256": "3d222d0b59ff81086d0b21e692feaf0b340d004dc1fdb04703308bf8721c9871"
+    },
+    {
+      "directory": "build/benchmarks/recovery-20261002-ac",
+      "verdict": "FAIL",
+      "first_failure": "RunFailure: 09-measured-r3-heartbeat_expiry failed; no replacement sample",
+      "source_revision": "eecc1f3d0575ff77b0a949246295d47d1049d869",
+      "successful_samples": 9,
+      "failed_sample": "09-measured-r3-heartbeat_expiry",
+      "failed_sample_reason": "RunFailure: AC power is required",
+      "failed_sample_accounting": {
+        "submitted": 32,
+        "completed": 32,
+        "terminally_failed": 0
+      },
+      "cleanup_verified_for_all_samples": true,
+      "sample_count": 10,
+      "included_in_published_aggregates": false,
+      "resolution": "Entire campaign must restart after stable AC power is available; never splice samples across campaigns.",
+      "summary_sha256": "441e039cf0ef6896f28985433c3fa2e782fe1610ff87ac134eaa20650478c717"
+    },
+    {
+      "directory": "build/benchmarks/recovery-20261002-stable",
+      "verdict": "FAIL",
+      "first_failure": "RunFailure: 06-measured-r2-sigkill failed; no replacement sample",
+      "source_revision": "9cb55798479bfd439e6e8de64943d294a1d213d3",
+      "successful_samples": 6,
+      "failed_sample": "06-measured-r2-sigkill",
+      "failed_sample_reason": "RunFailure: AC power is required",
+      "failed_sample_accounting": {
+        "submitted": 32,
+        "completed": 32,
+        "terminally_failed": 0
+      },
+      "cleanup_verified_for_all_samples": true,
+      "sample_count": 7,
+      "included_in_published_aggregates": false,
+      "resolution": "No AC-only campaign can be certified; no samples are spliced across campaigns.",
+      "summary_sha256": "1eecc79445834a52ed511b9e04e2b6909bbd2e16fe0bb85f6f14414d50be5b5d"
+    }
+  ],
+  "limitations": [
+    "Single-host Apple M4 sleep workload; not CPU throughput or multi-host recovery.",
+    "Detection includes durable requeue, logging and observer delay; assignment includes FIFO waiting.",
+    "Power and available thermal telemetry checked at run boundaries, not continuously.",
+    "Five measured repetitions per scenario; no confidence interval or exactly-once claim.",
+    "Raw evidence is Git-ignored and removed by make clean."
+  ]
+}

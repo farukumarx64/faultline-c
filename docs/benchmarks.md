@@ -1,10 +1,10 @@
 # Benchmark contract
 
-Status: **contract defined; the one-worker baseline is implemented and verified.** See
-[baseline execution and evidence](benchmark-baseline.md). The
-[ordered scaling campaign](benchmark-scaling.md) is implemented, measured, and
-independently audited. The [controlled recovery runner](benchmark-recovery.md) is
-implemented; reportable recovery measurements remain pending.
+Status: **baseline, scaling, and controlled recovery are measured and verified.**
+See the [baseline evidence](benchmark-baseline.md),
+[ordered scaling report](benchmark-scaling.md), and
+[controlled recovery report](benchmark-recovery.md). All three have independent
+artifact audits; the current benchmark phase is complete.
 Contract version: `faultline-benchmarks-v1`. The versioned
 [scaling profile](../benchmarks/profiles/scaling-v1.json) and
 [recovery profile](../benchmarks/profiles/recovery-v1.json) freeze the numeric
@@ -359,14 +359,16 @@ that escape their owned session remain outside this process-based guarantee.
 3. **Verified:** the complete optimized [scaling campaign](benchmark-scaling.md)
    passed all 24 runs and 1,536 jobs. Measured speedups at 2/4/8 workers were
    1.976×/3.487×/4.232× against its fresh one-worker median.
-4. **Implemented:** controlled recovery scenarios, concurrent admission/fault
-   handling, and matched timing comparisons. Run and audit the complete campaign.
-5. **Scaling audit/report complete:** all IDs/results, raw samples, and provenance
-   were audited and tables published with their limits. Repeat the audit/report
-   process for controlled recovery when its measurements are collected.
+4. **Verified:** the full [controlled recovery campaign](benchmark-recovery.md)
+   passed all 18 runs and 576 jobs, with one retry per fault run and zero terminal
+   failures. Median paired additional batch time was 0.418 s for SIGKILL and
+   5.691 s for heartbeat expiry.
+5. **Benchmark audits/reports complete:** IDs/results, raw samples, and provenance
+   were audited. Scaling and recovery tables, machine details, and limits are
+   published; the recovery report also includes a graph of all five samples.
 
-This defines the experiments without adding production behavior or claiming
-performance. Multi-host speedup, maximum coordinator capacity, random crash-rate
+These claims cover only the recorded profiles and machines. Multi-host speedup,
+maximum coordinator capacity, random crash-rate
 sweeps, coordinator-restart timing, and performance regression gates need their
 own profiles and evidence.
 

@@ -325,13 +325,18 @@ completed all 1,536 jobs without retries or failures. Median batch times were
 **4.232× speedup** against the fresh one-worker median. The guide records every
 sample and its variation, with [JSON](benchmarks/results/scaling-20261001.json)
 and [CSV](benchmarks/results/scaling-20261001.csv) reports.
-`make benchmark-recovery` implements the matching no-fault, SIGKILL, and heartbeat
-expiry campaign. The [recovery benchmark guide](docs/benchmark-recovery.md) explains
-the controlled workload, detection/reassignment clocks, paired completion costs,
-and acceptance checks. The runner's normal and sanitizer regressions pass;
-the full timing comparison remains pending after three campaigns stopped on their
-AC-power checks. Their correctness evidence and failure reasons are retained in
-the guide and [attempt record](benchmarks/results/recovery-attempts-20261002.json).
+`make benchmark-recovery` runs matching no-fault, SIGKILL, and heartbeat-expiry
+experiments. The [verified recovery campaign](docs/benchmark-recovery.md) passed
+all 18 runs and 576 jobs, with one retry per fault run and zero terminal failures.
+Median batch times were **80.264 s**, **80.689 s**, and **85.939 s** respectively.
+Median additional time against each fault's same-round control was **0.418 s**
+for SIGKILL and **5.691 s** for heartbeat expiry. The guide explains detection
+versus FIFO waiting and includes the graph, with
+[JSON](benchmarks/results/recovery-20261002.json) and
+[CSV](benchmarks/results/recovery-20261002.csv) reports.
+Three earlier power-interrupted campaigns remain documented in the
+[attempt record](benchmarks/results/recovery-attempts-20261002.json) and are
+excluded from these measurements.
 Use `make test-unit` or `make test-integration` to run either layer separately.
 Use `make test-job-status-protocol` for status payloads and validation, or add
 `SANITIZE=1` for AddressSanitizer/UBSan.

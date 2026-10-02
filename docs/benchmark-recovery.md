@@ -16,49 +16,107 @@ Every job is `sleep --args 10000 --max-retries 1`, with the exact expected resul
 aggregates. Waiting tasks measure recovery behavior; these numbers are not
 CPU throughput or a replacement for the [scaling experiment](benchmark-scaling.md).
 
-## Measurement status: 2026-10-02
+## Results: 2026-10-02
 
-The runner and regression checks are complete. **The full timing campaign remains
-pending because AC power was lost during all three attempts.** The AC-only
-contract remains unchanged, and further timing runs are deferred. No attempt
-supplies a valid five-round performance result, and no samples are combined
-across them.
+**The complete campaign and independent artifact audit passed.** All 576 jobs
+(96 warmup, 480 measured) returned exactly `slept_ms=10000`. Each of the twelve
+fault runs consumed exactly one retry and completed the interrupted job under a
+different worker. All six controls had zero retries. There were zero terminal
+failures, missed IDs, incorrect results, deadline failures, or cleanup failures.
 
-| Evidence directory under `build/benchmarks/` | Successful samples before stopping | Failed sample | Reason |
-| --- | ---: | --- | --- |
-| `recovery-20261002/` | 14 | Round 4, no fault | Final power check reported battery power |
-| `recovery-20261002-ac/` | 9 | Round 3, heartbeat expiry | Final power check reported battery power |
-| `recovery-20261002-stable/` | 6 | Round 2, SIGKILL | Final power check reported battery power |
+The [reviewed JSON](../benchmarks/results/recovery-20261002.json) retains all
+unrounded measurements, matched pairs, provenance, and audit/evidence hashes.
+The [CSV](../benchmarks/results/recovery-20261002.csv) includes all 18 runs and
+explicitly labels warmups. The tables below exclude warmups. Each median and
+range uses five measured runs; paired overhead uses the same-round control.
 
-The first attempt used revision `5a96292`; the second used `eecc1f3` after a
-verifier fix. The third used `9cb5579` after committing the earlier evidence and
-passing 31 AC-power checks over 60 seconds. Rechecking an already attributed
-crash diagnostic is now safe; an extra unrelated warning still fails validation.
-This fixes a possible false failure in the benchmark verifier without changing
-coordinator/worker behavior.
+| Scenario | Median batch, s | Batch range, s | Median jobs/s | Median per-run mean latency, s | Median paired additional time, s | Median paired overhead |
+| --- | ---: | --- | ---: | ---: | ---: | ---: |
+| No fault | 80.264 | 80.186–80.358 | 0.399 | 44.852 | — | — |
+| SIGKILL | 80.689 | 80.604–80.805 | 0.397 | 44.966 | 0.418 | 0.521% |
+| Heartbeat expiry | 85.939 | 85.777–86.049 | 0.372 | 46.261 | 5.691 | 7.082% |
 
-Across all 32 finished samples, including the three invalidated by power checks,
-an independent per-ID audit confirmed **1,024 correct results, 22 retries, zero
-terminal failures, and successful cleanup of every directly tracked process**.
-This is correctness evidence, not a completed timing comparison. The
-[interrupted-campaign record](../benchmarks/results/recovery-attempts-20261002.json)
-preserves sample identities, counts, failure reasons, and evidence hashes. All three
-raw directories retain their summaries, logs, event traces, and WALs locally;
-they are Git-ignored and `make clean` removes them.
+All measured batch times, in round order (seconds):
 
-Validation completed before the latest attempt:
+| Scenario | Round 1 | Round 2 | Round 3 | Round 4 | Round 5 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| No fault | 80.297 | 80.186 | 80.264 | 80.358 | 80.233 |
+| SIGKILL | 80.689 | 80.604 | 80.805 | 80.686 | 80.710 |
+| Heartbeat expiry | 85.777 | 85.788 | 85.962 | 86.049 | 85.939 |
 
-- All 15 recovery-harness checks passed in normal, ASan/UBSan, and freshly built
-  optimized binaries. Sanitizer fixture timings are excluded from measurements.
+Recovery delays remain separate from whole-batch cost:
+
+| Scenario | Detection median [range], ms | Loss → reassignment median [range], s | Signal → recovered completion median [range], s | Attempts / retries / terminal failures per run |
+| --- | --- | --- | --- | --- |
+| SIGKILL | 11.119 [0.688–12.922] | 70.046 [70.042–70.099] | 80.066 [80.058–80.105] | 33 / 1 / 0 |
+| Heartbeat expiry | 5195.880 [5189.583–5204.533] | 70.044 [70.042–70.148] | 85.260 [85.246–85.332] | 33 / 1 / 0 |
+
+![All five samples and their medians](../benchmarks/results/recovery-20261002.svg)
+
+The roughly 70-second reassignment delay is explained by the FIFO workload:
+32 ten-second jobs fill four workers for roughly eight waves. The interrupted
+first job rejoins the queue behind the remaining jobs, so its next attempt is
+near the last wave. The replacement begins other queued work shortly after
+registration. This waiting time is not a 70-second failure-detection delay.
+
+Heartbeat detection is measured from SIGSTOP, while expiry is based on the
+last accepted heartbeat. Some of the six-second silence window has already
+elapsed when the signal is sent. The audit checks the coordinator actually
+reported at least 6,000 ms of silence before revoking the connection.
+
+A recovered job restarting its ten-second task does not necessarily add ten
+seconds to the batch: other workers execute jobs concurrently. The paired batch
+difference captures the overall completion cost for this fixed intervention.
+
+## Machine, validation, and excluded campaigns
+
+The accepted campaign ran from clean revision `5f945ed1a54d5b28f557be92748f2da7fdd4bbfb`.
+Source/binary hashes and machine identity stayed unchanged. The recorded machine
+was an Apple M4 (`Mac16,12`, ARM64), with 10 cores (4 Performance + 6 Efficiency),
+16 GiB RAM, and an internal APFS SSD. It ran macOS 27.0.1 (26A434), Darwin 27.0.0,
+Apple Clang 21.0.0, and Python 3.9.6. The build used `-O2 -g -Werror`,
+`SANITIZE=0`, normal logging, and normal durable WAL synchronization.
+
+All 36 before/after sample boundaries reported AC power with low-power mode off.
+Thermal telemetry was unavailable; absence of throttling is not established.
+Power and load observations are boundary checks, not continuous monitoring.
+
+The entire invocation took 2276.388 seconds
+(including build, tests, warmups, cooldowns, verification, and cleanup). Every
+30-second cooldown was checked independently against raw monotonic event times.
+
 - The fresh optimized build passed 131 C test groups and 141 integration tests;
-  two default-endpoint checks skipped because automatic ports were used.
-- During implementation, existing benchmark, batch, and chaos regression suites
-  passed 25, 22, and 35 checks respectively.
+  two default-endpoint checks skipped because the suite used automatic ports.
+- All 15 recovery-harness checks passed in normal, ASan/UBSan, and fresh
+  optimized builds. Sanitizer fixture times are excluded from the measurements.
+- The existing benchmark, batch, and chaos regression suites passed 25, 22,
+  and 35 checks during implementation.
+- The independent audit verified all 9,450 directly tracked children/helpers
+  were reaped with retired process groups. It reconstructed every job history,
+  exact result, retry count, metric, paired comparison, and aggregate from
+  retained artifacts, without importing the runner’s metric code.
 
-Once AC remains stable, rerun the entire matrix into a fresh directory. The next
-step is a complete campaign, followed by an independent timing audit and published
-JSON/CSV comparisons. Do not resume at the failed sample or report medians from
-these incomplete attempts.
+Three earlier campaigns stopped because a final power check reported battery
+power: `recovery-20261002/` at round 4’s no-fault sample,
+`recovery-20261002-ac/` at round 3’s heartbeat sample, and
+`recovery-20261002-stable/` at round 2’s SIGKILL sample. All 1,024 jobs across
+32 samples returned correct results and cleanup passed, but each campaign was
+invalidated by its power check. All three are **excluded from every published
+performance aggregate**. The
+[interrupted-attempt record](../benchmarks/results/recovery-attempts-20261002.json)
+retains their per-sample accounting, failure reasons, and hashes. The accepted
+campaign was run manually from Terminal into
+`build/benchmarks/recovery-7yblm_u2/`. No sample was replaced or combined
+across campaigns.
+
+The accepted revision includes a verifier fix: checking the same crash diagnostic
+more than once no longer consumes it twice and causes a false failure. An extra
+unattributed warning still fails validation; the regression suite covers both.
+This did not change coordinator or worker execution behavior.
+
+All four raw campaign directories are local, Git-ignored evidence, including WALs,
+logs, traces, and summaries. `make clean` removes them. The compact JSON, CSV,
+and chart under `benchmarks/results/` are the durable repository report.
 
 ## Running the campaign
 

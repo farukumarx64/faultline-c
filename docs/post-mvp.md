@@ -1,11 +1,12 @@
 # Optional post-MVP work
 
 Recorded on 2026-10-02. Status: **proposals only; not implemented**.
-These enhancements are outside the current MVP requirements. Finish the existing
-MVP checks before expanding its scope; the full AC-only
-[recovery timing campaign](benchmark-recovery.md#measurement-status-2026-10-02)
-and its report remain pending. This list sets no implementation date and does
-not change the current protocol, durability guarantees, or benchmark contract.
+These enhancements are outside the current MVP requirements. The
+[scaling](benchmark-scaling.md) and AC-only
+[recovery](benchmark-recovery.md#results-2026-10-02) campaigns and reports are
+complete. Finish the remaining v0.1 documentation, demo, and release checks before
+expanding scope. This list sets no implementation date and does not change the
+current protocol, durability guarantees, or benchmark contract.
 
 | Enhancement | Reason to revisit | Existing guarantee |
 | --- | --- | --- |
