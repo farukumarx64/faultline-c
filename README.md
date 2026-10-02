@@ -418,6 +418,7 @@ faultline/
 │   ├── persistence.md
 │   ├── coordinator-crashes.md
 │   ├── persistence-review.md
+│   ├── post-mvp.md
 │   └── request-deduplication.md
 ├── include/             Shared C headers
 ├── src/
@@ -456,6 +457,9 @@ The [persistence phase review](docs/persistence-review.md) consolidates the
 durable-state promise, repeat-execution rules, evidence, and remaining scope.
 The [deferred request-deduplication proposal](docs/request-deduplication.md)
 records a future enhancement for safely repeating submissions after a lost ACK.
-It is not implemented. The [CLI and observability review](docs/observability-review.md)
+It is not implemented. The [optional post-MVP notes](docs/post-mvp.md) track this
+proposal alongside potential battery-only and Low Power Mode benchmark profiles;
+the current AC-only benchmark contract remains unchanged.
+The [CLI and observability review](docs/observability-review.md)
 records this phase's command semantics, logging guarantees, verification, and
 handoff to testing and chaos experiments.

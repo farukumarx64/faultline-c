@@ -369,3 +369,8 @@ This defines the experiments without adding production behavior or claiming
 performance. Multi-host speedup, maximum coordinator capacity, random crash-rate
 sweeps, coordinator-restart timing, and performance regression gates need their
 own profiles and evidence.
+
+Optional battery-only and Low Power Mode profiles are recorded in the
+[post-MVP notes](post-mvp.md#additional-power-mode-benchmark-profiles). They are
+not implemented or required to complete this phase; the AC-only contract stays
+in effect.

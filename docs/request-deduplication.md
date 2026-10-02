@@ -3,10 +3,10 @@
 Recorded on 2026-09-24. Status: **documented for later; not implemented**.
 This is an optional enhancement outside the original MVP phase list. The
 [persistence phase](persistence-review.md) is complete under its existing
-contract. Continue with CLI and observability, then revisit this proposal,
-especially before introducing automatic submission retries or tasks with costly
-external effects. This note proposes behavior; it does not change today's
-protocol, WAL format, or CLI.
+contract. This proposal is tracked in the [optional post-MVP work](post-mvp.md).
+Revisit it before introducing automatic submission retries or when duplicate
+submissions become costly, especially for tasks with external effects. This
+note proposes behavior; it does not change today's protocol, WAL format, or CLI.
 
 ## Problem to solve
 
