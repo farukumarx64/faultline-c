@@ -490,8 +490,13 @@ class RecoveryRun(base.BaselineRun):
                     'missing heartbeat expiry evidence')
         elif self.transport_warnings:
             # Reuse the chaos verifier's strict reason/time correlation.
-            ChaosRun.account_transport_warnings(self, dict(closed=self.fault['closed'],
-                fd=self.target['fd'], worker_id=self.target['worker_id']))
+            # Coverage is checked both before terminal verification and after
+            # history verification. Do not consume the same diagnostic twice.
+            if not any(w['matched'] for w in self.transport_warnings):
+                ChaosRun.account_transport_warnings(self, dict(closed=self.fault['closed'],
+                    fd=self.target['fd'], worker_id=self.target['worker_id']))
+            require(all(w['matched'] for w in self.transport_warnings),
+                    'unattributed crash transport diagnostic')
 
     def verify_job_history(self):
         self.check()

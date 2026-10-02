@@ -136,7 +136,8 @@ make test-recovery-benchmark-harness
 make SANITIZE=1 test-recovery-benchmark-harness
 ```
 
-The 14 regression checks cover exact round pairing, negative overhead, clock
+The 15 regression checks cover exact round pairing, negative overhead, repeatable
+crash-diagnostic verification that still rejects extra warnings, clock
 separation, missing/invalid measurements, old-attempt and result corruption,
 scoped error acceptance, real no-fault/crash/expiry execution, concurrent slow
 admission, insufficient expiry coverage, missed targets, wrong exact results,

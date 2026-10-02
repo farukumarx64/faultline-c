@@ -2,6 +2,7 @@
 
 import argparse
 import copy
+import errno
 import json
 import os
 from pathlib import Path
@@ -21,6 +22,28 @@ BIN_DIR = ROOT/'build/debug'
 
 
 class MetricTests(unittest.TestCase):
+    def test_crash_diagnostic_coverage_is_repeatable_and_rejects_extra_warnings(self):
+        with tempfile.TemporaryDirectory() as directory:
+            run=recovery.RecoveryRun(argparse.Namespace(bin_dir=BIN_DIR),Path(directory),
+                recovery.load_profile(),'measured',time.monotonic()+60,scenario='sigkill')
+            try:
+                run.target=dict(worker_id=1,fd='6')
+                run.fault_child=argparse.Namespace(intentional_crash=True,group_retired=True,
+                    process=argparse.Namespace(returncode=-signal.SIGKILL))
+                run.fault.update({k:{} for k in ('loss','death','reassigned','restarted','completed')})
+                run.fault.update(closed=dict(reason='recv_error',monotonic_ms='100',fd='6'),
+                                 replacement_registered_ns=1)
+                warning=dict(event='system_error',fields=dict(operation='recv',
+                    errno=str(errno.ECONNRESET),monotonic_ms='99'),matched=False)
+                run.transport_warnings.append(warning)
+                run.verify_coverage()
+                self.assertTrue(warning['matched'])
+                run.verify_coverage()
+                run.transport_warnings.append({**warning,'matched':False})
+                with self.assertRaises(recovery.RunFailure): run.verify_coverage()
+            finally:
+                run.events.close()
+
     def test_only_revoked_workers_expected_connection_errors_are_allowed(self):
         with tempfile.TemporaryDirectory() as directory:
             args=argparse.Namespace(bin_dir=BIN_DIR)
