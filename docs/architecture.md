@@ -159,5 +159,6 @@ machine specifications, throughput, latency, and recovery costs.
 The [benchmark contract](benchmarks.md) now fixes the scaling and controlled
 recovery profiles, build settings, repetitions, timing boundaries, correctness
 requirements, and process cleanup. The [one-worker baseline](benchmark-baseline.md)
-now has an optimized build and verified measurement runner. The complete scaling
-matrix and controlled recovery measurements remain separate steps.
+has an optimized build and verified measurement runner. The complete
+[scaling matrix](benchmark-scaling.md) is measured and independently audited;
+controlled recovery measurements remain the next experiment.

@@ -243,6 +243,7 @@ including successful and deliberately rejected experiments.
 The next separate MVP experiment phase is **benchmarks**. Its
 [contract](benchmarks.md) now fixes the workload, 1/2/4/8-worker scaling matrix,
 controlled failure profiles, timing, repetitions, machine inventory, and cleanup.
-The [one-worker baseline runner](benchmark-baseline.md) now builds optimized
-binaries and verifies timing/accounting/cleanup before the full matrix is
-collected. The chaos elapsed times above are not benchmark results.
+The [one-worker baseline](benchmark-baseline.md) and complete
+[scaling matrix](benchmark-scaling.md) are measured and independently audited.
+Controlled recovery measurements follow. The chaos elapsed times above are not
+benchmark results.

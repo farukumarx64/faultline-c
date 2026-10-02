@@ -312,15 +312,20 @@ settings and the initial machine inventory live under `benchmarks/`.
 `make benchmark-baseline` now builds and checks optimized binaries, then runs one
 warmup and five verified one-worker samples. See the
 [baseline guide](docs/benchmark-baseline.md) for timing, machine checks, evidence,
-and the distinction from the later complete scaling campaign. The verified
+and the distinction from the complete scaling campaign. The verified
 one-worker series completed all 384 jobs (including warmup) without retries or
 failures: the median measured 64-job batch took **59.395 seconds**, or
 **1.078 jobs/second**, on the recorded Apple M4 configuration. The
 [reviewed results](benchmarks/results/one-worker-20261001.json) retain all samples
-and evidence references; the full worker-count comparison remains the next step.
+and evidence references.
 `make benchmark-scaling` now runs the full 1/2/4/8-worker plan from a clean
-committed checkout. See the [scaling guide](docs/benchmark-scaling.md) for the
-ordered repetitions, acceptance checks, and speedup calculation.
+committed checkout. The [verified scaling campaign](docs/benchmark-scaling.md)
+completed all 1,536 jobs without retries or failures. Median batch times were
+59.008, 29.856, 16.924, and 13.942 seconds respectively: eight workers achieved
+**4.232× speedup** against the fresh one-worker median. The guide records every
+sample and its variation, with [JSON](benchmarks/results/scaling-20261001.json)
+and [CSV](benchmarks/results/scaling-20261001.csv) reports. Controlled recovery
+benchmarks remain the next experiment.
 Use `make test-unit` or `make test-integration` to run either layer separately.
 Use `make test-job-status-protocol` for status payloads and validation, or add
 `SANITIZE=1` for AddressSanitizer/UBSan.

@@ -7,9 +7,10 @@ permitted retries. Every result must be exactly `664579`.
 
 This is a **one-worker development series**, not the complete ordered scaling
 campaign. Its summaries set `reportable_scaling_campaign=false`. It validates the
-runner and provides an initial reference. The later 1/2/4/8-worker campaign must
-collect all configurations together in the specified order, including fresh
-one-worker samples; these samples cannot substitute for that campaign's column.
+runner and provides an initial reference. The
+[completed 1/2/4/8-worker campaign](benchmark-scaling.md) collected all
+configurations together in the specified order, including fresh one-worker
+samples; this development series does not substitute for that campaign's column.
 
 ## Results: 2026-10-01
 
@@ -59,8 +60,8 @@ OS/compiler values differ from the original contract inventory. These refreshed
 values describe this run. Background load varied: the recorded one-minute load
 reached 9.694 before sample 3. Its cause was not measured, and these observations
 do not isolate thermal, scheduling, or background-work effects. All five samples
-are retained. This remains a single-host development baseline; collect fresh
-one-worker samples within the later ordered matrix before making speedup claims.
+are retained. This remains a single-host development baseline; speedup claims
+use the fresh one-worker samples in the separate ordered scaling campaign.
 
 Raw evidence is retained in Git-ignored
 `build/benchmarks/one-worker-379xz48p/`. A separate audit recomputed batch/latency

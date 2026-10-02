@@ -2,8 +2,8 @@
 
 Status: **contract defined; the one-worker baseline is implemented and verified.** See
 [baseline execution and evidence](benchmark-baseline.md). The
-[ordered scaling runner](benchmark-scaling.md) is implemented; its measurements
-and the controlled recovery driver remain pending.
+[ordered scaling campaign](benchmark-scaling.md) is implemented, measured, and
+independently audited. Controlled recovery measurements remain pending.
 Contract version: `faultline-benchmarks-v1`. The versioned
 [scaling profile](../benchmarks/profiles/scaling-v1.json) and
 [recovery profile](../benchmarks/profiles/recovery-v1.json) freeze the numeric
@@ -304,8 +304,9 @@ Preserve raw timestamps and derive rounded display values afterwards. The final
 campaign report must link each aggregate to its five source samples. Later
 publication can copy reviewed reports/plots to `benchmarks/results/`; the
 [one-worker baseline report](../benchmarks/results/one-worker-20261001.json) is
-available, separately scoped from the full matrix. `make clean` removes local
-build evidence, so copy evidence
+available, separately scoped from the
+[complete scaling report](../benchmarks/results/scaling-20261001.json).
+`make clean` removes local build evidence, so copy evidence
 before cleaning. Benchmark execution/uploads are not added to Linux CI by this
 contract; hosted correctness checks remain separate.
 
@@ -350,11 +351,13 @@ that escape their owned session remain outside this process-based guarantee.
 2. **Verified:** the [one-worker baseline](benchmark-baseline.md), with
    per-ID verification, timing, retained evidence, deadlines, and cleanup.
    All 384 jobs passed; median measured batch duration was 59.395 seconds.
-3. **Implemented; measurements pending:** run the complete optimized
-   [scaling campaign](benchmark-scaling.md) with the fixed worker-count matrix.
+3. **Verified:** the complete optimized [scaling campaign](benchmark-scaling.md)
+   passed all 24 runs and 1,536 jobs. Measured speedups at 2/4/8 workers were
+   1.976×/3.487×/4.232× against its fresh one-worker median.
 4. Implement and verify the controlled recovery scenarios, then run their campaign.
-5. Audit all IDs/results, raw samples, and provenance; publish tables/graphs and
-   explain workload, machine, polling, durability, and scheduling limitations.
+5. **Scaling audit/report complete:** all IDs/results, raw samples, and provenance
+   were audited and tables published with their limits. Repeat the audit/report
+   process for controlled recovery when its measurements are collected.
 
 This defines the experiments without adding production behavior or claiming
 performance. Multi-host speedup, maximum coordinator capacity, random crash-rate

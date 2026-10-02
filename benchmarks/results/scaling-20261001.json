@@ -1,0 +1,2639 @@
+{
+  "report": "faultline-worker-scaling-v1",
+  "date": "2026-10-01",
+  "verdict": "SCALING_PASS",
+  "reportable_scaling_campaign": true,
+  "profile": {
+    "contract": "faultline-benchmarks-v1",
+    "profile": "scaling-prime-count-v1",
+    "task": "prime_count",
+    "arguments": "10000000",
+    "expected_result": "664579",
+    "expected_result_bytes": 6,
+    "jobs": 64,
+    "worker_counts": [
+      1,
+      2,
+      4,
+      8
+    ],
+    "max_retries": 0,
+    "faults_per_run": 0,
+    "warmup_order": [
+      1,
+      2,
+      4,
+      8
+    ],
+    "measured_rounds": [
+      [
+        1,
+        2,
+        4,
+        8
+      ],
+      [
+        2,
+        4,
+        8,
+        1
+      ],
+      [
+        4,
+        8,
+        1,
+        2
+      ],
+      [
+        8,
+        1,
+        2,
+        4
+      ],
+      [
+        1,
+        4,
+        2,
+        8
+      ]
+    ],
+    "build": {
+      "cc": "clang",
+      "cflags": "-O2 -g -Werror",
+      "sanitize": 0,
+      "cpu_tuning": "compiler_default",
+      "lto": false
+    },
+    "heartbeat_interval_ms": 2000,
+    "heartbeat_timeout_ms": 6000,
+    "poll_interval_ms": 200,
+    "cooldown_ms": 30000,
+    "minimum_warmup_batch_ms": 10000,
+    "run_deadline_ms": 600000,
+    "cleanup_reserve_ms": 10000,
+    "campaign_deadline_ms": 7200000
+  },
+  "plan": [
+    {
+      "campaign_index": 0,
+      "stage": "warmup",
+      "measured_round": null,
+      "workers": 1
+    },
+    {
+      "campaign_index": 1,
+      "stage": "warmup",
+      "measured_round": null,
+      "workers": 2
+    },
+    {
+      "campaign_index": 2,
+      "stage": "warmup",
+      "measured_round": null,
+      "workers": 4
+    },
+    {
+      "campaign_index": 3,
+      "stage": "warmup",
+      "measured_round": null,
+      "workers": 8
+    },
+    {
+      "campaign_index": 4,
+      "stage": "measured",
+      "measured_round": 1,
+      "workers": 1
+    },
+    {
+      "campaign_index": 5,
+      "stage": "measured",
+      "measured_round": 1,
+      "workers": 2
+    },
+    {
+      "campaign_index": 6,
+      "stage": "measured",
+      "measured_round": 1,
+      "workers": 4
+    },
+    {
+      "campaign_index": 7,
+      "stage": "measured",
+      "measured_round": 1,
+      "workers": 8
+    },
+    {
+      "campaign_index": 8,
+      "stage": "measured",
+      "measured_round": 2,
+      "workers": 2
+    },
+    {
+      "campaign_index": 9,
+      "stage": "measured",
+      "measured_round": 2,
+      "workers": 4
+    },
+    {
+      "campaign_index": 10,
+      "stage": "measured",
+      "measured_round": 2,
+      "workers": 8
+    },
+    {
+      "campaign_index": 11,
+      "stage": "measured",
+      "measured_round": 2,
+      "workers": 1
+    },
+    {
+      "campaign_index": 12,
+      "stage": "measured",
+      "measured_round": 3,
+      "workers": 4
+    },
+    {
+      "campaign_index": 13,
+      "stage": "measured",
+      "measured_round": 3,
+      "workers": 8
+    },
+    {
+      "campaign_index": 14,
+      "stage": "measured",
+      "measured_round": 3,
+      "workers": 1
+    },
+    {
+      "campaign_index": 15,
+      "stage": "measured",
+      "measured_round": 3,
+      "workers": 2
+    },
+    {
+      "campaign_index": 16,
+      "stage": "measured",
+      "measured_round": 4,
+      "workers": 8
+    },
+    {
+      "campaign_index": 17,
+      "stage": "measured",
+      "measured_round": 4,
+      "workers": 1
+    },
+    {
+      "campaign_index": 18,
+      "stage": "measured",
+      "measured_round": 4,
+      "workers": 2
+    },
+    {
+      "campaign_index": 19,
+      "stage": "measured",
+      "measured_round": 4,
+      "workers": 4
+    },
+    {
+      "campaign_index": 20,
+      "stage": "measured",
+      "measured_round": 5,
+      "workers": 1
+    },
+    {
+      "campaign_index": 21,
+      "stage": "measured",
+      "measured_round": 5,
+      "workers": 4
+    },
+    {
+      "campaign_index": 22,
+      "stage": "measured",
+      "measured_round": 5,
+      "workers": 2
+    },
+    {
+      "campaign_index": 23,
+      "stage": "measured",
+      "measured_round": 5,
+      "workers": 8
+    }
+  ],
+  "source": {
+    "revision": "6eccc341af0974c802c992ba9afeee1285eca0a8",
+    "git_status": "",
+    "source_and_binary_hashes_unchanged": true
+  },
+  "build": {
+    "compiler": "/usr/bin/clang",
+    "compiler_version": "Apple clang version 21.0.0 (clang-2100.3.34.2)\nTarget: arm64-apple-darwin27.0.0\nThread model: posix\nInstalledDir: /Library/Developer/CommandLineTools/usr/bin\n",
+    "make_version": "GNU Make 3.81\nCopyright (C) 2006  Free Software Foundation, Inc.\nThis is free software; see the source for copying conditions.\nThere is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A\nPARTICULAR PURPOSE.\n\nThis program built for i386-apple-darwin11.3.0\n",
+    "cflags": "-O2 -g -Werror",
+    "sanitize": 0,
+    "binaries": {
+      "faultline": "2eb41c14653682cb276842f2ac9e5cabb5a9256b6446a9a5b090f3e14dea208c",
+      "faultline-worker": "afd535c5c1cb1a22adaa2b60d299a22d4c06472233060cd5da72154877b8540b",
+      "faultline-coordinator": "9ec58f834cf9b1e1a40ab76d7390df8999203a054695e1566bd052657a34f23c"
+    }
+  },
+  "machine": {
+    "hardware": {
+      "machdep.cpu.brand_string": "Apple M4",
+      "hw.model": "Mac16,12",
+      "hw.physicalcpu": "10",
+      "hw.logicalcpu": "10",
+      "hw.memsize": "17179869184",
+      "hw.perflevel0.name": "Performance",
+      "hw.perflevel0.physicalcpu": "4",
+      "hw.perflevel1.name": "Efficiency",
+      "hw.perflevel1.physicalcpu": "6"
+    },
+    "os": "ProductName:\t\tmacOS\nProductVersion:\t\t27.0.1\nBuildVersion:\t\t26A434\n",
+    "kernel": {
+      "system": "Darwin",
+      "release": "27.0.0",
+      "version": "Darwin Kernel Version 27.0.0: Tue Aug 11 21:02:57 PDT 2026; root:xnu-13432.1.9~1/RELEASE_ARM64_T8132",
+      "machine": "arm64"
+    },
+    "storage": {
+      "FilesystemType": "apfs",
+      "TotalSize": 494384795648,
+      "SolidState": true,
+      "Internal": true
+    },
+    "python": "3.9.6 (default, Aug 25 2026, 21:26:21) \n[Clang 21.0.0 (clang-2100.3.34.2)]"
+  },
+  "validation": {
+    "c_groups": 131,
+    "integration_discovered": 143,
+    "integration_skips": 2,
+    "independent_audit": "AUDIT_PASS",
+    "all_jobs": 1536,
+    "measured_jobs": 1280,
+    "completed": 1536,
+    "terminally_failed": 0,
+    "retries": 0,
+    "owned_children_reaped": 11909
+  },
+  "invocation_elapsed_ms": 1743130,
+  "samples": [
+    {
+      "campaign_index": 0,
+      "stage": "warmup",
+      "measured_round": null,
+      "workers": 1,
+      "path": "00-warmup-w1",
+      "created_utc": "2026-10-01T19:24:35.298117+00:00",
+      "metrics": {
+        "batch_elapsed_ms": 57185.825459,
+        "admission_ms": 1725.519667,
+        "completed_jobs_per_second": 1.119158453800505,
+        "mean_accepted_latency_ms": 28040.8125,
+        "p95_accepted_latency_ms": 52678
+      },
+      "verified_cleanup_disconnect_notices": [
+        "1"
+      ],
+      "overhead": {
+        "startup_ms": 880.3370830000006,
+        "verification_ms": 4260.739375,
+        "cleanup_ms": 25
+      },
+      "counts": {
+        "submitted": 64,
+        "completed": 64,
+        "terminally_failed": 0
+      },
+      "retries": 0,
+      "attempts": 64,
+      "worker_job_distribution": {
+        "1": 64
+      },
+      "elapsed_ms": 62439,
+      "cleanup": {
+        "ok": true,
+        "errors": [],
+        "remaining": [],
+        "elapsed_ms": 25
+      },
+      "children": 760,
+      "sha256": {
+        "manifest.json": "3199199da8b53123b86700fa87de1509ad8172c0a46421fff50af6707088b382",
+        "summary.json": "7e61f8210f7cc3d86e93be00a9665de19d390450d00ddd5044c9021b07cdae13",
+        "accounting.json": "695e2108279928b146fd9ef1554ece0f193eaf3471ed9185b6e1df84ed88f52c",
+        "timings.json": "77155b60c9600086107684b1b1e46716493685a94aa7651f9c1f6c6aa90200d6",
+        "latencies.json": "36f6206d333dd57a3600d86b10ec01493ea0aca0e35996e320611780c35b8e2e",
+        "events.jsonl": "4cd544f61c1f64e3feb9146ecd98a925f7456099a9d1735a81bddf67417a10c3",
+        "coordinator.wal": "d444eb303f872b737a902f4bb16f006981267d939009049b1d6b3dda85c6cf4c",
+        "machine.json": "a687ff6be3b747d4cc2953ec12ec2dc0976189a7aa6b7cffd47cca4888af11c1"
+      },
+      "machine_observations": {
+        "before": {
+          "observed_monotonic_ns": 200133683500,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 116598521856,
+          "load_average": [
+            2.00146484375,
+            2.1650390625,
+            2.42236328125
+          ]
+        },
+        "after": {
+          "observed_monotonic_ns": 262116973000,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 116548567040,
+          "load_average": [
+            2.77001953125,
+            2.35888671875,
+            2.47509765625
+          ]
+        }
+      }
+    },
+    {
+      "campaign_index": 1,
+      "stage": "warmup",
+      "measured_round": null,
+      "workers": 2,
+      "path": "01-warmup-w2",
+      "created_utc": "2026-10-01T19:26:07.832014+00:00",
+      "metrics": {
+        "batch_elapsed_ms": 29604.016708,
+        "admission_ms": 1744.73975,
+        "completed_jobs_per_second": 2.1618687974427826,
+        "mean_accepted_latency_ms": 14383.203125,
+        "p95_accepted_latency_ms": 26975
+      },
+      "verified_cleanup_disconnect_notices": [
+        "1",
+        "2"
+      ],
+      "overhead": {
+        "startup_ms": 862.8475419999972,
+        "verification_ms": 4441.670333,
+        "cleanup_ms": 48
+      },
+      "counts": {
+        "submitted": 64,
+        "completed": 64,
+        "terminally_failed": 0
+      },
+      "retries": 0,
+      "attempts": 64,
+      "worker_job_distribution": {
+        "1": 32,
+        "2": 32
+      },
+      "elapsed_ms": 35013,
+      "cleanup": {
+        "ok": true,
+        "errors": [],
+        "remaining": [],
+        "elapsed_ms": 48
+      },
+      "children": 491,
+      "sha256": {
+        "manifest.json": "c6101beb9326acc7e555e01953b4caee47f1fc12204a2586c6ad49ea02192800",
+        "summary.json": "6e4e73d951b53ac3ccf4f4489d14e785c929033b4d1da0c5ceb8d7306f0f4879",
+        "accounting.json": "5954322b298a6b81b33c66af01a2113691df0349ac9d4bdc58d9f0af28b54f6c",
+        "timings.json": "af45dcb2cc88611f7b6b8fa50bc2f69dd3be7cbb8a36007afb93e41c6e94b737",
+        "latencies.json": "84fe9b9fa48c5f033092a44871a7107c8b1f370f7eb0635767e117154f16b109",
+        "events.jsonl": "60ceb1076d974aa70347c426a9aac1882e029b7bef7df2de55336ba1af72e166",
+        "coordinator.wal": "8635c512cef6395b8965257a12e511ddd4a683aa4112a8e75bcf45557df60222",
+        "machine.json": "2b7c18046839196a337151c4e5816e6cf1d613cc279999b14f6c339b5f55a750"
+      },
+      "machine_observations": {
+        "before": {
+          "observed_monotonic_ns": 292659433000,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 116500905984,
+          "load_average": [
+            2.58935546875,
+            2.36669921875,
+            2.47509765625
+          ]
+        },
+        "after": {
+          "observed_monotonic_ns": 327251448708,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 116378804224,
+          "load_average": [
+            3.16259765625,
+            2.5439453125,
+            2.53466796875
+          ]
+        }
+      }
+    },
+    {
+      "campaign_index": 2,
+      "stage": "warmup",
+      "measured_round": null,
+      "workers": 4,
+      "path": "02-warmup-w4",
+      "created_utc": "2026-10-01T19:27:12.950297+00:00",
+      "metrics": {
+        "batch_elapsed_ms": 16838.16625,
+        "admission_ms": 1861.684791,
+        "completed_jobs_per_second": 3.8008889477498777,
+        "mean_accepted_latency_ms": 7930.265625,
+        "p95_accepted_latency_ms": 14507
+      },
+      "verified_cleanup_disconnect_notices": [
+        "1",
+        "2",
+        "3",
+        "4"
+      ],
+      "overhead": {
+        "startup_ms": 850.4759999999578,
+        "verification_ms": 4460.395125,
+        "cleanup_ms": 52
+      },
+      "counts": {
+        "submitted": 64,
+        "completed": 64,
+        "terminally_failed": 0
+      },
+      "retries": 0,
+      "attempts": 64,
+      "worker_job_distribution": {
+        "1": 16,
+        "2": 16,
+        "3": 16,
+        "4": 16
+      },
+      "elapsed_ms": 22221,
+      "cleanup": {
+        "ok": true,
+        "errors": [],
+        "remaining": [],
+        "elapsed_ms": 52
+      },
+      "children": 367,
+      "sha256": {
+        "manifest.json": "6d5731f468aad0b18eb0372ac95849f1ab0d7e08cb8c11376c7ee1e1ac32832e",
+        "summary.json": "f4a6d22c49c913e7c8baee2210ee9d6cc0231aa05269a6ecf1b59e8d4c8fc735",
+        "accounting.json": "8a208d2e6a4251b0d48325c4eae6aee582be962d9637bd636eda4acd97b5a25b",
+        "timings.json": "0e90e4b0169b42577587f581553ab86f9ea39cf8ebab3366b9904cc7bd8939cd",
+        "latencies.json": "bfaf5860ee4d9c677a9c3e1d6c2f576459588f6604fa0c9c058e563e01c3e9b1",
+        "events.jsonl": "346b30503e7d0044a9aae59bc44034dfbcba0f490bf3a2b06ff515a9e437aa7f",
+        "coordinator.wal": "b4b61dc49a6afb4c934332ee14689173ab0644ef5c8113cbaff3f9212a673cc0",
+        "machine.json": "e4a6114cf773196fc76a4ec0640d3b366c5465c409aa7192ffe323295c7385eb"
+      },
+      "machine_observations": {
+        "before": {
+          "observed_monotonic_ns": 357740978291,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 116319416320,
+          "load_average": [
+            2.326171875,
+            2.3955078125,
+            2.47998046875
+          ]
+        },
+        "after": {
+          "observed_monotonic_ns": 379592716583,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 116239732736,
+          "load_average": [
+            2.9013671875,
+            2.52880859375,
+            2.525390625
+          ]
+        }
+      }
+    },
+    {
+      "campaign_index": 3,
+      "stage": "warmup",
+      "measured_round": null,
+      "workers": 8,
+      "path": "03-warmup-w8",
+      "created_utc": "2026-10-01T19:28:05.251549+00:00",
+      "metrics": {
+        "batch_elapsed_ms": 14411.426208,
+        "admission_ms": 2062.747458,
+        "completed_jobs_per_second": 4.440920633134327,
+        "mean_accepted_latency_ms": 6697.859375,
+        "p95_accepted_latency_ms": 12013
+      },
+      "verified_cleanup_disconnect_notices": [
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8"
+      ],
+      "overhead": {
+        "startup_ms": 684.0125830000261,
+        "verification_ms": 4267.836875,
+        "cleanup_ms": 52
+      },
+      "counts": {
+        "submitted": 64,
+        "completed": 64,
+        "terminally_failed": 0
+      },
+      "retries": 0,
+      "attempts": 64,
+      "worker_job_distribution": {
+        "1": 8,
+        "2": 8,
+        "3": 8,
+        "4": 8,
+        "5": 8,
+        "6": 8,
+        "7": 8,
+        "8": 8
+      },
+      "elapsed_ms": 19451,
+      "cleanup": {
+        "ok": true,
+        "errors": [],
+        "remaining": [],
+        "elapsed_ms": 52
+      },
+      "children": 345,
+      "sha256": {
+        "manifest.json": "42ab16a8b8b865af342160431c39c0af6bac167af6f570ed3449b9c8d12f4ccf",
+        "summary.json": "7453c78738c6a35039d648cc512d25fa42f0650484ebf89605f0bec7239338be",
+        "accounting.json": "06f9fa190ee384df3a20432f6fdec353963c23f6e8b73697c8469d60be1b6365",
+        "timings.json": "b9faf4ba51a7f1aa9c84e4bcc25566382cda355b3bf90ea7313fadc8d33b48dc",
+        "latencies.json": "fe5395cf16f14150582c2a73eb5d2a9c942987c2badb0ed3291a70877c9da236",
+        "events.jsonl": "a86b68fa9b050310eb03817c75b6680f12247288d3cf77ec6b185f784408e58c",
+        "coordinator.wal": "65360faf5fb5ac0d6f3f2467bf65dbd79e3d624676e5af739a218920fd7d2611",
+        "machine.json": "340a39c35c79c0922a76853af14ae763ef8db0fdfdaaedddc608d58f6450bf88"
+      },
+      "machine_observations": {
+        "before": {
+          "observed_monotonic_ns": 410072749458,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 116188217344,
+          "load_average": [
+            2.3095703125,
+            2.42724609375,
+            2.48779296875
+          ]
+        },
+        "after": {
+          "observed_monotonic_ns": 429110116750,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 116148850688,
+          "load_average": [
+            3.85888671875,
+            2.78466796875,
+            2.61474609375
+          ]
+        }
+      }
+    },
+    {
+      "campaign_index": 4,
+      "stage": "measured",
+      "measured_round": 1,
+      "workers": 1,
+      "path": "04-measured-r1-w1",
+      "created_utc": "2026-10-01T19:28:54.795156+00:00",
+      "metrics": {
+        "batch_elapsed_ms": 58236.9555,
+        "admission_ms": 1735.964667,
+        "completed_jobs_per_second": 1.098958547034623,
+        "mean_accepted_latency_ms": 28471.515625,
+        "p95_accepted_latency_ms": 53682
+      },
+      "verified_cleanup_disconnect_notices": [
+        "1"
+      ],
+      "overhead": {
+        "startup_ms": 864.2034159999525,
+        "verification_ms": 4305.307042,
+        "cleanup_ms": 28
+      },
+      "counts": {
+        "submitted": 64,
+        "completed": 64,
+        "terminally_failed": 0
+      },
+      "retries": 0,
+      "attempts": 64,
+      "worker_job_distribution": {
+        "1": 64
+      },
+      "elapsed_ms": 63510,
+      "cleanup": {
+        "ok": true,
+        "errors": [],
+        "remaining": [],
+        "elapsed_ms": 28
+      },
+      "children": 770,
+      "sha256": {
+        "manifest.json": "ca87a3ca7d48ab056d33f75c07b01f38e5a12b30003d1d449f4ca6265b12e017",
+        "summary.json": "003bf29126f775c5e2070543cba82811c6bbda7a4cefcbd81e2ca71898544e7c",
+        "accounting.json": "e13149dab67c1b877d3b32e1010bc05a2c6aa6a8503f6d9f95e43a30c39d52e4",
+        "timings.json": "6a8ee80b0eba26f887c3363b823241afa72d997b3ece7ef2c62694b1dcece007",
+        "latencies.json": "bcaf0b71aa9a37cc9187ea5a13ec2c74230f24a41946ef1b08da0d3c36c285c4",
+        "events.jsonl": "e5fba9c8f6279d3f41e6107e841d26623775ebc244781d3598330c9af8619b28",
+        "coordinator.wal": "d390ef9c6289492ec607917247ddbfc04b1cf54006228b2c20fa6731ce2f4b67",
+        "machine.json": "35cd8ce11bfc8b3d68a79ee0786c454bb287047ea548f92de0c7e4418376cb1b"
+      },
+      "machine_observations": {
+        "before": {
+          "observed_monotonic_ns": 459615901250,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 116116123648,
+          "load_average": [
+            3.23388671875,
+            2.73876953125,
+            2.60302734375
+          ]
+        },
+        "after": {
+          "observed_monotonic_ns": 522699293541,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 115973836800,
+          "load_average": [
+            3.02001953125,
+            2.75927734375,
+            2.61669921875
+          ]
+        }
+      }
+    },
+    {
+      "campaign_index": 5,
+      "stage": "measured",
+      "measured_round": 1,
+      "workers": 2,
+      "path": "05-measured-r1-w2",
+      "created_utc": "2026-10-01T19:30:28.403898+00:00",
+      "metrics": {
+        "batch_elapsed_ms": 29995.975667,
+        "admission_ms": 1769.236875,
+        "completed_jobs_per_second": 2.13361954651835,
+        "mean_accepted_latency_ms": 14485.875,
+        "p95_accepted_latency_ms": 27257
+      },
+      "verified_cleanup_disconnect_notices": [
+        "1",
+        "2"
+      ],
+      "overhead": {
+        "startup_ms": 870.7270830000198,
+        "verification_ms": 4216.258625,
+        "cleanup_ms": 22
+      },
+      "counts": {
+        "submitted": 64,
+        "completed": 64,
+        "terminally_failed": 0
+      },
+      "retries": 0,
+      "attempts": 64,
+      "worker_job_distribution": {
+        "1": 32,
+        "2": 32
+      },
+      "elapsed_ms": 35142,
+      "cleanup": {
+        "ok": true,
+        "errors": [],
+        "remaining": [],
+        "elapsed_ms": 22
+      },
+      "children": 495,
+      "sha256": {
+        "manifest.json": "21b19692b65dd5c7fbbbf1b0f7f334107030980fbe6733a727148f04253faf17",
+        "summary.json": "710f02d4ffccfad5fe930c3e49c754fb04843bcd03aa8983391991a2d8aa6f5b",
+        "accounting.json": "4546045bf28a9aa2b3d8bcc3ab4753967f3a733eae779a3726c0a27af5ff1ee5",
+        "timings.json": "2a497fb278dc211db01cfdda81aab02136346cc8d0fd95665216d0433b480970",
+        "latencies.json": "d9c356a28107aabf7a498f228a7300ba556fd26b315b56cefcfb75517253d15d",
+        "events.jsonl": "073a2b61aab07fb841ae3601ac457d036f161c50f2848d906a278ba723991fc2",
+        "coordinator.wal": "c9e47d81dd212221924890ffaa1c62cdcccc69d21006b8e58e5952faf7635040",
+        "machine.json": "47b1eda45a97153f6e40ffeac90d02b93e104709e163b0925403387e48fac006"
+      },
+      "machine_observations": {
+        "before": {
+          "observed_monotonic_ns": 553229121166,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 115922206720,
+          "load_average": [
+            2.5947265625,
+            2.6845703125,
+            2.59326171875
+          ]
+        },
+        "after": {
+          "observed_monotonic_ns": 587989626750,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 115881611264,
+          "load_average": [
+            3.63720703125,
+            2.9501953125,
+            2.693359375
+          ]
+        }
+      }
+    },
+    {
+      "campaign_index": 6,
+      "stage": "measured",
+      "measured_round": 1,
+      "workers": 4,
+      "path": "06-measured-r1-w4",
+      "created_utc": "2026-10-01T19:31:33.651925+00:00",
+      "metrics": {
+        "batch_elapsed_ms": 17106.696667,
+        "admission_ms": 1945.698834,
+        "completed_jobs_per_second": 3.741224927630851,
+        "mean_accepted_latency_ms": 8214.0625,
+        "p95_accepted_latency_ms": 14915
+      },
+      "verified_cleanup_disconnect_notices": [
+        "1",
+        "2",
+        "3",
+        "4"
+      ],
+      "overhead": {
+        "startup_ms": 852.7411249999659,
+        "verification_ms": 4025.792542,
+        "cleanup_ms": 27
+      },
+      "counts": {
+        "submitted": 64,
+        "completed": 64,
+        "terminally_failed": 0
+      },
+      "retries": 0,
+      "attempts": 64,
+      "worker_job_distribution": {
+        "1": 16,
+        "2": 16,
+        "3": 16,
+        "4": 16
+      },
+      "elapsed_ms": 22031,
+      "cleanup": {
+        "ok": true,
+        "errors": [],
+        "remaining": [],
+        "elapsed_ms": 27
+      },
+      "children": 369,
+      "sha256": {
+        "manifest.json": "16e07eb9fcdd4906f64fc1a602c5ebf94bac805b8eaa8b77c579e4c36bf05b86",
+        "summary.json": "68b43f9a2e9a4b3cebe9f00daa725bdb532a6a66022e0a2d9ce5acf18d1cc62f",
+        "accounting.json": "e8073422a83ae12718c7c66255d21bf5309b8a005f6412689c4c79de6f726830",
+        "timings.json": "3322291a9225f7f81209ddcfe24dc20e5aa016552938feb42cb767b39698985d",
+        "latencies.json": "bbf3564a447ffcdb6cb2d6e945807108f9cb58a0a4e716fb24595b9bf9aa79bc",
+        "events.jsonl": "2dd4ed59e7abee12f05db68d2091c368da4ac6bc2ffb68af91b7bfcd8c6d5734",
+        "coordinator.wal": "710a7265d4354db14d4068ef6c58ee3406d0bba00a8bac9facd3771a24cb890a",
+        "machine.json": "ff3b30326e4cd0889d905452952c98e7baa22a63710cdee3f3e6cf67d1cf8b41"
+      },
+      "machine_observations": {
+        "before": {
+          "observed_monotonic_ns": 618461777625,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 115800289280,
+          "load_average": [
+            2.921875,
+            2.841796875,
+            2.6611328125
+          ]
+        },
+        "after": {
+          "observed_monotonic_ns": 640129308875,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 115624480768,
+          "load_average": [
+            4.115234375,
+            3.125,
+            2.7666015625
+          ]
+        }
+      }
+    },
+    {
+      "campaign_index": 7,
+      "stage": "measured",
+      "measured_round": 1,
+      "workers": 8,
+      "path": "07-measured-r1-w8",
+      "created_utc": "2026-10-01T19:32:25.771196+00:00",
+      "metrics": {
+        "batch_elapsed_ms": 14129.697458,
+        "admission_ms": 2186.49075,
+        "completed_jobs_per_second": 4.529467116351048,
+        "mean_accepted_latency_ms": 6717.328125,
+        "p95_accepted_latency_ms": 11801
+      },
+      "verified_cleanup_disconnect_notices": [
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8"
+      ],
+      "overhead": {
+        "startup_ms": 633.8457090000702,
+        "verification_ms": 4469.701708,
+        "cleanup_ms": 52
+      },
+      "counts": {
+        "submitted": 64,
+        "completed": 64,
+        "terminally_failed": 0
+      },
+      "retries": 0,
+      "attempts": 64,
+      "worker_job_distribution": {
+        "1": 8,
+        "2": 8,
+        "3": 8,
+        "4": 8,
+        "5": 8,
+        "6": 8,
+        "7": 8,
+        "8": 8
+      },
+      "elapsed_ms": 19301,
+      "cleanup": {
+        "ok": true,
+        "errors": [],
+        "remaining": [],
+        "elapsed_ms": 52
+      },
+      "children": 341,
+      "sha256": {
+        "manifest.json": "1be733f236fac14656210b7ae0dd1daf74f57c38c2943b4c8a9f1f44f69c4fac",
+        "summary.json": "776a675e4f27cf2fa5d3eb58f95f5b32b7889b34f540c76c12fcbe82509fe707",
+        "accounting.json": "117c09770a09448ec182b344ff2746ebd724101fa4948f543ef932302309fa80",
+        "timings.json": "1832514baae33e70c2ddbb30517eb6ed2157ea78713f62687fbc9496cd6a0a62",
+        "latencies.json": "906ff74918dfc18a09219227669e00feb4aa72ec66875203a27155fe6608dc01",
+        "events.jsonl": "1853579673af7485cbceca33f3ab025ec6001cbb6a2ae09ccf93ef7222544a76",
+        "coordinator.wal": "9b23b49ef7c83600825e44dda8237a19d11a9e2ab4f176fd6bf1a68001696c1c",
+        "machine.json": "a1beafa1825274b8dbdcef46876015125a07e211330c0ddf8b94e4f00f736186"
+      },
+      "machine_observations": {
+        "before": {
+          "observed_monotonic_ns": 670563604500,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 115556765696,
+          "load_average": [
+            3.44970703125,
+            3.06201171875,
+            2.7548828125
+          ]
+        },
+        "after": {
+          "observed_monotonic_ns": 689496723916,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 115525410816,
+          "load_average": [
+            5.1171875,
+            3.48828125,
+            2.91552734375
+          ]
+        }
+      }
+    },
+    {
+      "campaign_index": 8,
+      "stage": "measured",
+      "measured_round": 2,
+      "workers": 2,
+      "path": "08-measured-r2-w2",
+      "created_utc": "2026-10-01T19:33:15.151428+00:00",
+      "metrics": {
+        "batch_elapsed_ms": 29808.27325,
+        "admission_ms": 1741.935584,
+        "completed_jobs_per_second": 2.1470549287855847,
+        "mean_accepted_latency_ms": 14457.09375,
+        "p95_accepted_latency_ms": 27158
+      },
+      "verified_cleanup_disconnect_notices": [
+        "1",
+        "2"
+      ],
+      "overhead": {
+        "startup_ms": 849.0445830000226,
+        "verification_ms": 4296.329209,
+        "cleanup_ms": 50
+      },
+      "counts": {
+        "submitted": 64,
+        "completed": 64,
+        "terminally_failed": 0
+      },
+      "retries": 0,
+      "attempts": 64,
+      "worker_job_distribution": {
+        "1": 32,
+        "2": 32
+      },
+      "elapsed_ms": 35033,
+      "cleanup": {
+        "ok": true,
+        "errors": [],
+        "remaining": [],
+        "elapsed_ms": 50
+      },
+      "children": 493,
+      "sha256": {
+        "manifest.json": "5ca728115ac551429a4c637e97007aa2044fbe32615a25f557ddef9e472cdb13",
+        "summary.json": "966f3266d1277bf55caeb920ee13e436991c1c8defce041bc4197300b9e10b84",
+        "accounting.json": "1c39f07482351a8902b42167256b08caa54063acf51eec86101837ae1213bf2b",
+        "timings.json": "0a973bf352a2dec49624851dd7e1ee3139c425b879010e94181fbe7aa1dfe6e7",
+        "latencies.json": "99ec0a6af00d5fd5dfcb0ead8654fa0e0482fd5ea732ba2039a7bb0667995308",
+        "events.jsonl": "643c77bafae6e8f7a5e4d1e0684d228a25d8a901b8396f73f1993eb6aaacfe75",
+        "coordinator.wal": "b002b122f0c44cb5dbedb5e107b920cf8ad12c96a2521c33ac45cdb639c24191",
+        "machine.json": "58a70ccf1a3969fc31ddffdabb4db11cfd40f3c9d309883036a5d1fd2b00924b"
+      },
+      "machine_observations": {
+        "before": {
+          "observed_monotonic_ns": 719942597000,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 115478441984,
+          "load_average": [
+            3.9921875,
+            3.37548828125,
+            2.89404296875
+          ]
+        },
+        "after": {
+          "observed_monotonic_ns": 754598685500,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 115394236416,
+          "load_average": [
+            4.0107421875,
+            3.443359375,
+            2.93798828125
+          ]
+        }
+      }
+    },
+    {
+      "campaign_index": 9,
+      "stage": "measured",
+      "measured_round": 2,
+      "workers": 4,
+      "path": "09-measured-r2-w4",
+      "created_utc": "2026-10-01T19:34:20.275451+00:00",
+      "metrics": {
+        "batch_elapsed_ms": 17700.32625,
+        "admission_ms": 1893.558458,
+        "completed_jobs_per_second": 3.6157525627529044,
+        "mean_accepted_latency_ms": 8536.28125,
+        "p95_accepted_latency_ms": 15509
+      },
+      "verified_cleanup_disconnect_notices": [
+        "1",
+        "2",
+        "3",
+        "4"
+      ],
+      "overhead": {
+        "startup_ms": 867.0292920000975,
+        "verification_ms": 4420.85325,
+        "cleanup_ms": 50
+      },
+      "counts": {
+        "submitted": 64,
+        "completed": 64,
+        "terminally_failed": 0
+      },
+      "retries": 0,
+      "attempts": 64,
+      "worker_job_distribution": {
+        "1": 16,
+        "2": 16,
+        "3": 16,
+        "4": 16
+      },
+      "elapsed_ms": 23064,
+      "cleanup": {
+        "ok": true,
+        "errors": [],
+        "remaining": [],
+        "elapsed_ms": 50
+      },
+      "children": 375,
+      "sha256": {
+        "manifest.json": "f0368feb0b2a25089a10ae6df64efc37260dd674deec87315f0682d43e8d0a4f",
+        "summary.json": "1474bd7428b757428460c252b7218132f4b07db060a33cfc53f35c9e63bcefc6",
+        "accounting.json": "3ea521e1298ca64cabefbc24dc7b04994ca953e92f90eea935907216196f151c",
+        "timings.json": "6e78032c2b7c072e28c92a3f7068c8aa7de90cbb370c7019fd7d2e8f6d37f82a",
+        "latencies.json": "87318495988b007ad9703b8d5e5266a963bd9712ca6a0a7d114392184f6d6040",
+        "events.jsonl": "843015f32aa554bfa9567f55bb734cd49c0cc4f8ab3b5ce6a834af276ec3e2e6",
+        "coordinator.wal": "dfd3e5508a98d70a7016bf0e49cc56b9f7fbb95231beefcd11271a61b6249be5",
+        "machine.json": "e88a0b569092f6d6721c646926a84cd0b3c1088df197bf064bfa3f12897251b2"
+      },
+      "machine_observations": {
+        "before": {
+          "observed_monotonic_ns": 785098154125,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 115332395008,
+          "load_average": [
+            2.8857421875,
+            3.22412109375,
+            2.87548828125
+          ]
+        },
+        "after": {
+          "observed_monotonic_ns": 807766040916,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 115281391616,
+          "load_average": [
+            3.970703125,
+            3.45947265625,
+            2.97021484375
+          ]
+        }
+      }
+    },
+    {
+      "campaign_index": 10,
+      "stage": "measured",
+      "measured_round": 2,
+      "workers": 8,
+      "path": "10-measured-r2-w8",
+      "created_utc": "2026-10-01T19:35:13.445353+00:00",
+      "metrics": {
+        "batch_elapsed_ms": 16061.150667,
+        "admission_ms": 2224.705917,
+        "completed_jobs_per_second": 3.9847705389812096,
+        "mean_accepted_latency_ms": 7867.734375,
+        "p95_accepted_latency_ms": 13830
+      },
+      "verified_cleanup_disconnect_notices": [
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8"
+      ],
+      "overhead": {
+        "startup_ms": 628.9775830000508,
+        "verification_ms": 4320.30775,
+        "cleanup_ms": 27
+      },
+      "counts": {
+        "submitted": 64,
+        "completed": 64,
+        "terminally_failed": 0
+      },
+      "retries": 0,
+      "attempts": 64,
+      "worker_job_distribution": {
+        "1": 8,
+        "2": 8,
+        "3": 8,
+        "4": 8,
+        "5": 8,
+        "6": 8,
+        "7": 8,
+        "8": 8
+      },
+      "elapsed_ms": 21069,
+      "cleanup": {
+        "ok": true,
+        "errors": [],
+        "remaining": [],
+        "elapsed_ms": 27
+      },
+      "children": 359,
+      "sha256": {
+        "manifest.json": "759b9c8f0bf8d272e3cee18056d98d866a37d3f9142e1515cb8ac75fe8430ccf",
+        "summary.json": "00b0679c04d0831a075927b064c9cd7976144d6d835bfbad4e5e5da046d84089",
+        "accounting.json": "b3810b8506922e6f291708ceb9c620e9aab30b0c2e513ab09a500a738827b462",
+        "timings.json": "010ab8a32ddff1f1247b7503578ba73f3d3c0316239c8f8858a9d43ee644d1e1",
+        "latencies.json": "5186dc9a84c53eb6f3ec9f72d2b4994e44bfaa318b5279c136fda1a5d1500438",
+        "events.jsonl": "02f5f5ca6554939f69519f7920cc51a94d9a875ae953490557df06078d29d40c",
+        "coordinator.wal": "60b88c0fe1d7bbc92ca60bb5d4d32be22ff4de09b01d8c568404136c897dd081",
+        "machine.json": "64f20c7b54ce07abd98acf9de8ce3011a5be55e5b1afe05295df953c15f0f7bc"
+      },
+      "machine_observations": {
+        "before": {
+          "observed_monotonic_ns": 838256118208,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 115249995776,
+          "load_average": [
+            3.64990234375,
+            3.43017578125,
+            2.97607421875
+          ]
+        },
+        "after": {
+          "observed_monotonic_ns": 858974068708,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 119234928640,
+          "load_average": [
+            16.8408203125,
+            6.62841796875,
+            4.1435546875
+          ]
+        }
+      }
+    },
+    {
+      "campaign_index": 11,
+      "stage": "measured",
+      "measured_round": 2,
+      "workers": 1,
+      "path": "11-measured-r2-w1",
+      "created_utc": "2026-10-01T19:36:04.681094+00:00",
+      "metrics": {
+        "batch_elapsed_ms": 60805.052875,
+        "admission_ms": 1923.78675,
+        "completed_jobs_per_second": 1.052544105694111,
+        "mean_accepted_latency_ms": 30573.0625,
+        "p95_accepted_latency_ms": 56210
+      },
+      "verified_cleanup_disconnect_notices": [
+        "1"
+      ],
+      "overhead": {
+        "startup_ms": 927.4629999999888,
+        "verification_ms": 4367.792125,
+        "cleanup_ms": 23
+      },
+      "counts": {
+        "submitted": 64,
+        "completed": 64,
+        "terminally_failed": 0
+      },
+      "retries": 0,
+      "attempts": 64,
+      "worker_job_distribution": {
+        "1": 64
+      },
+      "elapsed_ms": 66192,
+      "cleanup": {
+        "ok": true,
+        "errors": [],
+        "remaining": [],
+        "elapsed_ms": 23
+      },
+      "children": 794,
+      "sha256": {
+        "manifest.json": "cbed686a75b5e8efba3a74936e754b8886e20dfaa7c64fb68911e93a948fa9bf",
+        "summary.json": "6c0a86476fb2016d976f99c10f36a8cd4e70f8de5e3236e7de411d6b312a1e25",
+        "accounting.json": "7ebc14c71b1b28c861bd56cf2c5d4a7b581767c70ecc38b61a32d0df7007025e",
+        "timings.json": "5c23d1516e7e8b67ee295a6d90dec77e3f2a307b696cb7e5313e5efa904f511e",
+        "latencies.json": "5a7ef4ab29786889ad9cacc20462a6cd7f969734a1c1eb719058ed80bafe42c7",
+        "events.jsonl": "b4066cdb12b4700ff929127714cac71186297bc0a1b28a57d7d4e98a82cead89",
+        "coordinator.wal": "df34b5c276fd156861ce169335642b41eeddf9ba53dad373eb149b31e8395db2",
+        "machine.json": "b203c26ecee1dd88fe1e3b138a65ced9c182b4e28a2eba34021978136915f7bc"
+      },
+      "machine_observations": {
+        "before": {
+          "observed_monotonic_ns": 889564141041,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 115991937024,
+          "load_average": [
+            11.06103515625,
+            6.20068359375,
+            4.0732421875
+          ]
+        },
+        "after": {
+          "observed_monotonic_ns": 955275667291,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 112151732224,
+          "load_average": [
+            5.41015625,
+            5.5048828125,
+            3.96826171875
+          ]
+        }
+      }
+    },
+    {
+      "campaign_index": 12,
+      "stage": "measured",
+      "measured_round": 3,
+      "workers": 4,
+      "path": "12-measured-r3-w4",
+      "created_utc": "2026-10-01T19:37:41.000137+00:00",
+      "metrics": {
+        "batch_elapsed_ms": 16673.0175,
+        "admission_ms": 1901.74525,
+        "completed_jobs_per_second": 3.838537325352174,
+        "mean_accepted_latency_ms": 7894.25,
+        "p95_accepted_latency_ms": 14363
+      },
+      "verified_cleanup_disconnect_notices": [
+        "1",
+        "2",
+        "3",
+        "4"
+      ],
+      "overhead": {
+        "startup_ms": 891.1405000000059,
+        "verification_ms": 4450.978875,
+        "cleanup_ms": 47
+      },
+      "counts": {
+        "submitted": 64,
+        "completed": 64,
+        "terminally_failed": 0
+      },
+      "retries": 0,
+      "attempts": 64,
+      "worker_job_distribution": {
+        "1": 16,
+        "2": 16,
+        "3": 16,
+        "4": 16
+      },
+      "elapsed_ms": 22080,
+      "cleanup": {
+        "ok": true,
+        "errors": [],
+        "remaining": [],
+        "elapsed_ms": 47
+      },
+      "children": 365,
+      "sha256": {
+        "manifest.json": "f7f3327379b616a27c08a74dffe1111f94dec87157f4e0c4c369d17a463b1889",
+        "summary.json": "246f7d45498aab900fd9c268dac236c33c33d42567c28af4c0f4b3a177bfa500",
+        "accounting.json": "2ce32f54994ea85ecee8e60a8b113f36fd9671dd84f0f7afc17c1fbe92739cd0",
+        "timings.json": "8a9d3c8ca5fe97b2a395dcfdee1938d9f5f28b7278ed889e17f2609e6fa6d84b",
+        "latencies.json": "b1fbe6da1235929de8ec56e3a582a5a199d22c734f7d0911b00480938c96d154",
+        "events.jsonl": "d8e45f2d82a4328330c965ead73161935495c98f3110c8476f4d6179aa4eb348",
+        "coordinator.wal": "fd2d9ecf6ee01ead74c8c2899d7aecbee5426bba2b56bc52a6aa0daaf2438f34",
+        "machine.json": "fe925fa94d4da7bda7755706dcb9115c3bb5712803d49703c0afdf2a56024ed1"
+      },
+      "machine_observations": {
+        "before": {
+          "observed_monotonic_ns": 985811264833,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 112129118208,
+          "load_average": [
+            3.97021484375,
+            5.1513671875,
+            3.892578125
+          ]
+        },
+        "after": {
+          "observed_monotonic_ns": 1007500166500,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 112102359040,
+          "load_average": [
+            4.47705078125,
+            5.18310546875,
+            3.9404296875
+          ]
+        }
+      }
+    },
+    {
+      "campaign_index": 13,
+      "stage": "measured",
+      "measured_round": 3,
+      "workers": 8,
+      "path": "13-measured-r3-w8",
+      "created_utc": "2026-10-01T19:38:33.161486+00:00",
+      "metrics": {
+        "batch_elapsed_ms": 13851.449541,
+        "admission_ms": 2107.320458,
+        "completed_jobs_per_second": 4.620455051333172,
+        "mean_accepted_latency_ms": 6694.515625,
+        "p95_accepted_latency_ms": 11594
+      },
+      "verified_cleanup_disconnect_notices": [
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8"
+      ],
+      "overhead": {
+        "startup_ms": 666.4293339999858,
+        "verification_ms": 4554.143542,
+        "cleanup_ms": 52
+      },
+      "counts": {
+        "submitted": 64,
+        "completed": 64,
+        "terminally_failed": 0
+      },
+      "retries": 0,
+      "attempts": 64,
+      "worker_job_distribution": {
+        "1": 8,
+        "2": 8,
+        "3": 8,
+        "4": 8,
+        "5": 8,
+        "6": 8,
+        "7": 8,
+        "8": 8
+      },
+      "elapsed_ms": 19142,
+      "cleanup": {
+        "ok": true,
+        "errors": [],
+        "remaining": [],
+        "elapsed_ms": 52
+      },
+      "children": 339,
+      "sha256": {
+        "manifest.json": "b94e04ac0a85853fa787ab6f94244e9807eb5356e0eab4a820b248a806f08336",
+        "summary.json": "fb83c1c66e1ff4b51f9ac881739eb4c73c096abc814efb09c580a6551d4af5f6",
+        "accounting.json": "045010c6c76368e4f79279c3020dcd05e15f15b5a9ab2185e88d7393f8b1397e",
+        "timings.json": "ddd4cf6417508bc4c593e683147fa147dbab8573637cc695996965738c5870c6",
+        "latencies.json": "ba7125545bf78cc265484e127e1e4347cacebc886bd52b56103c390b72b9ad6f",
+        "events.jsonl": "11c16d1110ab1d2d2480fc97618f7a7a0750780b21eab5b2ac20f478a36b20f4",
+        "coordinator.wal": "035f335114f356ea0efde8666e748c47e123ee4147e5609313c583d32dbf4901",
+        "machine.json": "627886731d09de54eac6f1abaef668e4a86e885e8ce25202ee1d43deb33c35c0"
+      },
+      "machine_observations": {
+        "before": {
+          "observed_monotonic_ns": 1037951706333,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 112082464768,
+          "load_average": [
+            3.515625,
+            4.87841796875,
+            3.8720703125
+          ]
+        },
+        "after": {
+          "observed_monotonic_ns": 1056722448541,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 112075796480,
+          "load_average": [
+            4.396484375,
+            5.0126953125,
+            3.9375
+          ]
+        }
+      }
+    },
+    {
+      "campaign_index": 14,
+      "stage": "measured",
+      "measured_round": 3,
+      "workers": 1,
+      "path": "14-measured-r3-w1",
+      "created_utc": "2026-10-01T19:39:22.389551+00:00",
+      "metrics": {
+        "batch_elapsed_ms": 59007.737083,
+        "admission_ms": 1737.792708,
+        "completed_jobs_per_second": 1.084603531058612,
+        "mean_accepted_latency_ms": 29076.078125,
+        "p95_accepted_latency_ms": 54558
+      },
+      "verified_cleanup_disconnect_notices": [
+        "1"
+      ],
+      "overhead": {
+        "startup_ms": 853.3877080001275,
+        "verification_ms": 4428.768084,
+        "cleanup_ms": 27
+      },
+      "counts": {
+        "submitted": 64,
+        "completed": 64,
+        "terminally_failed": 0
+      },
+      "retries": 0,
+      "attempts": 64,
+      "worker_job_distribution": {
+        "1": 64
+      },
+      "elapsed_ms": 64359,
+      "cleanup": {
+        "ok": true,
+        "errors": [],
+        "remaining": [],
+        "elapsed_ms": 27
+      },
+      "children": 778,
+      "sha256": {
+        "manifest.json": "398bb77d427bb02fe86fc04d0dafdcbb8d191b969397612dd00648ae2814db39",
+        "summary.json": "1b44a57aef1dcbb663802f6d8cc9cc6753dd0fd0ec985e4b4b9d1bc00f7cf217",
+        "accounting.json": "aec5a7d3f2dce8afcc7d1150b855952d66fe00790543b383e6ee215843ce73c0",
+        "timings.json": "49fd93b886e1046c69019ae0d593a9e405c3276e507597ba1fddcaf3edfe3391",
+        "latencies.json": "e46b06047b19fc806684c1b053459dae5b9589f3612f3fe230b23f5b54e552eb",
+        "events.jsonl": "e83deb4d49617d13b8d541de3eaba1d2e8df1dd0e8929e28ca14da2a5bbb00ac",
+        "coordinator.wal": "7f3076e5fd476c1a1fdc8787883ebfa632ef11d00660c6945f74f6490b722b3b",
+        "machine.json": "2336a3173e289244106fc0e918bc0a0aeb47872cf1cdf288375eba11b95f88df"
+      },
+      "machine_observations": {
+        "before": {
+          "observed_monotonic_ns": 1087192874583,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 112066220032,
+          "load_average": [
+            3.05712890625,
+            4.6279296875,
+            3.833984375
+          ]
+        },
+        "after": {
+          "observed_monotonic_ns": 1151166195000,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 112001777664,
+          "load_average": [
+            2.63427734375,
+            4.21142578125,
+            3.7353515625
+          ]
+        }
+      }
+    },
+    {
+      "campaign_index": 15,
+      "stage": "measured",
+      "measured_round": 3,
+      "workers": 2,
+      "path": "15-measured-r3-w2",
+      "created_utc": "2026-10-01T19:40:56.841801+00:00",
+      "metrics": {
+        "batch_elapsed_ms": 29856.180291,
+        "admission_ms": 1824.014291,
+        "completed_jobs_per_second": 2.1436097778151644,
+        "mean_accepted_latency_ms": 14497.515625,
+        "p95_accepted_latency_ms": 27127
+      },
+      "verified_cleanup_disconnect_notices": [
+        "1",
+        "2"
+      ],
+      "overhead": {
+        "startup_ms": 876.423584000122,
+        "verification_ms": 4495.798584,
+        "cleanup_ms": 27
+      },
+      "counts": {
+        "submitted": 64,
+        "completed": 64,
+        "terminally_failed": 0
+      },
+      "retries": 0,
+      "attempts": 64,
+      "worker_job_distribution": {
+        "1": 32,
+        "2": 32
+      },
+      "elapsed_ms": 35280,
+      "cleanup": {
+        "ok": true,
+        "errors": [],
+        "remaining": [],
+        "elapsed_ms": 27
+      },
+      "children": 493,
+      "sha256": {
+        "manifest.json": "2fcf157288953f40b5bfcff6a56ab73e5151edec4a310cfa44bf3f69218dc3da",
+        "summary.json": "7d6050fe9a95792209e5269e0dacacdd680816b0e4cd2c4f0996486eeee73a1a",
+        "accounting.json": "67ea23cec33337543fae67d45343298f2f901029b3882162b28a1b1c90664c2f",
+        "timings.json": "35f6f249d89067e11a977469217f39be7ef487926561968279706eff4e0091a1",
+        "latencies.json": "2fc1487e33e2f206a5e0497546fa116a46908ceaf3966b96efbee2fec8f1d72a",
+        "events.jsonl": "9f801549814ccaf6a641183f9f0faed24433698423445a84b96c03fb60362912",
+        "coordinator.wal": "6ef0d7a9ab7f766e8c42e3a4a36d96396bbd06b67928b82d9c795bdf428e3ee4",
+        "machine.json": "ca4e54ddfb5e23c0e97050389782717bf5f763af35af754ca4bf3408bc2a1a44"
+      },
+      "machine_observations": {
+        "before": {
+          "observed_monotonic_ns": 1181653952166,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 111991451648,
+          "load_average": [
+            2.36865234375,
+            3.98486328125,
+            3.66845703125
+          ]
+        },
+        "after": {
+          "observed_monotonic_ns": 1216554539416,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 111966003200,
+          "load_average": [
+            2.68701171875,
+            3.88916015625,
+            3.64599609375
+          ]
+        }
+      }
+    },
+    {
+      "campaign_index": 16,
+      "stage": "measured",
+      "measured_round": 4,
+      "workers": 8,
+      "path": "16-measured-r4-w8",
+      "created_utc": "2026-10-01T19:42:02.205666+00:00",
+      "metrics": {
+        "batch_elapsed_ms": 13888.065625,
+        "admission_ms": 2181.080959,
+        "completed_jobs_per_second": 4.608273155391286,
+        "mean_accepted_latency_ms": 6677.21875,
+        "p95_accepted_latency_ms": 11537
+      },
+      "verified_cleanup_disconnect_notices": [
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8"
+      ],
+      "overhead": {
+        "startup_ms": 648.6088749998089,
+        "verification_ms": 4621.471709,
+        "cleanup_ms": 46
+      },
+      "counts": {
+        "submitted": 64,
+        "completed": 64,
+        "terminally_failed": 0
+      },
+      "retries": 0,
+      "attempts": 64,
+      "worker_job_distribution": {
+        "1": 8,
+        "2": 8,
+        "3": 8,
+        "4": 8,
+        "5": 8,
+        "6": 8,
+        "7": 8,
+        "8": 8
+      },
+      "elapsed_ms": 19224,
+      "cleanup": {
+        "ok": true,
+        "errors": [],
+        "remaining": [],
+        "elapsed_ms": 46
+      },
+      "children": 339,
+      "sha256": {
+        "manifest.json": "ccfbc22f7bfb873829f4861399e157a030c08fa8ce1363be764e2e6db99af478",
+        "summary.json": "f416e97e8d9b816e569d4591b376935837d7283deaec5a363cb5362adf1a1585",
+        "accounting.json": "8626992274d865395acda8d2385265596d816a2900e8284332b7ba662c28fa90",
+        "timings.json": "ef7ebb497ca86ca1d2f200d6e6d0f7cf50f750f03818d1baefa48ac180d04c72",
+        "latencies.json": "82045e4044f38d657d5736fa7a31a32ad2c52bc16cd005567ecb5677a5f9baf4",
+        "events.jsonl": "5d4b922eed89b9c9b9ed2cc7da708c2872fa92c702d595a1ee9f9faad2a63351",
+        "coordinator.wal": "86d174a3abf2b43d30efbf41e30551d010925ac27367b4c5b4fd0f54d9c22e92",
+        "machine.json": "d0204b4034aff7028937f443027e8c3a991b9d530df14578a6a594fcf1d74d40"
+      },
+      "machine_observations": {
+        "before": {
+          "observed_monotonic_ns": 1246988163750,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 111905746944,
+          "load_average": [
+            2.15673828125,
+            3.64404296875,
+            3.564453125
+          ]
+        },
+        "after": {
+          "observed_monotonic_ns": 1265847657125,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 111851548672,
+          "load_average": [
+            4.3203125,
+            4.052734375,
+            3.712890625
+          ]
+        }
+      }
+    },
+    {
+      "campaign_index": 17,
+      "stage": "measured",
+      "measured_round": 4,
+      "workers": 1,
+      "path": "17-measured-r4-w1",
+      "created_utc": "2026-10-01T19:42:51.514556+00:00",
+      "metrics": {
+        "batch_elapsed_ms": 58643.261584,
+        "admission_ms": 1745.750417,
+        "completed_jobs_per_second": 1.0913444830882584,
+        "mean_accepted_latency_ms": 28731.515625,
+        "p95_accepted_latency_ms": 54148
+      },
+      "verified_cleanup_disconnect_notices": [
+        "1"
+      ],
+      "overhead": {
+        "startup_ms": 844.4680000000062,
+        "verification_ms": 4428.173416,
+        "cleanup_ms": 25
+      },
+      "counts": {
+        "submitted": 64,
+        "completed": 64,
+        "terminally_failed": 0
+      },
+      "retries": 0,
+      "attempts": 64,
+      "worker_job_distribution": {
+        "1": 64
+      },
+      "elapsed_ms": 63985,
+      "cleanup": {
+        "ok": true,
+        "errors": [],
+        "remaining": [],
+        "elapsed_ms": 25
+      },
+      "children": 774,
+      "sha256": {
+        "manifest.json": "f9b8c0668011fce8d37ea7c0134771c0690486beda9bfb2018c52f0530652156",
+        "summary.json": "a161c53faaf99d3e398377a88fd51d7a4828e14d82a627ccf8ade8ce5d0ad791",
+        "accounting.json": "ae6d70ef31a9b86a75836d2dd193e1ac1487ca4e387671b4dbdf6106b50cf2ca",
+        "timings.json": "e5e48bd8409525b2efa1b7c48a305f8a6ae292371d3bb55f9c3705b3e9763fa5",
+        "latencies.json": "77ba221346539e1cd9729bf99d8bce6761a7b232aeb703f629225e0a20015f47",
+        "events.jsonl": "44e57626f0c57b57ad17fe4d72e8d2d87fab4627d79d5088ee18a61451f11297",
+        "coordinator.wal": "95f169d4275b1abeaa75fd29952b65959f9fc875712cef3d17fb9dcd957e43c7",
+        "machine.json": "5457698fd6df9ac831a5b7af5d06cd34069e73fed9ed8d64962f395076e5d06d"
+      },
+      "machine_observations": {
+        "before": {
+          "observed_monotonic_ns": 1296296460125,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 111719165952,
+          "load_average": [
+            3.49462890625,
+            3.87255859375,
+            3.6572265625
+          ]
+        },
+        "after": {
+          "observed_monotonic_ns": 1359915946666,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 111611961344,
+          "load_average": [
+            3.388671875,
+            3.7724609375,
+            3.63525390625
+          ]
+        }
+      }
+    },
+    {
+      "campaign_index": 18,
+      "stage": "measured",
+      "measured_round": 4,
+      "workers": 2,
+      "path": "18-measured-r4-w2",
+      "created_utc": "2026-10-01T19:44:25.593415+00:00",
+      "metrics": {
+        "batch_elapsed_ms": 29930.995125,
+        "admission_ms": 1761.407125,
+        "completed_jobs_per_second": 2.1382516596163454,
+        "mean_accepted_latency_ms": 14427.265625,
+        "p95_accepted_latency_ms": 27045
+      },
+      "verified_cleanup_disconnect_notices": [
+        "1",
+        "2"
+      ],
+      "overhead": {
+        "startup_ms": 872.0405000001392,
+        "verification_ms": 4830.549833,
+        "cleanup_ms": 62
+      },
+      "counts": {
+        "submitted": 64,
+        "completed": 64,
+        "terminally_failed": 0
+      },
+      "retries": 0,
+      "attempts": 64,
+      "worker_job_distribution": {
+        "1": 32,
+        "2": 32
+      },
+      "elapsed_ms": 35745,
+      "cleanup": {
+        "ok": true,
+        "errors": [],
+        "remaining": [],
+        "elapsed_ms": 62
+      },
+      "children": 491,
+      "sha256": {
+        "manifest.json": "c6b5f75a3307e2a13d02d809007c564d87b56f3d4d5730e090f3e4e450347d90",
+        "summary.json": "193185d1bd35f5f398bc7742a7e0de06e0a21f1ca849a50f08d8a2636054ab95",
+        "accounting.json": "7debbb8845d48e3b5d6b6a5a845e25c1fc5947472401d4c0db01208e55e21eaf",
+        "timings.json": "d64f49909b7bf8bad6cff60532a7da52f3afa17f13469b856389e1cc3aa681ed",
+        "latencies.json": "191595d3eb796de07a9b5a936970cbef59d79a6a121df42f24e945a56924b155",
+        "events.jsonl": "1c9e17409e76877871317d7078ea368966fc398bd711e426b3ef0f05283b85df",
+        "coordinator.wal": "e987ae530e4915dfc2e6d6b5140fef0a67105c828f31ee9dd38c8c4507048a43",
+        "machine.json": "8452e2fc15e211e54d6c6db9dab4e16f46b6b628f86aeab050f369a708f97d29"
+      },
+      "machine_observations": {
+        "before": {
+          "observed_monotonic_ns": 1390399568708,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 111587966976,
+          "load_average": [
+            2.56201171875,
+            3.53662109375,
+            3.5537109375
+          ]
+        },
+        "after": {
+          "observed_monotonic_ns": 1425703017708,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 111642636288,
+          "load_average": [
+            3.47607421875,
+            3.650390625,
+            3.59423828125
+          ]
+        }
+      }
+    },
+    {
+      "campaign_index": 19,
+      "stage": "measured",
+      "measured_round": 4,
+      "workers": 4,
+      "path": "19-measured-r4-w4",
+      "created_utc": "2026-10-01T19:45:31.453509+00:00",
+      "metrics": {
+        "batch_elapsed_ms": 16923.675125,
+        "admission_ms": 2153.298125,
+        "completed_jobs_per_second": 3.7816845057169575,
+        "mean_accepted_latency_ms": 7893.71875,
+        "p95_accepted_latency_ms": 14399
+      },
+      "verified_cleanup_disconnect_notices": [
+        "1",
+        "2",
+        "3",
+        "4"
+      ],
+      "overhead": {
+        "startup_ms": 917.8716670000995,
+        "verification_ms": 4967.007,
+        "cleanup_ms": 54
+      },
+      "counts": {
+        "submitted": 64,
+        "completed": 64,
+        "terminally_failed": 0
+      },
+      "retries": 0,
+      "attempts": 64,
+      "worker_job_distribution": {
+        "1": 16,
+        "2": 16,
+        "3": 16,
+        "4": 16
+      },
+      "elapsed_ms": 22893,
+      "cleanup": {
+        "ok": true,
+        "errors": [],
+        "remaining": [],
+        "elapsed_ms": 54
+      },
+      "children": 363,
+      "sha256": {
+        "manifest.json": "77376720581c7e0f673cd3d4f84262afa731c270e90e7377fa73f3d17bf5d43b",
+        "summary.json": "f7dca30804acf64c6b8be67d0e4fbe2533ad47f915bbcfa7bed263ab3c971b3f",
+        "accounting.json": "1b888ddfff323812fab60a7cc4a7ad092b29b72991396350a62d4872d0598c24",
+        "timings.json": "7aa862ad636b18616a907f9e35fa6391cd012364e2bd997ec129985b2a30b168",
+        "latencies.json": "041b15962c0c1737f7d738aeae59b61aad88e642d210fb297f4f777d66d5ffe6",
+        "events.jsonl": "5df0b04db6947596d81b122e028d53eceb77eecb967a58cb3f9be6b1bed6848d",
+        "coordinator.wal": "b555637cf63c2175bb7b9ca3ef8ad3501269d9e793b4c555fc53c458b383e5a2",
+        "machine.json": "92304067f687c95c70b0b116301ed048c68f76f633c1e71b610ca6d12d539b66"
+      },
+      "machine_observations": {
+        "before": {
+          "observed_monotonic_ns": 1456277637833,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 111798259712,
+          "load_average": [
+            3.06787109375,
+            3.525390625,
+            3.5498046875
+          ]
+        },
+        "after": {
+          "observed_monotonic_ns": 1478750133083,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 111688732672,
+          "load_average": [
+            3.8583984375,
+            3.68310546875,
+            3.60546875
+          ]
+        }
+      }
+    },
+    {
+      "campaign_index": 20,
+      "stage": "measured",
+      "measured_round": 5,
+      "workers": 1,
+      "path": "20-measured-r5-w1",
+      "created_utc": "2026-10-01T19:46:24.466503+00:00",
+      "metrics": {
+        "batch_elapsed_ms": 59389.398875,
+        "admission_ms": 1935.970709,
+        "completed_jobs_per_second": 1.0776334028014694,
+        "mean_accepted_latency_ms": 29096,
+        "p95_accepted_latency_ms": 54567
+      },
+      "verified_cleanup_disconnect_notices": [
+        "1"
+      ],
+      "overhead": {
+        "startup_ms": 890.840290999904,
+        "verification_ms": 4848.975667,
+        "cleanup_ms": 31
+      },
+      "counts": {
+        "submitted": 64,
+        "completed": 64,
+        "terminally_failed": 0
+      },
+      "retries": 0,
+      "attempts": 64,
+      "worker_job_distribution": {
+        "1": 64
+      },
+      "elapsed_ms": 65245,
+      "cleanup": {
+        "ok": true,
+        "errors": [],
+        "remaining": [],
+        "elapsed_ms": 31
+      },
+      "children": 770,
+      "sha256": {
+        "manifest.json": "978f23efa510e714c3547cf421e976459fa79b1bc1a2a3a88d78de1bca0f8d4e",
+        "summary.json": "9d082a50dbc9d535152d3514d3d5603b9b67a1b639d0edfabb77ccf1b67d11f3",
+        "accounting.json": "b4f874c0d66586154ae925501f8cd8dca148495ee16007529d75fc1ce084216b",
+        "timings.json": "e7ced7b3a920dca53c85f2929ae1ae0678cb48908d81ca6cc00ca4a5f3303f97",
+        "latencies.json": "67fded9cbca8ad299da362c2519272972d262f7833d95b45315a7e4c3111987a",
+        "events.jsonl": "189bf06bb3c89dea5cf53fd721b1d8f9e844bd277296ba4757d3e0a76a1f48a7",
+        "coordinator.wal": "d3576208f56eae27f6fdedc837ac0f7395e48fd47d12b70177e2cbea44054ce0",
+        "machine.json": "5ca6e34ade37fb3bcc7ba9d37716c716f4cd1e2d0911915a75ee4a3ae1764990"
+      },
+      "machine_observations": {
+        "before": {
+          "observed_monotonic_ns": 1509307230083,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 111601786880,
+          "load_average": [
+            3.830078125,
+            3.69482421875,
+            3.611328125
+          ]
+        },
+        "after": {
+          "observed_monotonic_ns": 1574082140541,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 111434477568,
+          "load_average": [
+            4.6640625,
+            4.0,
+            3.732421875
+          ]
+        }
+      }
+    },
+    {
+      "campaign_index": 21,
+      "stage": "measured",
+      "measured_round": 5,
+      "workers": 4,
+      "path": "21-measured-r5-w4",
+      "created_utc": "2026-10-01T19:47:59.838853+00:00",
+      "metrics": {
+        "batch_elapsed_ms": 16716.990833,
+        "admission_ms": 2207.153542,
+        "completed_jobs_per_second": 3.828440216265566,
+        "mean_accepted_latency_ms": 7877.5625,
+        "p95_accepted_latency_ms": 14437
+      },
+      "verified_cleanup_disconnect_notices": [
+        "1",
+        "2",
+        "3",
+        "4"
+      ],
+      "overhead": {
+        "startup_ms": 917.646207999951,
+        "verification_ms": 4979.922917,
+        "cleanup_ms": 56
+      },
+      "counts": {
+        "submitted": 64,
+        "completed": 64,
+        "terminally_failed": 0
+      },
+      "retries": 0,
+      "attempts": 64,
+      "worker_job_distribution": {
+        "1": 16,
+        "2": 16,
+        "3": 16,
+        "4": 16
+      },
+      "elapsed_ms": 22692,
+      "cleanup": {
+        "ok": true,
+        "errors": [],
+        "remaining": [],
+        "elapsed_ms": 56
+      },
+      "children": 361,
+      "sha256": {
+        "manifest.json": "00c3b2376429f9301dad852e6a539129a47db32b193875e8cb5c55142fc3cb43",
+        "summary.json": "6e029b41583ad7b75bcc0beb716c06c380d378be1c6e957b75fa7fe23f647cbe",
+        "accounting.json": "f0fc191277b455f322f8841c255f02278bcbc32f2e02bf67b97cae3053a2cad3",
+        "timings.json": "55bcb6281dcad57d6b1e98ec572c5acd513cc96186ab77e290d5c3d67079a450",
+        "latencies.json": "71fe4cd71d8d5c5dbaa08415f093f2eacedd2f8645c7ee290722712665312356",
+        "events.jsonl": "1d7a7b78317d9a3bb95402791fb53d97a3b7dd63a3b6d7afc4440a7292d7701d",
+        "coordinator.wal": "8be3f8c55df7599aa052d4da3930a23798b48b9ea6de31f9305ab86a4651e7b7",
+        "machine.json": "c08540d3384b7de0b9c4c189fc5741a7ed4edae24a4892077601322f88a99dcc"
+      },
+      "machine_observations": {
+        "before": {
+          "observed_monotonic_ns": 1604663310291,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 111309193216,
+          "load_average": [
+            5.29443359375,
+            4.208984375,
+            3.81689453125
+          ]
+        },
+        "after": {
+          "observed_monotonic_ns": 1626927911500,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 111283306496,
+          "load_average": [
+            5.80224609375,
+            4.40234375,
+            3.8955078125
+          ]
+        }
+      }
+    },
+    {
+      "campaign_index": 22,
+      "stage": "measured",
+      "measured_round": 5,
+      "workers": 2,
+      "path": "22-measured-r5-w2",
+      "created_utc": "2026-10-01T19:48:52.641430+00:00",
+      "metrics": {
+        "batch_elapsed_ms": 29712.025584,
+        "admission_ms": 2033.911292,
+        "completed_jobs_per_second": 2.154009992319883,
+        "mean_accepted_latency_ms": 14327.046875,
+        "p95_accepted_latency_ms": 26796
+      },
+      "verified_cleanup_disconnect_notices": [
+        "1",
+        "2"
+      ],
+      "overhead": {
+        "startup_ms": 928.5440409998955,
+        "verification_ms": 5061.074666,
+        "cleanup_ms": 62
+      },
+      "counts": {
+        "submitted": 64,
+        "completed": 64,
+        "terminally_failed": 0
+      },
+      "retries": 0,
+      "attempts": 64,
+      "worker_job_distribution": {
+        "1": 32,
+        "2": 32
+      },
+      "elapsed_ms": 35801,
+      "cleanup": {
+        "ok": true,
+        "errors": [],
+        "remaining": [],
+        "elapsed_ms": 62
+      },
+      "children": 485,
+      "sha256": {
+        "manifest.json": "012457bde540b41f8921cb05ea93e4649f3008f16873b906af2cdc84f4cc2346",
+        "summary.json": "ac3f29dad84c15c55368ea594734947f371a8940668e815e6530fec8e6fa17c9",
+        "accounting.json": "055ab762f91f902a8832afef28cf476518f4b45ba96b915f82da49a4eef74423",
+        "timings.json": "27180e7f6ebe16075b04dfc89f9f16a7d6336a00dc85cb9f17f118ee8f827a3e",
+        "latencies.json": "c8317acd93de4c4147ba6d5aa5e040b3c36445cb383ba29b0fb178b4a0640126",
+        "events.jsonl": "081ba90f518100c96a3c131720ec2771e623c38d2a44f8ac02097994f382c319",
+        "coordinator.wal": "cb2f7d6c8cdebac061fb342abb50f10fd55135747bb752cf712662904806c37f",
+        "machine.json": "a1de29dbc104dde0a8bf38c85716953e9f2ed191b66c9524fc15eebf9cf9f441"
+      },
+      "machine_observations": {
+        "before": {
+          "observed_monotonic_ns": 1657471277875,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 111196848128,
+          "load_average": [
+            4.83203125,
+            4.298828125,
+            3.875
+          ]
+        },
+        "after": {
+          "observed_monotonic_ns": 1692817086833,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 111052689408,
+          "load_average": [
+            5.822265625,
+            4.6103515625,
+            4.00537109375
+          ]
+        }
+      }
+    },
+    {
+      "campaign_index": 23,
+      "stage": "measured",
+      "measured_round": 5,
+      "workers": 8,
+      "path": "23-measured-r5-w8",
+      "created_utc": "2026-10-01T19:49:58.550466+00:00",
+      "metrics": {
+        "batch_elapsed_ms": 13941.862667,
+        "admission_ms": 2319.664959,
+        "completed_jobs_per_second": 4.590491351739264,
+        "mean_accepted_latency_ms": 6727.78125,
+        "p95_accepted_latency_ms": 11592
+      },
+      "verified_cleanup_disconnect_notices": [
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8"
+      ],
+      "overhead": {
+        "startup_ms": 711.6075409999212,
+        "verification_ms": 5298.045042,
+        "cleanup_ms": 62
+      },
+      "counts": {
+        "submitted": 64,
+        "completed": 64,
+        "terminally_failed": 0
+      },
+      "retries": 0,
+      "attempts": 64,
+      "worker_job_distribution": {
+        "1": 8,
+        "2": 8,
+        "3": 8,
+        "4": 8,
+        "5": 8,
+        "6": 8,
+        "7": 8,
+        "8": 8
+      },
+      "elapsed_ms": 20039,
+      "cleanup": {
+        "ok": true,
+        "errors": [],
+        "remaining": [],
+        "elapsed_ms": 62
+      },
+      "children": 337,
+      "sha256": {
+        "manifest.json": "37059900b5eb3fb940609a83a74b4ba6d05fa25863516446766fcb8c333d50af",
+        "summary.json": "5b52219db305d4654dd81584b243ad9b592a4f8774a404f96935f9b7899201c0",
+        "accounting.json": "fd979ba0e6bd7432d5a0f39833a3e143ab0a93ad91706085e1b064f805b9ff07",
+        "timings.json": "c2e01cbf96ece789765736356b8a2dc96c1197dcc6a3af5d197df42293b47be8",
+        "latencies.json": "69bbdf24f5670a2cc246dcd4aff5348a1d31d502e9fa3b8b746378e3057809dd",
+        "events.jsonl": "c5b757912bb71721b8ddfe5c6b4577b44134d1e1cffc80c063babf2f4e89e184",
+        "coordinator.wal": "1d59bbdce1347a8707c78f645521c6cc550d57bd4a358e49a895c343dafe39e7",
+        "machine.json": "248da68698f6065a4682b5bcc3bea2da3af3efe3eb138686fcfc2a11b64cebf3"
+      },
+      "machine_observations": {
+        "before": {
+          "observed_monotonic_ns": 1723367085750,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 110994571264,
+          "load_average": [
+            4.935546875,
+            4.51708984375,
+            3.99169921875
+          ]
+        },
+        "after": {
+          "observed_monotonic_ns": 1742988833333,
+          "power": {
+            "source": "AC",
+            "low_power_mode": false,
+            "thermal_raw": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+            "thermal_telemetry_available": false
+          },
+          "available_bytes": 110938574848,
+          "load_average": [
+            11.87109375,
+            6.1328125,
+            4.5830078125
+          ]
+        }
+      }
+    }
+  ],
+  "aggregate": {
+    "1": {
+      "batch_elapsed_ms": {
+        "values": [
+          58236.9555,
+          60805.052875,
+          59007.737083,
+          58643.261584,
+          59389.398875
+        ],
+        "median": 59007.737083,
+        "minimum": 58236.9555,
+        "maximum": 60805.052875
+      },
+      "completed_jobs_per_second": {
+        "values": [
+          1.098958547034623,
+          1.052544105694111,
+          1.084603531058612,
+          1.0913444830882584,
+          1.0776334028014694
+        ],
+        "median": 1.084603531058612,
+        "minimum": 1.052544105694111,
+        "maximum": 1.098958547034623
+      },
+      "mean_accepted_latency_ms": {
+        "values": [
+          28471.515625,
+          30573.0625,
+          29076.078125,
+          28731.515625,
+          29096
+        ],
+        "median": 29076.078125,
+        "minimum": 28471.515625,
+        "maximum": 30573.0625
+      },
+      "p95_accepted_latency_ms": {
+        "values": [
+          53682,
+          56210,
+          54558,
+          54148,
+          54567
+        ],
+        "median": 54558,
+        "minimum": 53682,
+        "maximum": 56210
+      },
+      "speedup": 1.0,
+      "worker_normalized_efficiency_percent": 100.0
+    },
+    "2": {
+      "batch_elapsed_ms": {
+        "values": [
+          29995.975667,
+          29808.27325,
+          29856.180291,
+          29930.995125,
+          29712.025584
+        ],
+        "median": 29856.180291,
+        "minimum": 29712.025584,
+        "maximum": 29995.975667
+      },
+      "completed_jobs_per_second": {
+        "values": [
+          2.13361954651835,
+          2.1470549287855847,
+          2.1436097778151644,
+          2.1382516596163454,
+          2.154009992319883
+        ],
+        "median": 2.1436097778151644,
+        "minimum": 2.13361954651835,
+        "maximum": 2.154009992319883
+      },
+      "mean_accepted_latency_ms": {
+        "values": [
+          14485.875,
+          14457.09375,
+          14497.515625,
+          14427.265625,
+          14327.046875
+        ],
+        "median": 14457.09375,
+        "minimum": 14327.046875,
+        "maximum": 14497.515625
+      },
+      "p95_accepted_latency_ms": {
+        "values": [
+          27257,
+          27158,
+          27127,
+          27045,
+          26796
+        ],
+        "median": 27127,
+        "minimum": 26796,
+        "maximum": 27257
+      },
+      "speedup": 1.9763994090291448,
+      "worker_normalized_efficiency_percent": 98.81997045145724
+    },
+    "4": {
+      "batch_elapsed_ms": {
+        "values": [
+          17106.696667,
+          17700.32625,
+          16673.0175,
+          16923.675125,
+          16716.990833
+        ],
+        "median": 16923.675125,
+        "minimum": 16673.0175,
+        "maximum": 17700.32625
+      },
+      "completed_jobs_per_second": {
+        "values": [
+          3.741224927630851,
+          3.6157525627529044,
+          3.838537325352174,
+          3.7816845057169575,
+          3.828440216265566
+        ],
+        "median": 3.7816845057169575,
+        "minimum": 3.6157525627529044,
+        "maximum": 3.838537325352174
+      },
+      "mean_accepted_latency_ms": {
+        "values": [
+          8214.0625,
+          8536.28125,
+          7894.25,
+          7893.71875,
+          7877.5625
+        ],
+        "median": 7894.25,
+        "minimum": 7877.5625,
+        "maximum": 8536.28125
+      },
+      "p95_accepted_latency_ms": {
+        "values": [
+          14915,
+          15509,
+          14363,
+          14399,
+          14437
+        ],
+        "median": 14437,
+        "minimum": 14363,
+        "maximum": 15509
+      },
+      "speedup": 3.486697578815641,
+      "worker_normalized_efficiency_percent": 87.16743947039103
+    },
+    "8": {
+      "batch_elapsed_ms": {
+        "values": [
+          14129.697458,
+          16061.150667,
+          13851.449541,
+          13888.065625,
+          13941.862667
+        ],
+        "median": 13941.862667,
+        "minimum": 13851.449541,
+        "maximum": 16061.150667
+      },
+      "completed_jobs_per_second": {
+        "values": [
+          4.529467116351048,
+          3.9847705389812096,
+          4.620455051333172,
+          4.608273155391286,
+          4.590491351739264
+        ],
+        "median": 4.590491351739264,
+        "minimum": 3.9847705389812096,
+        "maximum": 4.620455051333172
+      },
+      "mean_accepted_latency_ms": {
+        "values": [
+          6717.328125,
+          7867.734375,
+          6694.515625,
+          6677.21875,
+          6727.78125
+        ],
+        "median": 6717.328125,
+        "minimum": 6677.21875,
+        "maximum": 7867.734375
+      },
+      "p95_accepted_latency_ms": {
+        "values": [
+          11801,
+          13830,
+          11594,
+          11537,
+          11592
+        ],
+        "median": 11594,
+        "minimum": 11537,
+        "maximum": 13830
+      },
+      "speedup": 4.232414168206496,
+      "worker_normalized_efficiency_percent": 52.905177102581206
+    }
+  },
+  "evidence": {
+    "directory": "build/benchmarks/scaling-0yn9f77x",
+    "git_ignored": true,
+    "removed_by_make_clean": true,
+    "sha256": {
+      "summary.json": "81c42228bfb0b1ae4c2297fe527edf65c3dc5305bcf21249107a724f5a9f65fb",
+      "independent-audit.json": "b30f028fba94e947aabe69c17911f290667cb1d1d7f03d5292dc29297c0116cf",
+      "audit_scaling.py": "a2b418e5a1590954316fb01f1df5f724101355a16b9cd189231e51ae6eb75bbc",
+      "provenance.json": "21bf178a0d02549ea823eaae3fb264b6bd37f120e0d28b2bb14886bcc0b8579d",
+      "build.json": "9e5382a900443b55df92596bf1c4f4469cd390524a1911d6bd4ccbd4d8823391",
+      "profile.json": "4446e0bbdae0d31629275fe1521bc392aea65c248bc21a97f881d383d673bd6d",
+      "plan.json": "a410099be074d6337f4ad388ae1dcec07a013a5d8085351eb9e2939a99f21426",
+      "contract.md": "83e0bbbc43df154db5852e137095ad02f456cb34c988a37d953076903b95943b"
+    }
+  },
+  "limitations": [
+    "Single-host fixed 64-job workload with normal WAL synchronization, CLI processes, logging, and polling.",
+    "Power and thermal checks occur at boundaries, not continuously; unavailable telemetry does not rule out throttling.",
+    "OS placement across unequal M4 core classes and background activity are uncontrolled; load observations are retained.",
+    "Five repetitions show observed variation, not a strong confidence interval or a general capacity limit.",
+    "Speedup is the ratio of the fresh one-worker median to each configuration median; old development samples are excluded.",
+    "Mean accepted job latency includes FIFO queue waiting; these are elapsed times, not CPU execution times.",
+    "No fault injection, multi-host network scaling, or controlled recovery performance is measured here."
+  ]
+}
