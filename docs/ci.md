@@ -5,7 +5,12 @@ the GitHub Actions workflow named **Linux CI**. It runs on pushes and pull
 requests, and supports manual runs with `workflow_dispatch`. There are no
 branch or path filters.
 
-**Hosted validation passed on 2026-10-01:** both compiler jobs completed the full
+**Release review on 2026-10-03:** both compiler jobs passed the full workflow at
+`86cb174`, including the seed-42 experiment. The
+[release checklist](release-checklist.md) links the exact hosted run and records
+fresh-clone macOS verification and the scope of this review.
+
+**Earlier hosted validation passed on 2026-10-01:** both compiler jobs completed the full
 workflow at `d90389b`, and all four artifacts were downloaded and independently
 audited. See the [GitHub-hosted validation record](#github-hosted-linux-validation).
 The earlier local validation records below retain their original scope and dates.
@@ -415,7 +420,7 @@ upload/download was subsequently verified below.
 ## GitHub-hosted Linux validation
 
 Verified on **2026-10-01** in
-[Linux CI run 36802222756](https://github.com/farukumarx64/flatline-c/actions/runs/36802222756),
+[Linux CI run 36802222756](https://github.com/farukumarx64/faultline-c/actions/runs/36802222756),
 attempt **1**, triggered by pushing committed revision
 `d90389b9ec96ff96916607bff1800774bbfd0672` to
 `codex/linux-ci-validation-20261001`. Both jobs and every step succeeded on their
@@ -429,7 +434,7 @@ Both builds used `-O0 -g -Werror`. Clang enabled AddressSanitizer, leak detectio
 and UBSan with halt-on-error settings. No compiler warnings or unexpected
 sanitizer diagnostics were found.
 
-| Check | [GCC job](https://github.com/farukumarx64/flatline-c/actions/runs/36802222756/job/110178855880) | [Clang + ASan/UBSan job](https://github.com/farukumarx64/flatline-c/actions/runs/36802222756/job/110178856054) |
+| Check | [GCC job](https://github.com/farukumarx64/faultline-c/actions/runs/36802222756/job/110178855880) | [Clang + ASan/UBSan job](https://github.com/farukumarx64/faultline-c/actions/runs/36802222756/job/110178856054) |
 | --- | --- | --- |
 | C unit groups | 131 passed | 131 passed |
 | Process integration scenarios | 143 passed | 143 passed |
@@ -511,7 +516,7 @@ production code, harness rules, and workflow configuration are unchanged.
 
 ## Sanitizer cleanup race — 2026-10-02
 
-In [run 36912575241](https://github.com/farukumarx64/flatline-c/actions/runs/36912575241),
+In [run 36912575241](https://github.com/farukumarx64/faultline-c/actions/runs/36912575241),
 the Clang sanitizer seed-42 experiment verified all 100 results and five recovered
 attempts, then failed cleanup. Worker `worker-1-g2` (PID 6776, worker ID 10)
 logged `stopped exit_code=0 reason=signal signal=15` and closed its connection,
@@ -555,5 +560,7 @@ The failed CI artifact (SHA-256
 `4b68861a698f440d99949dd43124b0fd6badafb1abe1f20ed719b5c466ffbb9d`),
 reproducer, process diagnostics, regression logs, and new run artifacts are
 retained in Git-ignored `build/ci-investigation/36912575241/` until `make clean`.
-These checks ran in a local Linux ARM64 container; a new GitHub-hosted x86-64
-run of the fix remains pending publication.
+Those checks ran in a local Linux ARM64 container. Subsequent GitHub-hosted
+x86-64 validation passed at `86cb174`, including both full seed-42 experiments
+and cleanup; the [2026-10-03 release review](release-checklist.md#hosted-linux-evidence)
+records the exact run, job results, and available artifacts.

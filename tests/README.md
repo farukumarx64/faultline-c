@@ -7,9 +7,10 @@ make test
 make test-sanitize
 ```
 
-These run 131 protocol, registry, job, queue, scheduler, task, socket, logging, and WAL C test groups plus 143 process integration
-tests using Python 3's standard library. A loopback-capable environment is
-required. You can select the Python interpreter with `PYTHON=/path/to/python3`.
+These run 131 protocol, registry, job, queue, scheduler, task, socket, logging,
+and WAL C test groups plus 143 process integration tests using Python 3.9 or newer
+and its standard library. A loopback-capable environment is required. You can
+select the Python interpreter with `PYTHON=/path/to/python3`.
 Use `make test-unit` or `make test-integration` to run one layer separately.
 `make test-demo-recovery` runs five real-process checks of the
 [recorded recovery demo](../docs/recovery-demo.md), including incorrect results,

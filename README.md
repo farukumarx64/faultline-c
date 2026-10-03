@@ -2,7 +2,7 @@
 
 **A fault-tolerant job execution engine, built in C11.**
 
-[![Linux CI](https://github.com/farukumarx64/flatline-c/actions/workflows/linux-ci.yml/badge.svg)](https://github.com/farukumarx64/flatline-c/actions/workflows/linux-ci.yml)
+[![Linux CI](https://github.com/farukumarx64/faultline-c/actions/workflows/linux-ci.yml/badge.svg)](https://github.com/farukumarx64/faultline-c/actions/workflows/linux-ci.yml)
 
 Submit a job, let a worker execute it, and inspect the result. Faultline schedules
 independent jobs across worker processes, retries interrupted work, and restores
@@ -38,13 +38,14 @@ for message flow and ownership, or the [editable diagram source](docs/diagrams/a
 ## Quick start
 
 You need **Make, a C11 compiler (Clang or GCC), and POSIX threads/sockets**.
-There are no third-party C library dependencies. Tests also require Python 3.
+There are no third-party C library dependencies. Tests and the recovery demo
+also require Python 3.9 or newer.
 
 ### 1. Build
 
 ```sh
-git clone https://github.com/farukumarx64/flatline-c.git
-cd flatline-c
+git clone https://github.com/farukumarx64/faultline-c.git
+cd faultline-c
 make
 ```
 
@@ -342,6 +343,8 @@ and insufficient recovery coverage; matching totals alone cannot pass.
 See the [test guide](tests/README.md) for focused targets and diagnostics, the
 [chaos review](docs/chaos-review.md) for multi-seed evidence, and the
 [CI guide](docs/ci.md) for Linux reproduction and hosted validation records.
+The [release checklist](docs/release-checklist.md) records fresh-clone checks,
+the tested revision, and the scope of the latest release review.
 
 ## Documentation
 
@@ -353,6 +356,7 @@ See the [test guide](tests/README.md) for focused targets and diagnostics, the
 | Failure and restart behavior | [Recovery](docs/recovery.md) · [Durability contract](docs/durability.md) · [Persistence](docs/persistence.md) |
 | WAL implementation | [Record format](docs/wal-format.md) · [Writer](docs/wal-writer.md) · [Replay](docs/wal-replay.md) |
 | Experiments and measurements | [Chaos harness](docs/chaos-testing.md) · [Benchmark contract](docs/benchmarks.md) · [Results](benchmarks/results/) |
+| Release verification | [Release checklist](docs/release-checklist.md) · [Linux CI](docs/ci.md) |
 | Possible extensions | [Post-MVP notes](docs/post-mvp.md) · [Request deduplication](docs/request-deduplication.md) |
 
 ### Source layout
