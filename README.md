@@ -16,6 +16,8 @@ listening on IPv4 loopback. It targets macOS and Linux.
 [Quick start](#quick-start) · [Recovery demo](#recovery-demo) · [Commands](#commands) · [Benchmarks](#benchmarks) ·
 [Guarantees](#guarantees) · [Limitations](#limitations) · [Documentation](#documentation)
 
+[v0.1.0 release notes](docs/releases/v0.1.0.md)
+
 ## How it works
 
 [![Faultline architecture: the CLI submits and inspects jobs through the coordinator; independent workers receive assignments and send reports and heartbeats; the coordinator syncs a local WAL and replays it at startup](docs/diagrams/architecture.svg)](docs/diagrams/architecture.svg)
