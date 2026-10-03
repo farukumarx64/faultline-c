@@ -13,7 +13,7 @@ scheduling, heartbeat-based failure detection, bounded retries, and durable stat
 The current MVP runs as multiple processes **on one machine**, with the coordinator
 listening on IPv4 loopback. It targets macOS and Linux.
 
-[Quick start](#quick-start) · [Commands](#commands) · [Benchmarks](#benchmarks) ·
+[Quick start](#quick-start) · [Recovery demo](#recovery-demo) · [Commands](#commands) · [Benchmarks](#benchmarks) ·
 [Guarantees](#guarantees) · [Limitations](#limitations) · [Documentation](#documentation)
 
 ## How it works
@@ -109,6 +109,23 @@ same coordinator state, omit `--init-wal`:
 Start workers again in their terminals. Old connections cannot be restored, and
 workers do not automatically reconnect. Saved terminal results remain queryable;
 interrupted assignments follow the [retry policy](#guarantees).
+
+## Recovery demo
+
+One job, two workers, one hard crash. The busy worker is killed with `SIGKILL`;
+the already-connected survivor completes **the same job ID on attempt 2**.
+
+![Recorded recovery demo: SIGKILL interrupts the first worker; another connected worker completes the same job on attempt 2](docs/demos/recovery.gif)
+
+Reproduce it with the real executables:
+
+```sh
+make demo-recovery
+```
+
+The command uses a fresh WAL and an available port, verifies the result, and
+cleans up its processes. The GIF replays actual CLI output at its recorded pace.
+[Run, record, and verify the demo →](docs/recovery-demo.md)
 
 ## Commands
 

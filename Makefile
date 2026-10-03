@@ -4,6 +4,7 @@ INTEGRATION_ARGS ?=
 BATCH_ARGS ?=
 CHAOS_ARGS ?=
 BENCHMARK_ARGS ?=
+DEMO_ARGS ?=
 SANITIZE ?= 0
 
 CPPFLAGS += -Iinclude -D_POSIX_C_SOURCE=200809L
@@ -48,6 +49,13 @@ TEST_PROGRAMS := $(addprefix $(BUILD_DIR)/tests/,$(TEST_NAMES))
 .PHONY: all sanitize test test-unit test-integration test-failures test-scheduling test-execution test-recovery test-wal test-wal-writer test-wal-replay test-persistence test-startup-recovery test-coordinator-crashes test-job-status-protocol test-status test-list-protocol test-listings test-sanitize clean
 
 all: $(PROGRAMS)
+
+.PHONY: demo-recovery test-demo-recovery
+demo-recovery: all
+	$(PYTHON) demos/recovery.py --bin-dir $(BUILD_DIR) $(DEMO_ARGS)
+
+test-demo-recovery: all
+	$(PYTHON) tests/demos/test_recovery.py --bin-dir $(BUILD_DIR)
 
 .PHONY: test-batch test-batch-harness test-chaos test-chaos-harness
 # Explicit targets: the full baseline takes roughly a minute before overhead.

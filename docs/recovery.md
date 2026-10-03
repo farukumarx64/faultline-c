@@ -1,5 +1,8 @@
 # Worker failure recovery
 
+For a short recorded example and a one-command reproduction, see the
+[worker-crash demo](recovery-demo.md): `make demo-recovery`.
+
 Six fault-tolerance acceptance checks exercise recovery and retry limits with
 real busy workers. SIGKILL exercises connection-loss recovery; SIGSTOP exercises
 heartbeat expiry while the worker process remains paused and keeps its socket

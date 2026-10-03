@@ -11,6 +11,10 @@ These run 131 protocol, registry, job, queue, scheduler, task, socket, logging, 
 tests using Python 3's standard library. A loopback-capable environment is
 required. You can select the Python interpreter with `PYTHON=/path/to/python3`.
 Use `make test-unit` or `make test-integration` to run one layer separately.
+`make test-demo-recovery` runs five real-process checks of the
+[recorded recovery demo](../docs/recovery-demo.md), including incorrect results,
+deadline cleanup, interruption, and evidence preservation. Add `SANITIZE=1` to
+exercise instrumented executables. These checks are separate from `make test`.
 `make test-benchmark-harness` runs 25 checks of the benchmark verifier, multi-worker
 execution, scaling plan/metrics, timing, failure evidence, and cleanup. They are separate from the suite counts
 above. `make benchmark-baseline` runs the full optimized development baseline on
