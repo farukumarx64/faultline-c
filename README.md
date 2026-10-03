@@ -1,6 +1,6 @@
 # Faultline
 
-**A fault-tolerant job execution engine, built in C11.**
+**An open-source, fault-tolerant job execution engine, built in C11.**
 
 [![Linux CI](https://github.com/farukumarx64/faultline-c/actions/workflows/linux-ci.yml/badge.svg)](https://github.com/farukumarx64/faultline-c/actions/workflows/linux-ci.yml)
 
@@ -371,3 +371,8 @@ tests/             Unit tests, process tests, and workload/chaos harnesses
 benchmarks/        Campaign runners, fixed profiles, and reviewed reports
 docs/              Design notes, contracts, and verification evidence
 ```
+
+## License
+
+Faultline is open source under the [MIT License](LICENSE).
+Copyright (c) 2026 Faruk Umar.

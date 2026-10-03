@@ -28,10 +28,11 @@ the project and executables remain named Faultline and `faultline`.
 | Repository hygiene | PASS for the inspected tracked tree: no build outputs, WALs, Python bytecode, `.env` files, or common private-key/token patterns found. This is a limited content scan, not proof that the full Git history contains no secrets. |
 | Guarantees and limits | README and architecture agree with the implementation: loopback-only deployment, bounded retries, durable admission and results, uncertain missing ACKs, and no exactly-once effects or coordinator failover. |
 
-The original plan's recommended repository layout includes a `LICENSE` file;
-none is currently tracked. License selection remains an owner decision and was
-not made by this review. Release notes, a release tag, and GitHub publication
-are separate launch actions, not outcomes of running this checklist.
+After this review, the project owner selected the [MIT License](../LICENSE)
+on 2026-10-03. The root license file and README now declare that choice, with
+the copyright notice `Copyright (c) 2026 Faruk Umar`. The link count above records the
+original review, before these two license links were added. Release notes,
+a release tag, and GitHub publication remain separate launch actions.
 
 ## Reproduce the local checks
 
