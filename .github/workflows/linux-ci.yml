@@ -81,6 +81,12 @@ jobs:
             test-integration INTEGRATION_ARGS='--port 9000' \
             2>&1 | tee "$RUNNER_TEMP/faultline-ci/integration.log"
 
+      - name: Run installation tests
+        timeout-minutes: 2
+        run: |
+          bash tests/ci/run_with_deadline.sh 90 "$RUNNER_TEMP/faultline-ci/install.log" \
+            make CC="$CC" SANITIZE="$SANITIZE" CFLAGS="$CFLAGS" test-install
+
       - name: Verify CI deadline and failure propagation
         timeout-minutes: 2
         run: |

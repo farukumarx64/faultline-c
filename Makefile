@@ -6,6 +6,10 @@ CHAOS_ARGS ?=
 BENCHMARK_ARGS ?=
 DEMO_ARGS ?=
 SANITIZE ?= 0
+PREFIX ?= /usr/local
+BINDIR ?= $(PREFIX)/bin
+DESTDIR ?=
+INSTALL ?= install
 
 CPPFLAGS += -Iinclude -D_POSIX_C_SOURCE=200809L
 CFLAGS ?= -O0 -g
@@ -49,6 +53,24 @@ TEST_PROGRAMS := $(addprefix $(BUILD_DIR)/tests/,$(TEST_NAMES))
 .PHONY: all sanitize test test-unit test-integration test-failures test-scheduling test-execution test-recovery test-wal test-wal-writer test-wal-replay test-persistence test-startup-recovery test-coordinator-crashes test-job-status-protocol test-status test-list-protocol test-listings test-sanitize clean
 
 all: $(PROGRAMS)
+
+.PHONY: install uninstall test-install
+# DESTDIR stages the same installation layout under a packaging/test root.
+install: all
+	$(INSTALL) -d "$(DESTDIR)$(BINDIR)"
+	$(INSTALL) -m 755 "$(BUILD_DIR)/faultline" "$(DESTDIR)$(BINDIR)/faultline"
+	$(INSTALL) -m 755 "$(BUILD_DIR)/faultline-coordinator" "$(DESTDIR)$(BINDIR)/faultline-coordinator"
+	$(INSTALL) -m 755 "$(BUILD_DIR)/faultline-worker" "$(DESTDIR)$(BINDIR)/faultline-worker"
+
+# Remove only the installed commands, preserving directories and runtime data.
+uninstall:
+	rm -f "$(DESTDIR)$(BINDIR)/faultline" \
+		"$(DESTDIR)$(BINDIR)/faultline-coordinator" "$(DESTDIR)$(BINDIR)/faultline-worker"
+
+# Build in a fresh temporary source tree, then exercise the installed copies.
+test-install:
+	$(PYTHON) tests/install/test_install.py --make="$(MAKE)" --cc="$(CC)" \
+		--cflags="$(CFLAGS)" --sanitize="$(SANITIZE)"
 
 .PHONY: demo-recovery test-demo-recovery
 demo-recovery: all
