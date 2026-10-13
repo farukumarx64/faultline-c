@@ -50,11 +50,12 @@ remain independent.
 3. Build coordinator, worker, and CLI executables.
 4. Run all C unit groups.
 5. Run all process integration suites.
-6. Run the 7 CI deadline/failure-propagation checks.
-7. Run the 22 batch-harness regression checks.
-8. Run the 35 chaos-harness regression checks.
-9. Run the full seed-42 chaos experiment.
-10. Upload available logs and chaos evidence, including after test failures.
+6. Run the 6 installation checks in a fresh temporary source tree.
+7. Run the 7 CI deadline/failure-propagation checks.
+8. Run the 22 batch-harness regression checks.
+9. Run the 35 chaos-harness regression checks.
+10. Run the full seed-42 chaos experiment.
+11. Upload available logs and chaos evidence, including after test failures.
 
 Every Make invocation passes the selected compiler and sanitizer mode explicitly.
 CI sets `CFLAGS='-O0 -g -Werror'`. This retains the Makefile's C11 mode and warning
@@ -77,6 +78,14 @@ The tests run real coordinator/worker/CLI processes and cover protocol
 fragmentation, execution, failures, retry limits, stale reports, WAL I/O errors,
 coordinator crashes/replay, and inspection commands. Each fixture owns temporary
 state; it does not use the repository's local `faultline.wal`.
+
+The [installation suite](installation.md#verification) was added after v0.1.0.
+It builds and installs under temporary roots, runs the short command names via
+`PATH` outside the checkout, verifies a completed job and WAL replay, and checks
+staging, reinstall, error propagation, and selective uninstall. It runs in both
+compiler modes with a 90-second command deadline and a two-minute step deadline.
+Its output is retained as `install.log`. Historical validation records below
+predate this new step and do not claim to have exercised it.
 
 ## Bounded chaos checks
 
@@ -168,7 +177,7 @@ for seven days:
 
 | Artifact suffix | Contents |
 | --- | --- |
-| `-logs` | `environment.log`, `build.log`, `unit.log`, `integration.log`, `deadlines.log`, `batch-harness.log`, `chaos-harness.log`, and `chaos-seed-42.log` under the runner's temporary `faultline-ci` directory. |
+| `-logs` | `environment.log`, `build.log`, `unit.log`, `integration.log`, `install.log`, `deadlines.log`, `batch-harness.log`, `chaos-harness.log`, and `chaos-seed-42.log` under the runner's temporary `faultline-ci` directory. |
 | `-chaos-evidence` | All `.json`, `.json.tmp`, `.jsonl`, `.log`, and `.wal` files under `build/chaos`, including regression fixtures and the full seed-42 run. |
 
 Prefixes are `linux-gcc` and `linux-clang-sanitizers`, giving four artifacts when
@@ -230,6 +239,7 @@ make clean
 make CC=gcc-13 SANITIZE=0 CFLAGS='-O0 -g -Werror' all
 make CC=gcc-13 SANITIZE=0 CFLAGS='-O0 -g -Werror' test-unit
 make CC=gcc-13 SANITIZE=0 CFLAGS='-O0 -g -Werror' test-integration INTEGRATION_ARGS='--port 9000'
+timeout --signal=TERM --kill-after=15s 90s make CC=gcc-13 SANITIZE=0 CFLAGS='-O0 -g -Werror' test-install
 timeout --signal=TERM --kill-after=15s 210s make CC=gcc-13 SANITIZE=0 CFLAGS='-O0 -g -Werror' test-batch-harness
 timeout --signal=TERM --kill-after=15s 210s make CC=gcc-13 SANITIZE=0 CFLAGS='-O0 -g -Werror' test-chaos-harness
 timeout --signal=TERM --kill-after=15s 210s make CC=gcc-13 SANITIZE=0 CFLAGS='-O0 -g -Werror' test-chaos CHAOS_ARGS='--seed 42 --workers 5 --jobs 100 --sleep-ms 3000 --max-retries 3 --fault-duration-ms 30000 --deadline-ms 180000 --output-dir build/chaos/ci-seed-42'
@@ -242,6 +252,7 @@ export ASAN_SYMBOLIZER_PATH=/usr/bin/llvm-symbolizer-18
 make CC=clang-18 SANITIZE=1 CFLAGS='-O0 -g -Werror' all
 make CC=clang-18 SANITIZE=1 CFLAGS='-O0 -g -Werror' test-unit
 make CC=clang-18 SANITIZE=1 CFLAGS='-O0 -g -Werror' test-integration INTEGRATION_ARGS='--port 9000'
+timeout --signal=TERM --kill-after=15s 90s make CC=clang-18 SANITIZE=1 CFLAGS='-O0 -g -Werror' test-install
 timeout --signal=TERM --kill-after=15s 210s make CC=clang-18 SANITIZE=1 CFLAGS='-O0 -g -Werror' test-batch-harness
 timeout --signal=TERM --kill-after=15s 210s make CC=clang-18 SANITIZE=1 CFLAGS='-O0 -g -Werror' test-chaos-harness
 timeout --signal=TERM --kill-after=15s 210s make CC=clang-18 SANITIZE=1 CFLAGS='-O0 -g -Werror' test-chaos CHAOS_ARGS='--seed 42 --workers 5 --jobs 100 --sleep-ms 3000 --max-retries 3 --fault-duration-ms 30000 --deadline-ms 180000 --output-dir build/chaos/ci-seed-42'

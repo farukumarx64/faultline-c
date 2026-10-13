@@ -12,6 +12,13 @@ and WAL C test groups plus 143 process integration tests using Python 3.9 or new
 and its standard library. A loopback-capable environment is required. You can
 select the Python interpreter with `PYTHON=/path/to/python3`.
 Use `make test-unit` or `make test-integration` to run one layer separately.
+`make test-install` runs six [installation checks](../docs/installation.md#verification)
+in a fresh temporary source tree, including installed commands found through
+`PATH` outside the checkout, a real job and WAL replay, staging, reinstall,
+error propagation, and selective uninstall. It never installs into your home
+directory or the system prefix. Add `SANITIZE=1` for instrumented executables;
+both Linux CI jobs run this suite. It remains separate from `make test` and the
+core suite counts above.
 `make test-demo-recovery` runs five real-process checks of the
 [recorded recovery demo](../docs/recovery-demo.md), including incorrect results,
 deadline cleanup, interruption, and evidence preservation. Add `SANITIZE=1` to

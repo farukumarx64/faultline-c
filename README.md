@@ -13,8 +13,8 @@ scheduling, heartbeat-based failure detection, bounded retries, and durable stat
 The current MVP runs as multiple processes **on one machine**, with the coordinator
 listening on IPv4 loopback. It targets macOS and Linux.
 
-[Quick start](#quick-start) · [Recovery demo](#recovery-demo) · [Commands](#commands) · [Benchmarks](#benchmarks) ·
-[Guarantees](#guarantees) · [Limitations](#limitations) · [Documentation](#documentation)
+[Quick start](#quick-start) · [Installation](#installation) · [Recovery demo](#recovery-demo) · [Commands](#commands) ·
+[Benchmarks](#benchmarks) · [Guarantees](#guarantees) · [Limitations](#limitations) · [Documentation](#documentation)
 
 [v0.1.0 release notes](docs/releases/v0.1.0.md)
 
@@ -113,6 +113,47 @@ Start workers again in their terminals. Old connections cannot be restored, and
 workers do not automatically reconnect. Saved terminal results remain queryable;
 interrupted assignments follow the [retry policy](#guarantees).
 
+## Installation
+
+Install the CLI, coordinator, and worker for your user, then run them from any
+directory. From the source checkout:
+
+```sh
+make install PREFIX="$HOME/.local"
+export PATH="$HOME/.local/bin:$PATH"
+faultline --help
+```
+
+Add the `export PATH=...` line to your shell's startup file (`~/.zshrc` for zsh,
+or `~/.bashrc` for interactive bash) to keep it in new terminals. Afterward, use
+`faultline`, `faultline-coordinator`, and `faultline-worker` in place of their
+`./build/debug/` paths in the examples below.
+
+Keep the coordinator's WAL at a fixed location when working across directories:
+
+```sh
+# Terminal 1: initialize once; omit --init-wal on subsequent starts.
+mkdir -p "$HOME/.local/state/faultline"
+faultline-coordinator --wal "$HOME/.local/state/faultline/coordinator.wal" --init-wal
+
+# Terminal 2
+faultline-worker
+
+# Terminal 3, from any directory
+faultline submit sleep --args 1000 --max-retries 1
+faultline status 1  # Use the ID returned by submit.
+```
+
+The coordinator and workers still run in their terminals. `make install` builds
+and copies executables; it does not start services or create a WAL. Plain
+`make install` defaults to `/usr/local/bin`, which may require administrator
+access. The personal prefix above needs no `sudo`.
+
+To remove the installed commands, run `make uninstall PREFIX="$HOME/.local"`
+from the source checkout. Saved WALs and other files are retained.
+These targets are available in the current source checkout; the `v0.1.0` tag
+predates installation support. [Installation options and troubleshooting →](docs/installation.md)
+
 ## Recovery demo
 
 One job, two workers, one hard crash. The busy worker is killed with `SIGKILL`;
@@ -133,7 +174,8 @@ cleans up its processes. The GIF replays actual CLI output at its recorded pace.
 ## Commands
 
 All three programs default to `127.0.0.1:9000`. These examples use the debug build;
-`make sanitize` creates equivalent executables under `build/sanitize/`.
+`make sanitize` creates equivalent executables under `build/sanitize/`. With
+[installation](#installation), omit the `./build/debug/` prefix.
 
 | Command | What it shows or does |
 | --- | --- |
@@ -331,15 +373,16 @@ potential battery-only / Low Power Mode benchmark profiles. These remain proposa
 ```sh
 make test             # C unit/storage/socket tests + real-process integration tests.
 make test-sanitize    # The same suites with AddressSanitizer and UBSan.
+make test-install     # Fresh build, installation, PATH commands, and uninstall.
 make test-batch       # Separate no-fault workload with per-job result verification.
 make test-chaos       # Separate seeded worker crashes and replacement experiment.
 ```
 
 The [Linux CI workflow](.github/workflows/linux-ci.yml) runs on pushes and pull
 requests using Ubuntu 24.04: GCC 13 for normal builds and Clang 18 for ASan/UBSan.
-It treats warnings as errors, runs harness regressions and a fixed-seed chaos
-experiment, enforces deadlines and cleanup, and uploads available evidence after
-success or failure. Checks reject missing IDs, wrong results, invalid retries,
+It treats warnings as errors, tests installation, runs harness regressions and a
+fixed-seed chaos experiment, enforces deadlines and cleanup, and uploads available
+evidence after success or failure. Checks reject missing IDs, wrong results, invalid retries,
 and insufficient recovery coverage; matching totals alone cannot pass.
 
 See the [test guide](tests/README.md) for focused targets and diagnostics, the
@@ -352,6 +395,7 @@ the tested revision, and the scope of the latest release review.
 
 | Start here for… | Guides |
 | --- | --- |
+| Installing commands | [Installation, PATH, and uninstall](docs/installation.md) |
 | System design | [Architecture](docs/architecture.md) · [Job model](docs/jobs.md) · [Scheduling](docs/scheduling.md) |
 | Wire format and connections | [Protocol](docs/protocol.md) · [Networking](docs/networking.md) · [Workers](docs/workers.md) |
 | Using and observing jobs | [Tasks](docs/tasks.md) · [CLI status](docs/status.md) · [Logs](docs/logging.md) |

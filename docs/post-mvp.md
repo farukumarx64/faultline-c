@@ -1,14 +1,26 @@
 # Optional post-MVP work
 
-Recorded on 2026-10-02. Status: **proposals only; not implemented**.
-These enhancements are outside the current MVP requirements. The
+Recorded on 2026-10-02; updated on 2026-10-13. Installation support is implemented
+in the current source checkout; the remaining enhancements below are proposals.
+These enhancements are outside the original MVP requirements. The
 [scaling](benchmark-scaling.md) and AC-only
 [recovery](benchmark-recovery.md#results-2026-10-02) campaigns and reports are
 complete. The README, architecture diagram, and [recovery demo](recovery-demo.md)
-are complete too; [release verification](release-checklist.md) records the checks
-and remaining launch actions. Finish the v0.1 release before expanding scope.
-This list sets no implementation date and does not change the
-current protocol, durability guarantees, or benchmark contract.
+are complete too. [Faultline v0.1.0](releases/v0.1.0.md) has been released;
+[release verification](release-checklist.md) records the checks.
+This list sets no implementation date for the remaining proposals and does not
+change the current protocol, durability guarantees, or benchmark contract.
+
+## Completed since v0.1.0
+
+[Installation support](installation.md) adds `make install` / `make uninstall`,
+personal and system prefixes, and staged installation. With the command directory
+on `PATH`, the CLI, coordinator, and worker run from any directory. Foreground
+startup and explicit WAL selection remain under the user's control. Services,
+automatic startup, prebuilt downloads, and package-manager distribution remain
+possible follow-ups; they are not included in this installation feature.
+
+## Remaining proposals
 
 | Enhancement | Reason to revisit | Existing guarantee |
 | --- | --- | --- |
