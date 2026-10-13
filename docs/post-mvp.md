@@ -1,7 +1,7 @@
 # Optional post-MVP work
 
-Recorded on 2026-10-02; updated on 2026-10-13. Installation support is implemented
-in the current source checkout; the remaining enhancements below are proposals.
+Recorded on 2026-10-02; updated on 2026-10-13. Installation support is included
+in [v0.1.1](releases/v0.1.1.md); the remaining enhancements below are proposals.
 These enhancements are outside the original MVP requirements. The
 [scaling](benchmark-scaling.md) and AC-only
 [recovery](benchmark-recovery.md#results-2026-10-02) campaigns and reports are

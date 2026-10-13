@@ -16,7 +16,7 @@ listening on IPv4 loopback. It targets macOS and Linux.
 [Quick start](#quick-start) · [Installation](#installation) · [Recovery demo](#recovery-demo) · [Commands](#commands) ·
 [Benchmarks](#benchmarks) · [Guarantees](#guarantees) · [Limitations](#limitations) · [Documentation](#documentation)
 
-[v0.1.0 release notes](docs/releases/v0.1.0.md)
+[v0.1.1 release notes](docs/releases/v0.1.1.md) · [v0.1.0 MVP release](docs/releases/v0.1.0.md)
 
 ## How it works
 
@@ -151,8 +151,8 @@ access. The personal prefix above needs no `sudo`.
 
 To remove the installed commands, run `make uninstall PREFIX="$HOME/.local"`
 from the source checkout. Saved WALs and other files are retained.
-These targets are available in the current source checkout; the `v0.1.0` tag
-predates installation support. [Installation options and troubleshooting →](docs/installation.md)
+These targets are included in `v0.1.1` and later; the `v0.1.0` tag predates
+installation support. [Installation options and troubleshooting →](docs/installation.md)
 
 ## Recovery demo
 

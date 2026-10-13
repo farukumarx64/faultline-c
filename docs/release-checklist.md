@@ -1,5 +1,8 @@
 # Faultline v0.1 release checklist
 
+For the installation update, see the [v0.1.1 local preparation](#v011-local-release-preparation)
+below. The original v0.1.0 review retains its recorded scope and source revision.
+
 Review date: **2026-10-03**. Source under review:
 `86cb174ac3d797f26961b6b02e1d44892fc4afdd`.
 
@@ -132,3 +135,36 @@ corrections. Commit and push the corrections, then confirm Linux CI on that
 final commit before selecting a release tag. Passing tests exercise the recorded
 paths and environments; they do not establish production readiness, multi-host
 operation, exactly-once execution, or storage survival after disk loss.
+
+## v0.1.1 local release preparation
+
+Preparation date: **2026-10-13**. The installation implementation is committed
+in `2e28a59`, with its usage documentation in `3963338`. Release preparation adds
+the [v0.1.1 notes](releases/v0.1.1.md), documentation links, and a local annotated
+tag. Pushing the commits/tag and publishing the GitHub Release are separate steps.
+
+| Check | Result and scope |
+| --- | --- |
+| Normal installation suite | PASS: all 6 checks on macOS, using `CFLAGS='-O0 -g -Werror'`; fresh temporary build and install roots. |
+| ASan/UBSan installation suite | PASS: the same 6 checks with `SANITIZE=1`; no sanitizer diagnostics. |
+| Installed command behavior | PASS within those suites: short names through `PATH` from unrelated working directories, PING/PONG, registration, exact job result, unknown-ID exit status, and WAL replay after restart. |
+| Install/remove behavior | PASS within those suites: destination spaces, default staged layout, custom `BINDIR`, reinstall, rejected installation errors, and repeated uninstall preserving unrelated files without a compiler. |
+| Runtime compatibility | The C sources and headers are unchanged from v0.1.0; no wire-protocol or WAL-format changes. |
+| Linux workflow | The new installation step is configured in both compiler jobs, with a 90-second deadline and retained `install.log`. Hosted validation of this release remains pending. |
+| Earlier verification | The original full-suite, recovery-demo, and benchmark evidence above is historical evidence, not a new run for v0.1.1. |
+
+The installation results were obtained during implementation; subsequent edits
+are documentation only. Source releases continue to require a compiler. A
+Homebrew formula, bottles, standalone prebuilt binaries, and service management
+remain outside this release.
+
+To publish the prepared release:
+
+1. Push `main` and confirm both Linux CI jobs pass for the exact release commit.
+2. Push the prepared annotated `v0.1.1` tag. If CI requires a code fix, prepare a
+   new local release commit/tag before pushing the tag; do not publish a failed
+   revision or silently move an already published tag.
+3. Create a GitHub Release from that existing tag, titled **Faultline v0.1.1**,
+   using [the release notes](releases/v0.1.1.md) as its body. Include the successful
+   CI run link when publishing. GitHub supplies the source archives; no compiled
+   binary assets are claimed for this release.

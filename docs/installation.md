@@ -5,8 +5,9 @@ can search. Once that directory is on `PATH`, `faultline status 1` works from
 any working directory. The coordinator must be running at the selected endpoint,
 and job 1 must exist there. A worker must be running to execute queued work.
 
-This feature was added after the `v0.1.0` source release. Use a checkout containing
-the `install` target; the original release tag remains unchanged.
+This feature is included starting with [v0.1.1](releases/v0.1.1.md). Use its
+source archive or a checkout containing the `install` target; the original
+`v0.1.0` release tag remains unchanged.
 
 ## Personal installation
 
