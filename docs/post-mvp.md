@@ -2,8 +2,8 @@
 
 Recorded on 2026-10-02; updated on 2026-10-14. Installation support is included
 in [v0.1.1](releases/v0.1.1.md). Request deduplication is implemented after that
-release. Battery and Low Power Mode benchmark support is implemented; its actual
-timing campaigns are pending.
+release. Battery and Low Power Mode benchmark support and CPU-scaling results
+are complete; power-mode recovery measurements remain pending.
 These enhancements are outside the original MVP requirements. The
 [scaling](benchmark-scaling.md) and AC-only
 [recovery](benchmark-recovery.md#results-2026-10-02) campaigns and reports are
@@ -42,13 +42,19 @@ The versioned power contract checks the selected source and effective mode,
 requires battery campaigns to start at 90–100% charge and remain at or above 20%
 at observed boundaries, and preserves evidence on failure. A comparison command
 audits three complete campaigns before writing separate aggregates and percentage
-changes. It requires matching source, build, and machine configurations, so the
-next measurement set needs a fresh AC control on the same revision.
+changes. It requires matching source, build, and machine configurations, including
+a fresh AC control on the same revision for each comparison.
 
-**Still pending:** run those campaigns, review their retained evidence, and publish
-the measured comparisons and plots. The guide includes commands and an operator
-procedure. The older AC results remain historical measurements; the regression
-fixtures are not new performance results.
+**CPU scaling complete:** the [October 14 report](benchmark-power-results.md)
+documents all three campaigns, 4,608 correctly completed jobs, medians, variation,
+and a graph. Normal battery performance was close to AC; Low Power Mode took
+75–99% longer than normal battery for the same batches. Observed limits and the
+constant 99% normal-battery reading are retained in the report. This is a
+performance comparison, not an energy-efficiency measurement.
+
+**Still pending:** separate battery and Low Power Mode recovery comparisons.
+The guide includes commands and an operator procedure. The older AC results
+remain historical measurements; regression fixtures are not performance samples.
 
 ## Possible later work
 

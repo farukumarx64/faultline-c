@@ -5,8 +5,9 @@ See the [baseline evidence](benchmark-baseline.md),
 [ordered scaling report](benchmark-scaling.md), and
 [controlled recovery report](benchmark-recovery.md). All three have independent
 artifact audits; the original AC-only benchmark phase is complete. The later
-[battery and Low Power Mode extension](benchmark-power.md) is implemented, with
-its timing campaigns still pending.
+[battery and Low Power Mode extension](benchmark-power.md) now has a reviewed
+[CPU-scaling comparison](benchmark-power-results.md); its recovery comparisons
+remain pending.
 Contract version: `faultline-benchmarks-v1`. The versioned
 [scaling profile](../benchmarks/profiles/scaling-v1.json) and
 [recovery profile](../benchmarks/profiles/recovery-v1.json) freeze the numeric
@@ -380,6 +381,7 @@ sweeps, coordinator-restart timing, and performance regression gates need their
 own profiles and evidence.
 
 Battery-only and Low Power Mode support is documented in the
-[power benchmark guide](benchmark-power.md). Its profiles and comparison tooling
-are implemented; actual campaigns and published comparisons remain pending.
+[power benchmark guide](benchmark-power.md). The three-condition
+[CPU-scaling results](benchmark-power-results.md), all samples, and graph are
+published; battery and Low Power Mode recovery measurements remain pending.
 The default AC condition and historical AC measurements remain unchanged.

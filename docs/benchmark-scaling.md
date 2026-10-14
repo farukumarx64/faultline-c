@@ -130,8 +130,9 @@ make benchmark-scaling BENCHMARK_ARGS='--output-dir build/benchmarks/my-scaling'
 
 These commands select the default AC power profile. The later
 [power benchmark guide](benchmark-power.md) provides battery and Low Power Mode
-commands and their separate acceptance rules; no new power-mode timings have
-been published yet.
+commands and their separate acceptance rules. The separate
+[October 14 power comparison](benchmark-power-results.md) contains the reviewed
+AC, battery, and Low Power Mode CPU-scaling results.
 
 The command calls `benchmarks/run_baseline.py --scaling`. Shared implementation
 keeps submission, result verification, timing, logging, and cleanup identical to

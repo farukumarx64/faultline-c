@@ -257,7 +257,9 @@ binds only to `127.0.0.1`. [Worker configuration →](docs/workers.md)
 Measured on **Apple M4 · 10 cores (4 Performance + 6 Efficiency) · 16 GiB RAM**,
 with an internal APFS SSD, macOS 27.0.1, and Apple Clang 21. Builds used
 `-O2 -g -Werror`, sanitizers off, and normal logging and WAL synchronization.
-AC power and low-power mode off were checked before and after every sample.
+The October 1 and 2 reports used AC power with Low Power Mode off. The October 14
+comparison below measures AC, normal battery, and battery with Low Power Mode
+separately, with source and mode checked before and after every sample.
 
 Each configuration has **five measured repetitions**, with warmups excluded.
 These are single-machine results for the specified workloads, not multi-host
@@ -319,11 +321,40 @@ behind queued work. That delay is distinct from detecting the worker's loss.
 [JSON](benchmarks/results/recovery-20261002.json) ·
 [CSV](benchmarks/results/recovery-20261002.csv)
 
+### Battery and Low Power Mode · October 14, 2026
+
+The same 64-job CPU workload was measured under three power conditions from the
+same clean revision. All **4,608 jobs across 72 runs** completed correctly, with
+zero retries or terminal failures. Values below are median batch times across
+five measured repetitions; warmups are excluded.
+
+| Workers | AC, normal | Battery, normal | Battery, Low Power Mode |
+| ---: | ---: | ---: | ---: |
+| 1 | 58.751 s | 56.344 s | 111.919 s |
+| 2 | 29.862 s | 29.435 s | 56.179 s |
+| 4 | 15.989 s | 15.867 s | 29.793 s |
+| 8 | 13.575 s | 13.444 s | 23.580 s |
+
+![CPU scaling across three power conditions: five measured repetitions and median batch times and throughputs at each worker count](benchmarks/results/power-scaling-20261014.svg)
+
+Normal battery performance was close to AC. Low Power Mode increased median batch
+time by **75–99% relative to normal battery**, depending on worker count. At eight
+workers, normal battery completed **4.761 jobs/s**, versus **2.714 jobs/s** in
+Low Power Mode. These separate campaigns do not isolate thermal or background
+effects, and their charge readings do not establish battery-life or energy savings.
+Battery and Low Power Mode recovery measurements remain a separate, pending experiment.
+
+[Full power comparison and limits](docs/benchmark-power-results.md) ·
+[JSON](benchmarks/results/power-scaling-20261014.json) ·
+[Comparison CSV](benchmarks/results/power-scaling-20261014.csv) ·
+[All runs CSV](benchmarks/results/power-scaling-20261014-samples.csv)
+
 <details>
 <summary><strong>Reproduce the measurements</strong></summary>
 
-Use a clean, committed checkout on macOS, with stable AC power and low-power mode
-off. Automatic machine/power validation currently supports macOS. The runners
+The default commands use a clean, committed checkout on macOS, with stable AC
+power and Low Power Mode off. Automatic machine/power validation currently
+supports macOS. The runners
 build optimized binaries, check correctness, then time the fixed profiles:
 
 ```sh
@@ -345,7 +376,8 @@ for timing definitions, machine requirements, and interpretation limits.
 
 **Battery and Low Power Mode comparisons:** the runner also supports
 `--power-profile battery` and `--power-profile battery-low-power`, with separate
-evidence and aggregates. These campaigns are **not measured yet**. The
+evidence and aggregates. The [CPU-scaling comparison](docs/benchmark-power-results.md)
+is measured and reviewed; battery recovery comparisons remain pending. The
 [power benchmark guide](docs/benchmark-power.md) defines charge requirements,
 provides the three campaign commands and comparison command, and explains why
 the comparison needs a fresh AC control from the same source revision.
@@ -395,7 +427,7 @@ Read the [recovery guarantees](docs/recovery.md) and
 - **Four built-in tasks:** no arbitrary shell execution, task plugins, or web dashboard.
 
 [Post-MVP notes](docs/post-mvp.md) track installation, deduplication, and power-mode
-benchmark support, plus pending measurements and possible follow-ups.
+benchmark support and results, plus pending recovery comparisons and possible follow-ups.
 
 ## Testing
 

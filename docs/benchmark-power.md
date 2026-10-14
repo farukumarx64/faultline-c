@@ -1,8 +1,10 @@
 # Battery and Low Power Mode benchmarks
 
-Status: **runner, validation, comparison reports, and regression tests implemented;
-new performance measurements pending.** No battery or Low Power Mode timings
-have been published. The existing AC-only reports remain historical results.
+Status: **CPU-scaling campaigns are measured, reviewed, and documented** for AC,
+normal battery, and battery with Low Power Mode. See the
+[October 14 results, graph, and evidence](benchmark-power-results.md).
+Battery and Low Power Mode recovery campaigns remain pending. The existing
+AC-only reports remain historical results.
 
 The versioned [power profiles](../benchmarks/profiles/power-v1.json) extend the
 shared benchmark runner. They do not change Faultline execution or persistence.
@@ -145,9 +147,10 @@ make benchmark-scaling BENCHMARK_ARGS='--power-profile battery --output-dir buil
 make benchmark-scaling BENCHMARK_ARGS='--power-profile battery-low-power --output-dir build/benchmarks/power-battery-low-power'
 ```
 
-The previous AC scaling campaign took about 29 minutes including build, checks,
-and cooldowns. Allow more time for the new battery profiles; their timings are
-not measured yet. Each campaign has the existing two-hour hard deadline, each
+The October 14 scaling campaigns took about 28.7 minutes on AC, 28.5 minutes on
+normal battery, and 39.3 minutes in Low Power Mode, including build, checks,
+and cooldowns. These are observed durations, not deadlines or promises for another
+machine. Each campaign has the existing two-hour hard deadline, each
 sample ten minutes, and cleanup keeps its ten-second reserve. The runner stops
 on the first invalid sample and preserves its evidence.
 
@@ -196,9 +199,12 @@ This first design uses sequential campaigns; source/mode can be confounded with
 battery discharge, temperature, background activity, and order. Five repetitions
 show variation but do not establish a universal causal effect or energy savings.
 Raw evidence stays under `build/` until archived; `make clean` removes it. Preserve
-successes and failures externally before cleaning. Publish reviewed reports under
-`benchmarks/results/` only after actual campaigns pass. There is currently no new
-power-mode performance result to publish.
+successes and failures externally before cleaning. The
+[reviewed CPU-scaling report](benchmark-power-results.md) and its JSON, CSVs, and
+graph are now under version control. Its verified raw archive is retained locally
+in ignored `.benchmark-evidence/`, outside `build/`, so it survives `make clean`.
+Copy that archive to independent storage for backup. Recovery power comparisons
+have not been measured.
 
 ## Verification
 
@@ -232,4 +238,5 @@ or a measured performance result. A subsequent end-to-end preflight at 62%
 correctly wrote a failed development-series summary before any build or job
 started, with all helpers reaped. Its local evidence is in
 `build/benchmarks/power-preflight-check-q_3dh55_/rejected-development-series/`.
-No new timing campaign has been run.
+Those were preflight checks, separate from the later successful
+[three-condition CPU-scaling campaign review](benchmark-power-results.md#validation-and-evidence).

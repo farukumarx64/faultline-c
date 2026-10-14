@@ -135,7 +135,9 @@ stays unknown. It owns an idle-sleep inhibitor during each sample.
 These commands use the default AC profile. The later
 [power-profile extension](benchmark-power.md) supports separate battery and Low
 Power Mode campaigns with the same recovery workload. Those timings remain
-pending and are not part of the historical recovery results above.
+pending and are not part of the historical recovery results above. The completed
+[power-mode CPU-scaling comparison](benchmark-power-results.md) measures a
+different workload and does not establish recovery performance on battery.
 
 The shared campaign driver creates a fresh Clang `-O2 -g -Werror`, non-sanitized
 build, runs the core correctness suites and recovery harness regressions, and
