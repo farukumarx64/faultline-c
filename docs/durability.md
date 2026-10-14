@@ -53,6 +53,7 @@ measurements must include flush latency and its effect on heartbeat processing.
 | State | Required recovered meaning |
 | --- | --- |
 | Job definition | Original nonzero job ID, task type, exact argument bytes/length, and `max_retries`. |
+| Submission key, when supplied | Immutable 16-byte key associated atomically with its job and definition; retained across transitions, terminal outcomes, and restarts. |
 | Job outcome | Last valid durable state; exact result bytes/length for DONE; failure reason for a failed/requeued attempt. DONE and FAILED remain terminal. |
 | Attempt history needed for safety | Latest attempt number, retry count, and last assigned worker ID. Recovery must never reset the budget or reuse a durable attempt number. |
 | Job timestamps | Creation/update and latest assignment/start/finish values, including unset markers, on the logical job timeline defined below. Creation time and terminal metadata are preserved. |
@@ -84,13 +85,17 @@ stores or copies run as separate coordinators.
 
 ## Submission acknowledgment boundary
 
-The coordinator must perform these operations in order:
+For a keyed request, first look up the retained key: an identical definition
+returns the existing durable ID, while a conflict is rejected without mutation.
+This lookup precedes capacity and ID allocation, so duplicates still work at
+capacity. For a new admission, the coordinator performs these operations in order:
 
 1. Validate the request and prepare a complete candidate job, ID allocation, and
    FIFO insertion. Check capacity and every condition that could reject it.
    Do not publish it into live scheduling yet.
 2. Append the complete creation record containing everything needed to replay
-   that accepted job and its enqueue operation.
+   that accepted job and its enqueue operation, including the optional request
+   key in the same record.
 3. Successfully sync the WAL with `fsync()`.
 4. Publish the prepared job, queue insertion, and ID advancement in memory.
    This application must not introduce a new ordinary validation/allocation
@@ -113,10 +118,12 @@ acceptance never cancels the job.
 Replay cannot infer whether a previous `fsync()` returned or an ACK arrived at
 the client. It adopts the entire valid log prefix, including complete records
 that survived without a confirmed sync or ACK. It syncs that recovered prefix
-before serving work. Missing an ACK is therefore not proof of rejection, and
-manual resubmission can create another job. Client-request deduplication remains
-outside the MVP protocol; the [deferred proposal](request-deduplication.md)
-records the behavior and crash checks to consider when revisiting it.
+before serving work. Missing an ACK is therefore not proof of rejection.
+[Request deduplication](request-deduplication.md), implemented after v0.1.1,
+allows retrying the same key and exact definition to recover the original ID
+without creating another job. Unkeyed resubmission can still create another job.
+Keys follow the same retained-WAL and storage assumptions as jobs; they do not
+provide exactly-once execution or survive log deletion/rollback.
 
 ## Ordering other durable transitions
 

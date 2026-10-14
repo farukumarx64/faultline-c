@@ -12,6 +12,7 @@ now orchestrates storage, enqueue, assignment, reports, and worker-loss transiti
 | Field | Purpose |
 | --- | --- |
 | `id` | Nonzero 64-bit job ID, supplied by the caller. The coordinator scheduler now allocates unique IDs within its lifetime. |
+| `request_key` | Immutable 16-byte submission key, or all zero for an unkeyed job. The coordinator store owns [deduplication](request-deduplication.md); transitions preserve the key. |
 | `task_type` | SLEEP, PRIME_COUNT, FIBONACCI, or HASH. All four have [worker executors](tasks.md). |
 | `arguments`, `argument_size` | An owned copy of the task's opaque argument bytes and their length. |
 | `state` | QUEUED, ASSIGNED, RUNNING, DONE, or FAILED. |

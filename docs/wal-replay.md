@@ -101,6 +101,11 @@ record. This avoids C structure padding and catches altered arguments, budgets,
 timestamps, or counters even when an altered record has valid checksums. Replay
 never recomputes a completed task's result; it restores the recorded result.
 
+Keyed creation restores the immutable request key and rejects duplicate keys
+across jobs. Later snapshots retain their original byte layout; replay carries
+the key forward from creation. See [request deduplication](request-deduplication.md)
+for keyed crash/restart tests and compatibility limits.
+
 The reconstructed store is built on the heap in private temporary memory.
 The caller's output state remains byte-for-byte unchanged unless all validation,
 any tail repair, and both syncs succeed. The writer rejects appends while in
@@ -183,11 +188,11 @@ make SANITIZE=1 test-unit all
 ```
 
 The twelve new groups in [`tests/test_wal_replay.c`](../tests/test_wal_replay.c)
-join the existing suites. The current C total is 131, including seven
+join the existing suites. The current C total is 134, including eight
 coordinator-store groups, seven [status protocol groups](job-status-protocol.md#verification),
 seven [listing protocol groups](listings.md#verification), and seven
 [stats codec/aggregation groups](stats.md#verification), plus three
-[logging groups](logging.md#verification).
+[logging groups](logging.md#verification) and two keyed protocol/WAL groups.
 Coverage includes mixed terminal/queued/active jobs, binary inputs/results,
 retries, FIFO, sparse and exhausted identities, timestamps, and store capacity.
 Repeated replay preserves the same state and consumes no extra retries.

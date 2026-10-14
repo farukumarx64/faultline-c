@@ -218,8 +218,9 @@ results, and boundaries; it does not publish all runtime logs or WALs.
 
 Old-attempt and wrong-worker reports are still governed by the
 [lease/recovery contract](recovery.md). A lost submission ACK remains ambiguous;
-[request deduplication](request-deduplication.md) is deferred, and the harness
-fails uncertain admission rather than resubmitting. Coordinator restart and
+the harness uses unkeyed requests and fails uncertain admission rather than
+resubmitting. Optional [request deduplication](request-deduplication.md) was added
+after this review and does not change those experiments. Coordinator restart and
 storage guarantees remain those of the [persistence review](persistence-review.md).
 The coordinator retains at most 256 jobs, and the harness accepts 1–16 workers;
 this is not an unbounded load/soak test or a capacity benchmark.

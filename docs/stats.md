@@ -46,8 +46,10 @@ new history. Future deletion or compaction that drops job history would require
 revisiting these definitions.
 
 A durably accepted job can count even if its submission acknowledgment was lost.
-A client retry can create another job because [submission deduplication](request-deduplication.md)
-is deferred. These counters do not measure client-confirmed acknowledgments.
+An unkeyed client retry can create another job. An identical keyed retry or a
+key conflict changes no job counters; [submission deduplication](request-deduplication.md)
+adds no admission, attempt, retry, or completion. These counters do not measure
+client-confirmed acknowledgments or the number of submit requests received.
 
 A failed attempt that is requeued increases `job_retries_total`, not
 `jobs_failed_total`. The latter increases only when a job becomes terminally

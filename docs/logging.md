@@ -70,6 +70,7 @@ The log line itself is not durable. `durable=1` describes job state in the WAL.
 | Event | Outcome | What it proves |
 | --- | --- | --- |
 | `job_submitted` | ACCEPTED | Job creation was durably accepted, even if the submit ACK is later lost. |
+| `job_submission_reused` | EXISTING | An identical keyed submission found this already durable job; no new creation or execution event. |
 | `job_assigned` | ASSIGNED | Ownership/attempt was durably assigned. The worker may not have received the frame yet. |
 | `job_started` | RUNNING | A matching STARTED report was durably accepted. This does not prove continuing task progress. |
 | `job_completed` | COMPLETED | A matching result was durably accepted as DONE. |
@@ -78,8 +79,13 @@ The log line itself is not durable. `durable=1` describes job state in the WAL.
 | `job_recovered` | RESTORED | A retained job snapshot after replay and startup reconciliation. This is not a new completion/failure event. |
 
 For live transitions, the sequence identifies the just-committed record.
+For a reused submission, it is the current synced watermark, not a new record.
 For recovered snapshots, it is the final synced startup watermark; multiple
 jobs can share it. It is not each recovered job's last individual record number.
+
+`job_submission_conflict` is a WARN diagnostic with the client descriptor. It
+means a key was reused with a different definition; no job mutation or WAL write
+occurred. These events keep retries and conflicts distinct from `job_submitted`.
 
 `previous_worker_id` preserves the failed owner's identity after requeue clears
 `worker_id`. A retry keeps the old attempt number until its next assignment.

@@ -73,7 +73,7 @@ and exposes the ID. Heartbeats and live connection/death metadata remain volatil
 | Operation | Saved record | Only after successful sync |
 | --- | --- | --- |
 | Register worker | `WORKER_ID_ALLOCATED` | Publish registration and queue its ACK. |
-| Submit job | `JOB_CREATED` | Publish job/ID/FIFO insertion and queue `JOB_SUBMIT_ACK`. |
+| Submit job | `JOB_CREATED` or `JOB_CREATED_KEYED` | Publish job/ID/FIFO insertion (and optional key) and queue `JOB_SUBMIT_ACK`. |
 | Assign job | `JOB_ASSIGNED` | Publish owner/attempt/dequeue and queue `JOB_ASSIGN`. |
 | Accept STARTED | `JOB_STARTED` | Publish/log RUNNING and process dependent reports. |
 | Accept COMPLETED | `JOB_COMPLETED`, including all result bytes | Publish/log DONE, release worker, schedule next job. |
@@ -88,8 +88,9 @@ binary result and is not executed again.
 A submission ACK can remain queued when a later operation fails. For example,
 creation can be durable while an immediately attempted assignment fails before
 the ACK is transmitted. The job survives, but the client did not receive success.
-A missing ACK remains an uncertain outcome; manual resubmission can duplicate
-work because request deduplication is not implemented.
+A missing ACK remains an uncertain outcome. With [request deduplication](request-deduplication.md),
+an identical key and definition return the existing durable ID without a new
+record; conflicting reuse is rejected. Unkeyed resubmission can duplicate work.
 
 ## Startup and interruption accounting
 
@@ -213,9 +214,10 @@ append as if it were a new operation.
   preparation, durable commit/publication, startup reconciliation, and logical time.
 - [`src/coordinator/main.c`](../src/coordinator/main.c): persistence options,
   startup-before-listen, durable handlers, failure exit, and socket cleanup.
-- [`tests/test_coordinator_store.c`](../tests/test_coordinator_store.c): seven groups
-  observing live state and outputs during writes/syncs, failures at all nine
-  mutation variants, invalid input, reconciliation, clocks, and sequence exhaustion.
+- [`tests/test_coordinator_store.c`](../tests/test_coordinator_store.c): eight groups
+  observing live state and outputs during writes/syncs, failures at all ten
+  mutation variants (including keyed creation), duplicate/conflict read-only
+  behavior, invalid input, reconciliation, clocks, and sequence exhaustion.
 - [`tests/integration/test_persistence.py`](../tests/integration/test_persistence.py):
   seven process scenarios using independent Python WAL decoding, SIGKILL/restart,
   binary results, FIFO/retry preservation, file-size-limit write failures, startup
@@ -241,11 +243,13 @@ it does not fill the disk. Diagnostics use pipes. There are no production fault
 switches. C tests inject sync failures through an internal I/O seam while checking
 that outputs, live jobs, and allocation counters remain unpublished during I/O.
 
-The suite now contains 131 C groups and 143 process scenarios (two default-port
+The full suite now contains 134 C groups and 155 process scenarios (two default-port
 checks are skipped with automatic ports). Existing process fixtures each create
 their own temporary WAL. The persistence scenarios establish concrete restart
 and ordering behavior, including selected crashes before/during/after WAL writes
 and flushes. The [phase review](persistence-review.md) records the full regression
 results and precise guarantees; the [CLI and observability review](observability-review.md)
-records the current regression and command/WAL/log cross-checks. These checks do not simulate
+records its historical regression and command/WAL/log cross-checks.
+[Request deduplication](request-deduplication.md#verification) adds keyed
+submission crash/replay checks. These checks do not simulate
 power loss, prove exactly-once side effects, or benchmark flush latency.

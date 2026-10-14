@@ -179,8 +179,9 @@ rerun a failing seed until it happens to pass.
 The submission ledger is authoritative for what the harness was told was
 accepted. Each successful CLI submission must return one distinct nonzero job
 ID. A failed or missing ACK makes acceptance uncertain: abort admission, retain
-the attempted input and diagnostics, and fail the run. Never blindly resubmit;
-[request deduplication](request-deduplication.md) is still deferred.
+the attempted input and diagnostics, and fail the run. The harness deliberately
+uses unkeyed submissions and does not retry admission; optional
+[request deduplication](request-deduplication.md) does not change this contract.
 
 For every admitted job, retain observations without assuming numeric IDs encode
 submission order. A known FAILED job has a successful `status` lookup (exit 0);

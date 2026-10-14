@@ -107,7 +107,8 @@ make SANITIZE=1 test INTEGRATION_ARGS='--port 9000'
 ```
 
 Environment: macOS Darwin 25.6.0 arm64, Apple Clang 21.0.0, Python 3.9.6.
-The current suite contains 131 C groups and 143 integration scenarios.
+At this review, the suite contained 131 C groups and 143 integration scenarios.
+See the [test guide](../tests/README.md) for current counts.
 
 These are local process/network tests, including process crashes and injected
 storage failures. They do not establish Linux CI results, physical power-loss
@@ -124,8 +125,9 @@ the event loop. There is no asynchronous logging, rotation, remote metrics expor
 or JSON command mode.
 
 Assignment leases and bounded at-least-once retries still permit repeated task
-execution. Missing submission acknowledgments remain ambiguous;
-[request deduplication](request-deduplication.md) is documented for later work.
+execution. Missing submission acknowledgments remain ambiguous. Since this
+review, optional [request deduplication](request-deduplication.md) has added
+safe retries using a retained key; unkeyed resubmission can still create work.
 Workers require fresh connections after restart; automatic reconnect is not
 implemented.
 

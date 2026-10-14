@@ -1,105 +1,202 @@
-# Request deduplication: deferred enhancement
+# Submission request deduplication
 
-Recorded on 2026-09-24. Status: **documented for later; not implemented**.
-This is an optional enhancement outside the original MVP phase list. The
-[persistence phase](persistence-review.md) is complete under its existing
-contract. This proposal is tracked in the [optional post-MVP work](post-mvp.md).
-Revisit it before introducing automatic submission retries or when duplicate
-submissions become costly, especially for tasks with external effects. This
-note proposes behavior; it does not change today's protocol, WAL format, or CLI.
+Implemented after v0.1.1. Opt in with `faultline submit --request-key HEX32`.
+An identical retry returns the original job ID, including after a coordinator
+restart using the same WAL. This extends admission; the existing bounded
+at-least-once execution policy still applies.
 
-## Problem to solve
+## Why a request key is needed
 
-1. A client submits a job.
-2. The coordinator saves it and successfully flushes the WAL.
-3. The coordinator crashes, or the connection fails, before the client receives
-   the submission acknowledgment.
-4. The client submits again. Today, that request can create a second job ID.
+A coordinator can save a job and then lose the TCP connection before the CLI
+receives its acknowledgment. The CLI cannot tell whether the job was accepted.
+Without a key, submitting again creates a new job. A key gives that logical
+submission a stable identity that the client knows before its first send.
 
-Persistence preserves accepted jobs. Request deduplication would let a client
-repeat the same logical submission and recover its original job ID without
-creating more work. Until then, a missing ACK means an uncertain outcome; the
-current CLI does not automatically resubmit.
+```text
+Client                               Coordinator / WAL
+submit key K, hash "hello"  --------> save job 1 + key K; sync
+                           <---X---  ACK job 1 is lost
+retry key K, hash "hello"   --------> find existing key and identical definition
+                           <-------  ACK job 1; no new job or WAL record
+```
 
-## Proposed behavior
+## CLI usage
 
-The client supplies a stable request key, generated before the first submission
-and reused for every retry of that logical request. An intentional new job gets
-a new key, even if its arguments match a previous job.
+Build this revision first (`make`). Installed v0.1.1 binaries do not have the new
+option; rebuild/reinstall if using commands from `PATH`.
 
-| Incoming submission | Proposed coordinator response |
+Choose a fresh key once for a new logical job, and save it with the input:
+
+```sh
+# Generate once, before the first send. Keep this value for every retry.
+request_key=$(python3 -c 'import secrets; print(secrets.token_hex(16))')
+printf '%s\n' "$request_key"
+
+./build/debug/faultline submit hash --args hello --max-retries 1 \
+  --request-key "$request_key"
+
+# If the ACK was lost, repeat the SAME key, task, argument bytes, and retry limit.
+./build/debug/faultline submit hash --args hello --max-retries 1 \
+  --request-key "$request_key"
+```
+
+Both successful commands print the same `job_id=N`. Generate a different key for
+an intentional second job, even if its input is identical. Do not regenerate the
+key inside a retry loop. Retain it somewhere durable if the client itself can
+restart; Faultline does not maintain a client-side request file.
+
+Keys are exactly **32 hexadecimal digits**, representing 16 opaque bytes.
+Upper/lowercase are equivalent; no `0x` prefix or UUID hyphens are accepted.
+All-zero keys, duplicate flags, invalid digits, and incorrect lengths fail before
+connecting. A random 128-bit key makes accidental collision extremely unlikely;
+it is still the client's responsibility to select and retain a unique key.
+
+| CLI exit | Meaning |
 | --- | --- |
-| Previously unseen key with a valid request | Create one job, durably associate the key with its definition and ID, then acknowledge. |
-| Existing key with the same request definition | Return the original job ID; do not enqueue another job, advance counters, reset retries, or rerun a terminal job. |
-| Existing key with a different request definition | Return an explicit conflict; preserve the original job and mapping. |
+| `0` | Valid ACK; stdout is `job_id=N`, for either a new admission or an identical retry. |
+| `3` | Key conflict: the coordinator already has this key with a different definition. No success output and no change to the original job. |
+| `1` | Argument, connection, send, or protocol error. After an attempted send, failure to validate a reply means admission is unconfirmed. Keyed requests print a reminder to retry the identical submission with the same key. |
 
-The request definition includes task type, exact argument bytes/length, and retry
-allowance. Compare the complete definition, or specify a collision-safe scheme;
-a checksum match alone must not establish that two requests are identical.
-Returning an existing ID confirms the original admission, not a new execution
-or a newly available retry budget. Status queries can expose its current state.
+Changing `hello` to `goodbye` with the same key produces a conflict, not a new
+job and not an update. A conflict response must echo the requested key; the CLI
+rejects a response for a different key as a protocol error. It never retries
+automatically or falls back to unkeyed submission when a peer rejects the new
+message.
 
-Keys must remain reusable after a client process exits and restarts. A CLI that
-generates a fresh key on every retry would not solve the lost-ACK problem. A
-future interface therefore needs an explicit way to retain and reuse the key.
-Exact flag names, key encoding, and generation rules are still undecided.
+## Exact matching, state, capacity, and scope
 
-## Durability requirements
+The coordinator compares the task type, `max_retries`, argument length, and every
+argument byte. It does not normalize task inputs: `sleep` arguments `1` and `01`
+are different definitions, even if the task would interpret them identically.
+`--args hello` and its equivalent `--args-hex` form do match because their bytes
+are the same. Coordinator address and spelling/case of the hex key are not part
+of the job definition.
 
-- Commit job creation and the request-key association as one recoverable
-  transition before sending the ACK. A crash must not leave a recoverable job
-  without its mapping, or a mapping pointing to an absent job. Extending the
-  creation record is one possible design; the format decision is still open.
-- Replay must rebuild the association alongside the job. Complete surviving
-  records must retain it even if the original ACK or flush outcome was uncertain.
-- Multiple connections using the same key must resolve to one job ID. Prepare any
-  required index changes before the commit, using the existing durable ordering.
-- Look up an existing key before applying new-job capacity checks. An identical
-  retry should still return its existing job ID when the job store is full.
-- Retain the mapping while its job is retained, including DONE and FAILED jobs.
-  Any future expiration, eviction, or compaction policy must explicitly define
-  the deduplication window; forgetting a key can permit another job later.
-- Define protocol/WAL version compatibility and handling of existing jobs that
-  have no request key. Do not silently reinterpret old records or invent keys
-  from argument equality.
+The immutable key lives in the retained job record. The store searches its
+bounded array of at most 256 jobs before checking new-admission capacity or
+allocating an ID. Single-threaded event-loop ownership serializes concurrent
+submissions. Duplicate and conflicting requests do no WAL I/O and do not change
+queue position, timestamps, attempts, retry allowances, results, or job counts.
+Other independent execution events can of course advance a job meanwhile.
 
-## Decisions to make when revisiting
+Matching works in QUEUED, ASSIGNED, RUNNING, DONE, and FAILED. An identical retry
+of a terminal job returns its ID; it does not run it again or reset a failed
+job's budget. Use `faultline status ID` to read its current outcome. Existing
+keys still resolve when all job slots are occupied, while a new key needs a free
+slot. Keyed and unkeyed jobs share the same capacity.
 
-- Key size, encoding, generation, validation, and scope. The current system has
-  one coordinator/WAL; any future client or tenant namespace needs an explicit
-  rule. Keys do not provide authentication.
-- Whether keys are mandatory for a new protocol version or optional, and what
-  guarantee applies to older clients or unkeyed submissions.
-- Conflict/error response payloads and how the CLI exposes an uncertain outcome
-  together with the key needed for a safe retry.
-- WAL compatibility, mapping representation, retention limits, and behavior
-  after restoring a backup. The guarantee can only cover retained key history.
+Keys have **no expiry** while their jobs remain retained; current storage has no
+eviction or compaction. A restart keeps both terminal jobs and their keys. Keys
+are scoped to one coordinator's retained WAL history, with no per-user namespace.
+They are identifiers, not authentication secrets. A different/new/deleted/rolled
+back WAL cannot supply the original association. Unkeyed submissions remain
+independent admissions and cannot acquire a key retroactively.
 
-## Acceptance checks for the future milestone
+## Wire format
 
-1. Repeat the same key and payload on one connection and on multiple connections;
-   observe one creation, one queue entry, and the same acknowledged job ID.
-2. Repeat after the job is QUEUED, ASSIGNED, RUNNING, DONE, or FAILED. Preserve
-   its state, result, attempt, retry budget, and position in the queue.
-3. Reject key reuse with a changed task, argument byte, argument length, or retry
-   allowance without changing existing state or creating another job.
-4. Kill after durable creation but before the ACK. Restart with the same WAL,
-   repeat the same key, and recover the original ID without another creation.
-5. Interrupt creation before writing, during a partial record, before flush,
-   and after flush. Recovery must produce either no admitted keyed job or one
-   complete job/key association, never an inconsistent pair.
-6. Inject storage failures and restart repeatedly; preserve the existing
-   no-premature-ACK rule and mapping consistency.
-7. With all 256 job slots occupied, return existing IDs for identical keyed
-   retries while rejecting new admissions as usual.
-8. Verify legacy compatibility and the chosen retention/expiration rules,
-   including binary arguments and intentional new jobs using different keys.
+These are additive message types in protocol version 1; existing message bytes
+are unchanged. All integer fields are unsigned big-endian; the key is raw bytes,
+not its CLI hex text. Offsets exclude the existing 12-byte frame header.
 
-## Boundary of this enhancement
+`JOB_SUBMIT_KEYED` (type **21**):
 
-Deduplication would prevent multiple job creations for the same retained request
-key. A single job can still execute multiple attempts under the existing
-[bounded at-least-once policy](recovery.md#at-least-once-execution-and-its-limits).
-It would not provide exactly-once execution, undo external effects, add worker
-completion ACKs, or make a deleted/rolled-back WAL recoverable. Tasks with effects
-would still need idempotency at their destination.
+| Payload offset | Bytes | Field |
+| --- | --- | --- |
+| 0 | 16 | Nonzero request key |
+| 16 | 2 | Task type |
+| 18 | 4 | Maximum retries |
+| 22 | 4 | Argument length, 0–1024 |
+| 26 | Argument length | Exact argument bytes |
+
+The frame is 38–1062 bytes. New and duplicate admissions both use the existing
+`JOB_SUBMIT_ACK` (type 7, 8-byte job ID). A conflict uses
+`JOB_SUBMIT_CONFLICT` (type **22**), with exactly the 16-byte request key echoed
+at payload offset zero (28-byte frame). There is no multiplexed correlation ID
+in a success ACK; the CLI still has one outstanding request per connection.
+Malformed requests, capacity failures, and worker-role violations follow the
+existing connection-close policy. Conflicts are explicit replies and leave a
+valid client connection usable.
+
+Old clients' type 6 submissions continue working with a new coordinator. Old
+coordinators reject unknown type 21; they cannot provide this guarantee. Upgrade
+the CLI and coordinator together. Worker assignment/report formats are unchanged.
+The shared C submit structure requires an all-zero key for legacy type 6 and a
+nonzero key for type 21; the encoder refuses to silently discard a supplied key.
+
+## Persistence and crash behavior
+
+WAL version 1 adds type **8**, `JOB_CREATED_KEYED`: a 16-byte key followed by the
+existing creation snapshot (84-byte prefix plus arguments). The whole payload
+is 100–1124 bytes, covered by the existing CRC32. One complete record associates
+the key with the job, definition, ID allocation, and queue insertion.
+
+A first admission follows the existing prepare → append → sync → publish → ACK
+ordering. There is no separate key record that could be lost while the job
+survives. Later transition records keep their existing byte layouts. Replay
+carries the immutable key forward from creation while validating each transition.
+It rejects all-zero keys and duplicate keyed creations, even with valid CRCs.
+
+A crash before a complete creation record may leave no job. Replay repairs only
+a permissible incomplete final record, then the retry can admit the request.
+A complete valid record that survives is replayed, even if sync or ACK was never
+confirmed. Startup syncs recovered history before listening, so a subsequent
+identical retry returns that job's ID without appending again. Interrupted
+attempt reconciliation preserves the key and applies the existing retry policy.
+Storage errors retain the existing fail-closed behavior; no failed write or sync
+permits a premature ACK.
+
+**Downgrade limit:** older WALs load unchanged. Once a keyed creation is appended,
+older coordinators (including v0.1.1) reject that unknown record type and refuse
+startup. There is no downgrade converter or record-skipping mode. Preserve the
+WAL; deleting it or rolling back to an older copy discards admissions and keys.
+
+## Verification
+
+```sh
+make test-deduplication
+make SANITIZE=1 test-deduplication
+# Included in the normal full suites and their existing Linux CI jobs:
+make test
+make test-sanitize
+```
+
+Two C groups check literal wire bytes, every partial prefix, bounded binary
+arguments, unchanged outputs, key validation, and an independently generated
+WAL/CRC vector. The store suite verifies that duplicate/conflicting submissions
+perform no storage I/O or mutation, and injects partial writes and sync failures
+for keyed creation alongside existing operations.
+
+Twelve process scenarios cover concurrent first submissions, fragmented and
+coalesced frames, exact-definition conflicts, CLI validation, empty and maximum
+binary inputs, retained states, capacity, retry/FIFO preservation, restart,
+invalid persisted keys, role restrictions, malformed replies, and no downgrade.
+A TCP proxy deliberately drops a real ACK before restarting the coordinator and
+retrying from the CLI. Instrumented real processes are killed before writing,
+during partial headers/payloads, before sync, and after sync. These checks verify
+process-crash behavior, not storage-device loss or power-failure survival.
+
+### Local verification record — 2026-10-14
+
+Environment: macOS 27.0.1 arm64, Apple Clang 21.0.0, Python 3.9.6.
+Both configurations used `CFLAGS='-O0 -g -Werror'`; the instrumented configuration
+also used `SANITIZE=1` (AddressSanitizer and UBSan).
+
+| Check | Normal | ASan/UBSan |
+| --- | --- | --- |
+| `make test INTEGRATION_ARGS='--port 9000'` | 134 C groups + 155 process tests passed; zero skips | Same counts passed; zero skips or sanitizer diagnostics |
+| Final `make test-deduplication test-observability` | 10 C groups + 18 process tests passed | Same counts passed |
+| `make test-install` | 6 checks passed | 6 checks passed |
+
+The final focused checks followed a logging correction so reused submissions
+report `outcome=EXISTING` in every job state. No admission or execution behavior
+changed after the full regression runs. The existing Linux workflow picks up
+these tests through `test-unit` and `test-integration`; this revision has not
+yet been verified on Linux. Historical release/benchmark
+reports keep their original tested revisions and counts.
+
+## Limits
+
+This prevents duplicate **job creation** for a retained key. One job can still
+execute multiple attempts under [bounded at-least-once recovery](recovery.md).
+It does not promise exactly-once computation or external effects, authenticate
+clients, add worker completion ACKs, or recover a lost/rolled-back WAL.

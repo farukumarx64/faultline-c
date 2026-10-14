@@ -64,8 +64,10 @@ directory before service begins.
 There are two distinct uncertainties:
 
 - **Missing submission ACK:** the coordinator may already have saved the job.
-  Retrying the CLI submission can create a second job ID; no client request
-  deduplication key exists. A client disconnect does not cancel an accepted job.
+  At this phase review, resubmitting could create a second job ID. Optional
+  [request keys](request-deduplication.md) have since added durable admission
+  deduplication; unkeyed resubmission retains the original behavior. A client
+  disconnect does not cancel an accepted job.
 - **Worker finished or sent its result:** that alone does not prove durable
   acceptance. The worker protocol has no completion ACK. If no valid completion
   record survives, startup can still recover an active attempt and retry it.
@@ -123,7 +125,7 @@ only after replay, repair, synchronization, and reconciliation all succeed.
 | --- | --- |
 | Universal OS-crash/power-loss survival, storage loss, corrupted or rolled-back WALs | The verified failure model is coordinator process crash with retained, working local storage; fsync is used but hardware/power failure is not simulated. |
 | Exactly-once execution and external effects | A task or effect can occur more than once; attempt identity validation protects coordinator records only. |
-| Submission deduplication and worker completion acknowledgments | Lost responses can leave clients/workers uncertain about acceptance. |
+| Submission deduplication and worker completion acknowledgments | Outside this historical phase; optional request keys were added afterward. Worker completion ACKs remain unsupported. |
 | Automatic coordinator failover, replication, and worker reconnect | An operator restarts the coordinator and launches workers with fresh connections; there is no consensus or replicated fallback. |
 | Task checkpoints, guaranteed progress, or eventual success | Retries begin again, and finite allowances can end in FAILED. Heartbeats show liveness, not task progress. |
 | Unlimited retention and bounded recovery time | The 256-job limit includes terminal jobs. Restart frees no slots; there is no compaction/eviction, and the append-only log can grow. |
@@ -178,6 +180,6 @@ the current worker registry. [Stats](stats.md) adds retained job totals, current
 gauges, and session measurements with explicit restart scopes.
 The verification record above remains the historical
 persistence-phase result.
-[Request deduplication](request-deduplication.md) is recorded
-as an optional later enhancement, with proposed semantics, open decisions, and
-acceptance checks; it is not an unfinished persistence requirement.
+[Request deduplication](request-deduplication.md), originally deferred here, is
+now implemented as an optional post-MVP enhancement after v0.1.1. Its own guide
+records the added contract and tests; the verification above remains historical.

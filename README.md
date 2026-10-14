@@ -212,6 +212,23 @@ Numeric inputs are decimal integers. Use `--args-hex HEX` instead of `--args TEX
 for binary input. The retry allowance defaults to **zero**; `--max-retries 2`
 permits at most three attempts. [Task details →](docs/tasks.md)
 
+### Retry a submission safely
+
+Choose and save a fresh request key before the first send:
+
+```sh
+request_key=$(python3 -c 'import secrets; print(secrets.token_hex(16))')
+./build/debug/faultline submit hash --args hello --max-retries 1 \
+  --request-key "$request_key"
+```
+
+If the acknowledgment is lost, repeat the submission with the **same key, task,
+argument bytes, and retry limit** to receive the original job ID, even after a
+coordinator restart with the same WAL. Keep the key for retries; use a new key for
+an intentional new job. Reusing a key with different input exits **3** without
+changing the original job. This option is implemented after v0.1.1; rebuild and
+reinstall older commands to use it. [Deduplication and compatibility →](docs/request-deduplication.md)
+
 <details>
 <summary><strong>Change the port or heartbeat timings</strong></summary>
 
@@ -333,6 +350,7 @@ for timing definitions, machine requirements, and interpretation limits.
 | Boundary | What Faultline guarantees |
 | --- | --- |
 | Submission acknowledgment | A complete creation record is synced to the WAL before the coordinator sends an ACK. An acknowledged job is recoverable after a coordinator process crash with the same retained log and working storage. |
+| Keyed submission retry | The same request key and exact definition return the original job ID without creating work or resetting retries. The key-to-job association survives restart with that WAL, including for terminal jobs. |
 | Assignment and completion | Assignments are durable before dispatch. Accepted results are durable before publication. Reports must match the job, worker, and attempt; stale reports cannot overwrite authoritative state. |
 | Worker loss | Disconnect or heartbeat expiry revokes the assignment. Eligible work retries from the beginning at the FIFO tail; exhausted jobs become terminally `FAILED`. |
 | Coordinator restart | Job IDs, inputs, results, retry accounting, identity counters, and queue order recover from the WAL. `DONE` and `FAILED` jobs stay terminal. Queued jobs do not spend a retry simply because the coordinator restarts. |
@@ -344,7 +362,9 @@ they do not make external effects happen exactly once. Tasks must be safe to
 repeat, and a finite retry budget does not promise eventual success.
 
 **A missing ACK leaves submission uncertain.** The job may already be durable.
-Submitting it again can create a second job; request deduplication is deferred.
+With `--request-key`, retry the identical submission to resolve its ID safely.
+Without a key, submitting again can create a second job. Deduplication protects
+job admission; execution still follows the retry guarantees above.
 
 Read the [recovery guarantees](docs/recovery.md) and
 [persistence review](docs/persistence-review.md) for crash boundaries and evidence.
@@ -359,14 +379,16 @@ Read the [recovery guarantees](docs/recovery.md) and
 - **Append-only persistence:** no WAL compaction or job eviction. The durability
   contract covers process crashes with working storage, not disk loss or
   universal power-loss survival.
+- **Keyed-WAL compatibility:** older coordinators cannot open a WAL after a
+  keyed submission has been saved. There is no downgrade conversion.
 - **One coordinator:** no replication, consensus, automatic failover, or worker
   reconnection. Scheduling pauses while the coordinator is down.
 - **Liveness, not progress:** heartbeats do not prove a task is advancing. There
   is no independent job execution deadline or checkpoint/resume support.
 - **Four built-in tasks:** no arbitrary shell execution, task plugins, or web dashboard.
 
-[Optional post-MVP work](docs/post-mvp.md) records request deduplication and
-potential battery-only / Low Power Mode benchmark profiles. These remain proposals.
+[Post-MVP notes](docs/post-mvp.md) track completed installation and deduplication
+work, plus proposed battery-only / Low Power Mode benchmark profiles.
 
 ## Testing
 
@@ -396,6 +418,7 @@ the tested revision, and the scope of the latest release review.
 | Start here for… | Guides |
 | --- | --- |
 | Installing commands | [Installation, PATH, and uninstall](docs/installation.md) |
+| Retrying a lost submission ACK | [Request deduplication](docs/request-deduplication.md) |
 | System design | [Architecture](docs/architecture.md) · [Job model](docs/jobs.md) · [Scheduling](docs/scheduling.md) |
 | Wire format and connections | [Protocol](docs/protocol.md) · [Networking](docs/networking.md) · [Workers](docs/workers.md) |
 | Using and observing jobs | [Tasks](docs/tasks.md) · [CLI status](docs/status.md) · [Logs](docs/logging.md) |
@@ -403,7 +426,7 @@ the tested revision, and the scope of the latest release review.
 | WAL implementation | [Record format](docs/wal-format.md) · [Writer](docs/wal-writer.md) · [Replay](docs/wal-replay.md) |
 | Experiments and measurements | [Chaos harness](docs/chaos-testing.md) · [Benchmark contract](docs/benchmarks.md) · [Results](benchmarks/results/) |
 | Release verification | [Release checklist](docs/release-checklist.md) · [Linux CI](docs/ci.md) |
-| Possible extensions | [Post-MVP notes](docs/post-mvp.md) · [Request deduplication](docs/request-deduplication.md) |
+| Possible extensions | [Post-MVP notes](docs/post-mvp.md) |
 
 ### Source layout
 

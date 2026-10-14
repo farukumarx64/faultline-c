@@ -1,7 +1,7 @@
 # Job messages and payloads
 
 The shared codec in `include/protocol.h` and `src/common/protocol.c` defines six
-job lifecycle messages. Three additional read-only query formats are defined in
+job lifecycle messages plus keyed submission and conflict extensions. Three additional read-only query formats are defined in
 [job-status-protocol.md](job-status-protocol.md). Each uses the existing [12-byte version 1 header](protocol.md).
 All metadata integers are unsigned and big-endian; arguments/results are opaque
 bytes. No C struct, enum representation, pointer, or `size_t` is sent directly.
@@ -28,9 +28,11 @@ version or capability negotiation.
 | 9 | `JOB_STARTED` | Worker → coordinator | 20 | 32 bytes |
 | 10 | `JOB_COMPLETED` | Worker → coordinator | 24 + result bytes | 36–1060 bytes |
 | 11 | `JOB_FAILED` | Worker → coordinator | 22 | 34 bytes |
+| 21 | `JOB_SUBMIT_KEYED` | CLI → coordinator | 26 + argument bytes | 38–1062 bytes |
+| 22 | `JOB_SUBMIT_CONFLICT` | Coordinator → CLI | 16 | 28 bytes |
 
 Arguments and results each allow 0–1024 bytes, matching the model's limits. The
-largest frame in this table is the 1062-byte assignment. The shared
+largest frames in this table are 1062-byte assignments and keyed submissions. The shared
 `FAULTLINE_MESSAGE_MAX_FRAME_SIZE` is 9744 bytes to also fit a full
 [job listing](listings.md#wire-format); status responses remain at most 1072 bytes.
 The generic header still allows up to 1 MiB;
@@ -68,15 +70,29 @@ The retry budget stays coordinator-owned and is not included in assignments.
 | 0 | 8 | Coordinator-issued `job_id`, nonzero |
 
 Its meaning is durable acceptance into the coordinator's job store and FIFO.
-The coordinator ACKs only after appending and syncing the creation record, then
-publishing the prepared state; queue/store exhaustion cannot produce a success
-ACK. It is not a completion result. See the [durability contract](durability.md).
+For a new admission, the coordinator ACKs only after appending and syncing the
+creation record, then publishing the prepared state. An identical keyed retry
+ACKs the existing durable job without a new write, even at store capacity.
+It is not a completion result. See the [durability contract](durability.md).
 
-This initial format has no request ID or rejection payload. The intended first
-CLI flow has one outstanding submission per connection, so that connection
-correlates its ACK. A lost ACK leaves the client uncertain whether acceptance
-occurred; blindly resubmitting may create another job. Deduplication, multiplexed
-request correlation, and structured submission errors are not provided here.
+Legacy `JOB_SUBMIT` has no request key and an identical resend can create another
+job. The CLI has one outstanding submission per connection, so that connection
+correlates its ACK. There is no multiplexed request correlation.
+
+### Keyed submission and conflict
+
+`JOB_SUBMIT_KEYED` prepends a nonzero 16-byte request key to the original submit
+payload: key at offset 0, task at 16, max retries at 18, argument length at 22,
+and argument bytes at 26. An identical key/task/arguments/retry-limit request
+returns the original ID through `JOB_SUBMIT_ACK`. A different definition with
+the same key returns `JOB_SUBMIT_CONFLICT`, containing only the echoed 16-byte
+key. This rejects the change and keeps the client connection usable.
+
+The [deduplication contract](request-deduplication.md) defines exact matching,
+capacity, retained terminal jobs, crash behavior, and compatibility. Old peers
+reject the new message IDs; there is no automatic unkeyed fallback. In C, both
+submit types use `payload.job_submit`; its `request_key` must be zero for legacy
+type 6 and nonzero for type 21. Type 22 uses `payload.job_submit_conflict`.
 
 ## Assignment and report identity
 

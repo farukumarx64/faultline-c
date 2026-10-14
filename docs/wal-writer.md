@@ -177,11 +177,13 @@ make test-unit
 make SANITIZE=1 test-unit
 ```
 
-Coverage includes all seven record types, binary maximum-size payloads, 17-byte
+Coverage includes the original seven record types, binary maximum-size payloads, 17-byte
 partial writes, exact file bytes, file-before-directory sync ordering, complete
 record length before sync, and unchanged confirmed sequence during I/O. Tests
 exercise every split of a 36-byte record with interrupted writes and syncs, and
 write the file header one byte at a time.
+The coordinator-store suite additionally exercises keyed creation (type 8),
+including publication ordering, partial writes, sync failures, and restart.
 
 Failure cases include no-space, quota, file-size, and device errors; zero write
 progress; header/record/directory sync failures; partial headers and records;
@@ -196,10 +198,10 @@ This demonstrates retained bytes after a writer process crash. It does not
 simulate power loss or reconstruct coordinator job state.
 
 The eleven writer groups are joined by twelve [replay groups](wal-replay.md#verification),
-plus seven coordinator-store groups. With seven [status protocol groups](job-status-protocol.md#verification),
+plus eight coordinator-store groups. With seven [status protocol groups](job-status-protocol.md#verification),
 seven [listing protocol groups](listings.md#verification), and seven
 [stats codec/aggregation groups](stats.md#verification), plus three
-[logging groups](logging.md#verification), the current C unit total is 131. Replay
+[logging groups](logging.md#verification) and two keyed protocol/WAL groups, the current C unit total is 134. Replay
 validates history, reconstructs state,
 handles only permissible incomplete tails, syncs the recovered prefix, and safely
 resumes appending. [Coordinator integration](persistence.md) applies this boundary

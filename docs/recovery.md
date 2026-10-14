@@ -105,8 +105,10 @@ The execution guarantee is conditional:
   here; it is not an unconditional promise of delivery or eventual success.
 - A submission ACK follows durable creation and in-memory publication. The
   [persistence contract](durability.md) defines retained-WAL restart recovery.
-- A lost submission ACK leaves acceptance uncertain. Manually resubmitting can
-  create a second job ID; there is no client submission deduplication key yet.
+- A lost submission ACK leaves acceptance uncertain. An identical keyed retry
+  returns the original job ID through [request deduplication](request-deduplication.md).
+  Unkeyed resubmission can create a second job ID. This admission safeguard does
+  not prevent repeated attempts or external effects for a single job.
 
 These are guarantees of a single coordinator. Exactly-once execution
 and coordinator failover remain outside the implementation. Durable recovery

@@ -62,7 +62,7 @@ header/file and its parent directory as required by the durability contract.
 | --- | --- | --- | --- |
 | 0 | 4 | Magic | `0x464c5752`, ASCII `FLWR` (Faultline WAL record). |
 | 4 | 2 | Record format version | `1`. |
-| 6 | 2 | Record type | One of the seven types below. |
+| 6 | 2 | Record type | One of the eight types below. |
 | 8 | 4 | Payload length | Payload bytes only; excludes this header. |
 | 12 | 4 | Flags/reserved | Must be `0`. |
 | 16 | 8 | Sequence | Nonzero, starts at `1`, increases by exactly one per record. |
@@ -89,15 +89,17 @@ after coordinator validation.
 | 5 | `JOB_COMPLETED` | Job snapshot | Change the matching RUNNING attempt to DONE and retain its exact result. |
 | 6 | `JOB_REQUEUED` | Job snapshot | End a failed/lost active attempt, increment its retry count, clear its owner, and append to the FIFO tail. |
 | 7 | `JOB_FAILED` | Job snapshot | End an active attempt as terminal FAILED because its retry allowance is exhausted. |
+| 8 | `JOB_CREATED_KEYED` | 16-byte request key + creation snapshot | Atomically create a QUEUED job and retain its submission key for deduplication. |
 
 `WORKER_ID_ALLOCATED` contains exactly one nonzero big-endian `uint32_t` ID.
 It is needed even for a registered worker that never receives a job: restart
 must not reuse that worker's durable ID. It does not restore a live worker,
 socket, connection, heartbeat, or scheduling eligibility.
 
-Each job record contains the **complete job snapshot after its transition**.
+Each job record contains the **execution snapshot after its transition**.
 That repeats the original arguments in later records, but makes the resulting
-state, counters, timestamps, and result explicit. Bounded payloads keep the
+state, counters, timestamps, and result explicit. The immutable request key is
+stored only by keyed creation and carried forward by replay. Bounded payloads keep the
 format small enough for the MVP. Replay must still compare the snapshot with
 the preceding state; a snapshot is not permission to overwrite arbitrary state.
 
@@ -107,7 +109,8 @@ its counter increment or a submission without its queue entry.
 
 ## Job payload: 84-byte prefix followed by data
 
-Offsets below start at the payload, immediately after the 32-byte record header.
+For types 2–7, offsets below start at the payload, immediately after the 32-byte
+record header. Type 8 prepends a key as described below.
 All integers are unsigned on disk; timestamps have the special encoding below.
 
 | Offset | Bytes | Field |
@@ -134,8 +137,28 @@ All integers are unsigned on disk; timestamps have the special encoding below.
 The payload length must be exactly `84 + A + R`. Both lengths are at most 1024.
 They describe raw bytes: empty data and embedded zero bytes are permitted;
 there is no string terminator. Only DONE records may contain result bytes.
-Other job payloads are 84–1108 bytes; DONE payloads are 84–2132 bytes.
+Unkeyed creation and non-DONE transition payloads are 84–1108 bytes;
+DONE payloads are 84–2132 bytes.
 Task-specific argument/result interpretation remains in the task layer.
+
+### Keyed creation extension
+
+Type 8 has a nonzero 16-byte request key at payload offset 0, then the unchanged
+creation snapshot at offset 16. Every offset in the preceding table is shifted
+by 16: job ID starts at 16 and arguments at 100. Its payload length is exactly
+`100 + A` (100–1124 bytes); a creation has no result. The payload CRC covers the
+key and snapshot together. One append and sync make both durable before the ACK.
+
+The existing creation invariants apply. An all-zero key is invalid; the type 2
+encoder also rejects a nonzero host key rather than losing it. Later transition
+records retain their original layout, and replay preserves the immutable key
+from creation. Duplicate keys in distinct creation records are invalid history,
+including when their definitions match and checksums are valid.
+
+This is an additive record type within WAL version 1, introduced after v0.1.1.
+New coordinators read old WALs unchanged. Old coordinators reject type 8 and
+cannot open a log containing keyed submissions. Records cannot be skipped and
+there is no downgrade conversion. See [request deduplication](request-deduplication.md).
 
 Version 1 fixes these enum values:
 
@@ -160,7 +183,7 @@ at least creation time. Empty results are valid for DONE too.
 
 | Record | Required snapshot |
 | --- | --- |
-| CREATED | QUEUED; worker/attempt/retries are zero; failure NONE; update equals creation; assignment/start/finish unset. |
+| CREATED / CREATED_KEYED | QUEUED; worker/attempt/retries are zero; failure NONE; update equals creation; assignment/start/finish unset. Keyed creation additionally requires a nonzero key. |
 | ASSIGNED | ASSIGNED; nonzero worker; `attempt = retry_count + 1`; assignment at/after creation; update equals assignment; start/finish unset; failure NONE. |
 | STARTED | RUNNING; same active-counter rule; start at/after assignment; update equals start; finish unset; failure NONE. |
 | COMPLETED | DONE; same active-counter rule; start at/after assignment; finish at/after start; update equals finish; failure NONE. |
@@ -177,6 +200,7 @@ These checks describe one record. [Replay](wal-replay.md) adds history validatio
   compares each record against an expected sequence supplied by its caller.
 - Require increasing fresh worker/job allocations, restore their high-water
   marks, reject duplicate creation, and enforce the 256 retained-job limit.
+- Restore immutable request keys from keyed creation, rejecting duplicate keys.
 - Preserve each existing job's ID, task, exact arguments, retry limit, and creation
   time. Require a valid previous state, matching owner/attempt, correct counter
   changes, and nondecreasing transition times across the logical job timeline.
@@ -300,13 +324,17 @@ make SANITIZE=1 test-unit
 ```
 
 [`tests/test_wal.c`](../tests/test_wal.c) has ten groups. Literal file/header and
-all-seven-record fixtures were independently generated with Python `struct.pack`
+original seven-record fixtures were independently generated with Python `struct.pack`
 and `zlib.crc32`, rather than the C encoder. Coverage includes every incomplete
 prefix and insufficient capacity, the maximum-size record, 6216 individual
 single-bit corruptions across the fixtures, semantic errors with recomputed
 valid CRCs, sequence mismatches, integer/time boundaries, ownership, unaligned
 buffers, and snapshots produced by the existing job model. These are format
 checks; file-based replay is tested separately.
+
+`tests/test_deduplication.c` adds a literal independently generated type 8 vector,
+key validation, partial records, and checksum coverage. The coordinator-store
+and process suites exercise its publication, failure, and replay boundaries.
 
 The [WAL file writer](wal-writer.md) now provides new-log initialization and
 locking, complete append handling, and the required sync/error boundary.

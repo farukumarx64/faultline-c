@@ -7,11 +7,17 @@ make test
 make test-sanitize
 ```
 
-These run 131 protocol, registry, job, queue, scheduler, task, socket, logging,
-and WAL C test groups plus 143 process integration tests using Python 3.9 or newer
+These run 134 protocol, registry, job, queue, scheduler, task, socket, logging,
+and WAL C test groups plus 155 process integration tests using Python 3.9 or newer
 and its standard library. A loopback-capable environment is required. You can
 select the Python interpreter with `PYTHON=/path/to/python3`.
 Use `make test-unit` or `make test-integration` to run one layer separately.
+`make test-deduplication` runs two codec/WAL groups, the eight coordinator-store
+groups, and twelve process scenarios for [durable request keys](../docs/request-deduplication.md#verification).
+These checks are included in `make test` and both existing Linux CI jobs. Add
+`SANITIZE=1` for the focused instrumented run. Coverage includes lost ACKs,
+concurrent first admissions, conflicts, restart, complete/partial crash records,
+storage failures, capacity, and unchanged legacy submissions.
 `make test-install` runs six [installation checks](../docs/installation.md#verification)
 in a fresh temporary source tree, including installed commands found through
 `PATH` outside the checkout, a real job and WAL replay, staging, reinstall,
@@ -760,7 +766,7 @@ The focused command prints each detected reason and elapsed observation time or
 heartbeat silence duration. The full integration target includes this suite once.
 
 By default, suites select available ports. The original coordinator and worker
-suites each skip one default-endpoint check. To run all 143 scenarios, stop any existing
+suites each skip one default-endpoint check. To run all 155 scenarios, stop any existing
 coordinator on port 9000 and run:
 
 ```sh
@@ -772,6 +778,6 @@ make test-sanitize INTEGRATION_ARGS='--port 9000'
 When 9000 is selected, the harness starts the coordinator without `--port` and
 also invokes `faultline ping` and `faultline-worker` without `--coordinator`
 to test all defaults. Processes started by the harness are stopped afterward.
-With automatic port selection, the suite discovers 143 scenarios: 141 run and two
-default-port checks are skipped. The 21 persistence/startup/crash scenarios always use
+With automatic port selection, the suite discovers 155 scenarios: 153 run and two
+default-port checks are skipped. The 21 persistence/startup/crash and twelve deduplication scenarios always use
 automatic ports independently of the legacy suites' optional port 9000 checks.

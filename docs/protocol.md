@@ -23,6 +23,8 @@ The [listing protocol](listings.md#wire-format) adds bounded, sorted job and
 worker snapshots for `faultline jobs` and `faultline workers`.
 The [stats protocol](stats.md#wire-format) returns durable totals, current gauges,
 and session measurements through a fixed-size response.
+[Keyed submissions](request-deduplication.md) add durable request deduplication
+and an explicit key-conflict response without changing existing message layouts.
 
 ## Header layout
 
@@ -33,7 +35,7 @@ fields use unsigned, big-endian encoding, also called network byte order.
 | --- | --- | --- | --- |
 | 0 | 4 bytes | Magic | `0x464c494e`, the ASCII bytes `FLIN` |
 | 4 | 2 bytes | Version | `1` |
-| 6 | 2 bytes | Message type | IDs `1` through `20`, listed below |
+| 6 | 2 bytes | Message type | IDs `1` through `22`, listed below |
 | 8 | 4 bytes | Payload length | `0` through `1,048,576` bytes inclusive |
 
 ```text
@@ -84,6 +86,8 @@ not be renumbered. Enum storage layout is never used as the wire representation.
 | 18 | `WORKERS_RESPONSE` | Coordinator to client | Count, heartbeat timeout, and up to 64 worker summaries | 20–1940 bytes |
 | 19 | `STATS_REQUEST` | Client to coordinator | Empty | 12 bytes |
 | 20 | `STATS_RESPONSE` | Coordinator to client | 24 unsigned 64-bit measurements | 204 bytes |
+| 21 | `JOB_SUBMIT_KEYED` | Client to coordinator | 16-byte request key, task, retry limit, argument length and bytes | 38–1062 bytes |
+| 22 | `JOB_SUBMIT_CONFLICT` | Coordinator to client | Echoed 16-byte request key | 28 bytes |
 
 See [job-protocol.md](job-protocol.md) for every job field's byte offset, acceptance
 and report semantics, retry identity, and validation rules. See
@@ -144,13 +148,13 @@ connections for diagnostics, but does not update heartbeat time. PONG and
 WORKER_REGISTER_ACK are replies and are rejected as incoming requests. Wrong
 lengths, malformed frames, duplicate registration, and invalid heartbeat ownership
 close the offending connection without a protocol error response. The CLI still
-expects one empty PONG for `ping`, a JOB_SUBMIT_ACK for `submit`, or a matching
+expects one empty PONG for `ping`, a JOB_SUBMIT_ACK (or matching key conflict) for `submit`, or a matching
 status response/not-found reply for `status`. `jobs` and `workers` each expect
 their matching bounded listing response. `stats` expects one validated
 STATS_RESPONSE. Nonzero PING/PONG lengths in header tests
 exercise generic length encoding, not valid complete messages.
 
-The coordinator also accepts JOB_SUBMIT from unregistered clients and STARTED,
+The coordinator also accepts JOB_SUBMIT and JOB_SUBMIT_KEYED from unregistered clients and STARTED,
 COMPLETED, and FAILED from registered workers. Job reports must match the
 connection, job owner, attempt, and allowed state transition. Job ACKs and
 assignments are outbound-only at the coordinator. A connection that has submitted
@@ -302,6 +306,7 @@ The complete-message functions have these additional errors:
 | `FAULTLINE_PROTOCOL_INVALID_WORKER_STATE` | A worker row has a state other than ALIVE or DEAD. |
 | `FAULTLINE_PROTOCOL_INVALID_HEARTBEAT_TIMEOUT` | A worker list has a zero heartbeat timeout. |
 | `FAULTLINE_PROTOCOL_INVALID_STATS` | Stats counts, partitions, durations, or timeout violate the statistics contract. |
+| `FAULTLINE_PROTOCOL_INVALID_REQUEST_KEY` | Keyed submission/conflict has an all-zero key, or a legacy submit encoder would discard a nonzero key. |
 
 Job summary rows follow the status rules above. A worker row also requires job
 ID and attempt to be either both zero or both nonzero; DEAD rows cannot carry

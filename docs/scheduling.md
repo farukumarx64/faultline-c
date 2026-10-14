@@ -54,6 +54,7 @@ remain `127.0.0.1:9000`. Existing `faultline ping` behavior is unchanged.
 ```text
 faultline submit TASK [--args TEXT | --args-hex HEX]
                      [--max-retries N] [--coordinator IPv4:PORT]
+                     [--request-key HEX32]
 ```
 
 - TASK is `sleep`, `prime_count`, `fibonacci`, or `hash`.
@@ -69,12 +70,16 @@ faultline submit TASK [--args TEXT | --args-hex HEX]
   additional attempts, so 2 permits at most three assignments. Negative values,
   signs, whitespace, fractions, overflow, duplicate options, and missing values
   are rejected before connecting.
+- `--request-key` opts into [durable submission deduplication](request-deduplication.md).
+  Supply the same nonzero 16-byte key (32 hex digits) and exact definition on
+  every retry to get the original job ID. Different input with that key exits 3.
 
 All valid option pairs may appear in any order after TASK. The worker validates
 [task-specific arguments](tasks.md); acceptance of a task identifier and bounded
 bytes does not guarantee success. Invalid numeric inputs become TASK failures.
 
-The CLI sends one JOB_SUBMIT and waits for JOB_SUBMIT_ACK. It validates the type,
+The CLI sends one JOB_SUBMIT (or JOB_SUBMIT_KEYED) and waits for JOB_SUBMIT_ACK.
+Keyed requests also accept an explicit conflict echoing the same key. For an ACK it validates the type,
 exact eight-byte payload length, and nonzero 64-bit job ID before printing
 `job_id=N` and exiting with status 0. Header and payload share one five-second
 ACK deadline; fragments do not restart the budget. Connect and send each retain
@@ -83,16 +88,21 @@ their existing separate five-second budgets.
 Malformed, truncated, missing, or timed-out ACKs yield status 1 and no success
 output. After attempting a send, the CLI reports an unconfirmed submission if
 it cannot validate an ACK. The coordinator may already have accepted that job.
-There is no automatic resubmission, deduplication key, or structured rejection
-message in this protocol version. A lost ACK is an uncertain outcome.
+There is no automatic resubmission. With a key, the error reminds the caller to
+retry the identical request using that key. Unkeyed resubmission can create a
+second job. Conflict is a definite rejection of the changed definition and
+does not produce the unconfirmed-submission warning.
 
 ## Store ownership and acceptance
 
 The coordinator allocates one scheduler/store at startup and frees it on shutdown.
 It retains up to 256 full job records, including QUEUED, active, and terminal jobs.
 The FIFO stores pending IDs separately. No terminal records are evicted or reused
-yet: after 256 successful submissions, further submissions are rejected even
+yet: after 256 distinct admissions, new admissions are rejected even
 if jobs have completed. Restart preserves those records and does not free capacity.
+Identical keyed retries return their retained IDs at capacity; conflicting key
+reuse is rejected. Both paths leave the job and FIFO unchanged and perform no
+WAL writes. Lookup happens in the coordinator store before calling the scheduler.
 
 The [durability contract](durability.md#submission-acknowledgment-boundary)
 is now implemented by `coordinator_store`: prepare a submission on a scratch
@@ -108,7 +118,7 @@ retained WAL history; after UINT64_MAX, allocation fails instead of wrapping.
 
 The coordinator queues a success ACK only after WAL sync and publication of
 the prepared job and enqueue succeed.
-Full-store or invalid submissions close the connection without a success ACK.
+Full-store new admissions or invalid submissions close the connection without a success ACK.
 Closing a submitter connection after acceptance does not cancel its job or remove
 it from the queue. A client may mix subsequent submissions, status, and listing queries,
 with serialized replies, but cannot switch that connection into a registered
@@ -180,8 +190,8 @@ connection cleanup so a newly timestamped retry cannot be assigned at an older t
 This implements an assignment lease tied to worker connection/heartbeat liveness
 and bounded at-least-once retries while the coordinator remains alive. The
 [recovery contract](recovery.md#assignment-lease) explains revocation, overlapping
-executions, and the conditions for progress. Independent execution deadlines,
-submission deduplication and exactly-once execution remain outside the current
+executions, and the conditions for progress. Independent execution deadlines
+and exactly-once execution remain outside the current
 implementation. [Durable recovery](persistence.md) now extends job and retry
 state across coordinator restart using the same retained WAL.
 

@@ -91,8 +91,9 @@ needed to display them.
 A failed job is a successful lookup. Its `state` and `failure` fields describe
 the execution outcome. An unknown ID is different from either a failed job or
 an unreachable coordinator. NOT_FOUND says only that this coordinator's retained
-store lacks the record. A missing submission ACK remains uncertain; status
-does not provide [request deduplication](request-deduplication.md).
+store lacks the record. Status requires a known job ID. To resolve a lost ACK
+for a keyed submission, retry its identical definition and key through
+[request deduplication](request-deduplication.md), then query the returned ID.
 
 ## Coordinator lookup and transport
 

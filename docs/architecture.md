@@ -114,6 +114,10 @@ startup runs again. See the [durability contract](durability.md) and
   Job identity, input, counters, queue order, and terminal outcomes recover from
   the retained WAL after a coordinator process restart. A missing ACK leaves
   the outcome uncertain; the job may already be durable.
+- Optional [request keys](request-deduplication.md) let clients retry the same
+  submission and recover its original job ID. Keys and jobs are persisted
+  atomically; conflicting reuse is rejected. Unkeyed resubmission can create
+  another job. Deduplication does not change execution retry semantics.
 - There is one coordinator and no automatic failover. Scheduling is unavailable
   while it is down. Existing worker computations may continue,
   and restart recovery must account for their uncertain outcomes.

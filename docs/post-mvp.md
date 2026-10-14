@@ -1,15 +1,16 @@
-# Optional post-MVP work
+# Post-MVP work
 
-Recorded on 2026-10-02; updated on 2026-10-13. Installation support is included
-in [v0.1.1](releases/v0.1.1.md); the remaining enhancements below are proposals.
+Recorded on 2026-10-02; updated on 2026-10-14. Installation support is included
+in [v0.1.1](releases/v0.1.1.md). Request deduplication is implemented after that
+release; the remaining enhancements below are proposals.
 These enhancements are outside the original MVP requirements. The
 [scaling](benchmark-scaling.md) and AC-only
 [recovery](benchmark-recovery.md#results-2026-10-02) campaigns and reports are
 complete. The README, architecture diagram, and [recovery demo](recovery-demo.md)
 are complete too. [Faultline v0.1.0](releases/v0.1.0.md) has been released;
 [release verification](release-checklist.md) records the checks.
-This list sets no implementation date for the remaining proposals and does not
-change the current protocol, durability guarantees, or benchmark contract.
+This list sets no implementation date for the remaining proposals. The completed
+features' guides define their current behavior; benchmark contracts are unchanged.
 
 ## Completed since v0.1.0
 
@@ -20,24 +21,18 @@ startup and explicit WAL selection remain under the user's control. Services,
 automatic startup, prebuilt downloads, and package-manager distribution remain
 possible follow-ups; they are not included in this installation feature.
 
+[Request deduplication](request-deduplication.md) adds an optional stable
+`--request-key`: identical retries return the original ID, conflicting reuse is
+rejected, and the key-to-job association is saved atomically and recovered from
+the WAL. Keys are retained with jobs, including terminal jobs. Unkeyed admissions
+remain available. This prevents duplicate job creation for a retained key;
+execution and external effects are still subject to at-least-once retries.
+
 ## Remaining proposals
 
 | Enhancement | Reason to revisit | Existing guarantee |
 | --- | --- | --- |
-| [Submission request deduplication](request-deduplication.md) | Before adding automatic client resubmission, or when duplicate submissions become costly | A lost ACK leaves an uncertain outcome; resubmission can create another job |
 | Additional power-mode benchmark profiles | When there is a specific question about battery operation or Low Power Mode | Official timing campaigns use AC power with Low Power Mode off |
-
-## Request deduplication
-
-The [existing proposal](request-deduplication.md) describes stable client request
-keys, returning the original job ID for an identical retry, rejecting conflicting
-key reuse, and durably recovering the key-to-job association after restart.
-It already includes open design decisions and acceptance checks; keep that file
-as the detailed design when this work is resumed.
-
-This enhancement would avoid duplicate job creation for a retained request key.
-A job could still execute multiple attempts under the existing at-least-once
-policy. Submission deduplication does not promise exactly-once external effects.
 
 ## Additional power-mode benchmark profiles
 
