@@ -25,6 +25,7 @@ sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tests/chaos'))
 from run_batch import BatchRun, RunFailure, pairs, require, table, unsigned
+import power
 
 PROFILE = ROOT / 'benchmarks/profiles/scaling-v1.json'
 PROGRAMS = ('faultline', 'faultline-worker', 'faultline-coordinator')
@@ -63,34 +64,15 @@ def source_inventory():
 
 
 def power_state(battery, settings, thermal):
-    """Unknown power/mode is not a permit to publish a timing."""
-    require("Now drawing from 'AC Power'" in battery, 'AC power is required')
-    ac = settings.split('AC Power:', 1)
-    require(len(ac) == 2, 'AC power settings unavailable')
-    modes = re.findall(r'^\s*lowpowermode\s+(\d+)\s*$', ac[1], re.M)
-    require(modes == ['0'], 'low-power mode must be off')
-    # pmset's absent telemetry is recorded as unknown, not as zero temperature.
-    warnings = re.findall(r'(?:Thermal_Level|Performance_Warning|CPU_Speed_Limit|'
-                          r'CPU_Scheduler_Limit)\s*=\s*(\d+)', thermal)
-    for name, value in re.findall(r'(\w+)\s*=\s*(\d+)', thermal):
-        if name in ('Thermal_Level', 'Performance_Warning'):
-            require(int(value) == 0, 'active thermal/performance warning')
-        if name in ('CPU_Speed_Limit', 'CPU_Scheduler_Limit'):
-            require(int(value) == 100, 'CPU performance is limited')
-    require(all('warning' not in line.lower() or 'no ' in line.lower() or
-                re.fullmatch(r'\s*Performance_Warning\s*=\s*0\s*', line)
-                for line in thermal.splitlines()), 'active thermal/performance warning')
-    return dict(source='AC', low_power_mode=False, thermal_raw=thermal.strip(),
-                thermal_telemetry_available=bool(warnings))
+    """Legacy helper remains AC-only; explicit profiles use power.state()."""
+    return power.state(battery, settings, thermal)
 
 
 def machine_snapshot(owner, label):
     def command(name, argv):
         output, _ = owner.command(label + '-' + name, argv, owner.work_deadline)
         return output
-    power = power_state(command('power', ['pmset', '-g', 'batt']),
-                        command('settings', ['pmset', '-g', 'custom']),
-                        command('thermal', ['pmset', '-g', 'therm']))
+    power_observation = power.probe(owner, label, owner.power_profile)
     hardware = command('hardware', ['sysctl', 'machdep.cpu.brand_string', 'hw.model',
                        'hw.physicalcpu', 'hw.logicalcpu', 'hw.memsize',
                        'hw.perflevel0.name', 'hw.perflevel0.physicalcpu',
@@ -105,7 +87,7 @@ def machine_snapshot(owner, label):
     free = shutil.disk_usage(owner.directory).free
     require(free >= 1024**3, 'less than 1 GiB available for evidence')
     system = os.uname()
-    return dict(observed_monotonic_ns=time.monotonic_ns(), power=power,
+    return dict(observed_monotonic_ns=time.monotonic_ns(), power=power_observation,
                 hardware=dict(line.split(': ', 1) for line in hardware.splitlines()),
                 os=command('os', ['sw_vers']),
                 kernel=dict(system=system.sysname, release=system.release,
@@ -154,6 +136,7 @@ class BaselineRun(BatchRun):
     def __init__(self, args, directory, profile, stage, series_deadline, snapshot=machine_snapshot):
         super().__init__(args, directory)
         self.profile, self.stage, self.series_deadline = profile, stage, series_deadline
+        self.power_profile = power.load_profile(getattr(args, 'power_profile', 'ac'))
         self.snapshot = snapshot
         self.inhibitor = None
         self.transitions = {}
@@ -182,7 +165,7 @@ class BaselineRun(BatchRun):
 
     def manifest(self):
         result = super().manifest()
-        result.update(contract=self.profile['contract'], profile=self.profile, stage=self.stage,
+        result.update(contract=self.profile['contract'], profile=self.profile, power_profile=self.power_profile, stage=self.stage,
                       measured_round=self.measured_round, campaign_index=self.campaign_index,
                       reportable_scaling_campaign=False, timing_clock='time.monotonic_ns',
                       source_inputs=source_inventory())
@@ -193,6 +176,9 @@ class BaselineRun(BatchRun):
             self.inhibitor = self.spawn('idle-inhibitor', ['caffeinate', '-i'])
         self.machine['before'] = self.snapshot(self, 'before')
         self.save('machine.json', self.machine)
+        if self.snapshot is machine_snapshot:
+            power.validate_observation(self.machine['before']['power'], self.power_profile,
+                                       initial=self.campaign_index == 0)
         super().start_pool()
 
     def runtime_line(self, child, line, path):
@@ -318,7 +304,7 @@ class BaselineRun(BatchRun):
         self.save('timings.json', timings)
         overhead = dict(startup_ms=(self.t0 / 1e9-self.started)*1000 if self.t0 else None,
                         verification_ms=(self.verified_ns-self.t_done)/1e6 if self.verified_ns else None)
-        return dict(profile=self.profile['profile'], stage=self.stage, metrics=self.metrics,
+        return dict(profile=self.profile['profile'], power_profile=self.power_profile, stage=self.stage, metrics=self.metrics,
                     workers=self.args.workers, measured_round=self.measured_round,
                     campaign_index=self.campaign_index,
                     overhead=overhead, reportable_scaling_campaign=False)
@@ -413,10 +399,11 @@ def make_command(bin_dir, compiler):
                 'CFLAGS=-O2 -g -Werror', f'PYTHON={sys.executable}']
 
 
-def run_series(directory, profile, *, scaling=False, recovery=False):
+def run_series(directory, profile, *, scaling=False, recovery=False, power_profile='ac'):
     if recovery:
         import run_recovery
     args = argparse.Namespace(bin_dir=directory/'bin', deadline_ms=profile['campaign_deadline_ms'])
+    selected_power = power.load_profile(power_profile)
     owner = SeriesOwner(args, directory)
     handlers = {sig: signal.signal(sig, owner.on_signal) for sig in (signal.SIGINT, signal.SIGTERM)}
     failure, samples, runs, provenance = None, [], [], {}
@@ -443,14 +430,19 @@ def run_series(directory, profile, *, scaling=False, recovery=False):
         provenance = dict(revision=child.stdout.read_text().strip(), git_status=status,
                           source_inputs=inputs, source_patch=patch,
                           reportable_scaling_campaign=False,
-                          scope=scope)
+                          scope=scope, power_profile=selected_power)
         owner.save('provenance.json', provenance)
         if controlled:
             require_clean_source(status)
         owner.save('profile.json', profile)
+        owner.save('power-profile.json', selected_power)
         owner.save('plan.json', dict(scope=scope, runs=plan, cooldown_ms=profile['cooldown_ms'],
                    reportable_scaling_campaign=False))
         shutil.copyfile(ROOT/'docs/benchmarks.md', directory/'contract.md')
+        shutil.copyfile(ROOT/'docs/benchmark-power.md', directory/'power-contract.md')
+        # Fail before the expensive build if conditions cannot support this profile.
+        preflight = power.probe(owner, 'preflight', selected_power)
+        power.validate_observation(preflight, selected_power, initial=True)
         compiler = shutil.which('clang')
         require(compiler is not None, 'clang is required')
         version, _ = owner.command('compiler-version', [compiler, '--version'], owner.work_deadline)
@@ -483,8 +475,9 @@ def run_series(directory, profile, *, scaling=False, recovery=False):
             path = directory / name
             path.mkdir()
             run_args = argparse.Namespace(bin_dir=args.bin_dir, workers=workers, jobs=profile['jobs'],
-                         max_retries=profile['max_retries'], deadline_ms=profile['run_deadline_ms'], output_dir=path)
-            print(f'Starting {path.name}: {profile["jobs"]} {profile["task"]} jobs, {workers} worker(s)', flush=True)
+                         max_retries=profile['max_retries'], deadline_ms=profile['run_deadline_ms'], output_dir=path,
+                         power_profile=power_profile)
+            print(f'Starting {path.name}: {profile["jobs"]} {profile["task"]} jobs, {workers} worker(s), power={power_profile}', flush=True)
             run = (run_recovery.RecoveryRun(run_args, path, profile, stage, owner.run_deadline,
                                           scenario=entry['scenario']) if recovery else
                    BaselineRun(run_args, path, profile, stage, owner.run_deadline))
@@ -497,6 +490,7 @@ def run_series(directory, profile, *, scaling=False, recovery=False):
             if code in (128+signal.SIGINT, 128+signal.SIGTERM):
                 owner.stop_signal = code-128
             require(code == 0 and result['timing_valid'], f'{path.name} failed; no replacement sample')
+            require(result['power_profile'] == selected_power, 'power profile changed during campaign')
             require(source_inventory() == inputs, 'source changed during baseline series')
             require({name:digest(args.bin_dir/name) for name in PROGRAMS} ==
                     json.loads((directory/'build.json').read_text())['binaries'], 'binaries changed')
@@ -513,6 +507,7 @@ def run_series(directory, profile, *, scaling=False, recovery=False):
             if controlled or stage == 'measured':
                 samples.append(result)
         # Validate aggregates inside the guarded body so errors retain a FAIL summary.
+        require(all(s['power_profile'] == selected_power for s in samples), 'mixed power profiles')
         metrics = (run_recovery.aggregate(samples, profile) if recovery else
                    scaling_aggregate(samples, profile) if scaling else aggregate(samples))
     except Exception as error:
@@ -523,7 +518,7 @@ def run_series(directory, profile, *, scaling=False, recovery=False):
         if owner.stop_signal:
             failure = failure or f'interrupted by signal {owner.stop_signal}'
         code = 128+owner.stop_signal if owner.stop_signal else (1 if failure else 0)
-        result = dict(contract=profile['contract'], profile=profile['profile'],
+        result = dict(contract=profile['contract'], profile=profile['profile'], power_profile=selected_power,
                       verdict=('RECOVERY_PASS' if recovery else 'SCALING_PASS' if scaling else
                                'ONE_WORKER_BASELINE_PASS') if code == 0 else 'FAIL',
                       exit_code=code, first_failure=failure, reportable_scaling_campaign=scaling and code == 0,
@@ -550,6 +545,8 @@ def run_series(directory, profile, *, scaling=False, recovery=False):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output-dir', type=Path, help='fresh directory; default under build/benchmarks')
+    parser.add_argument('--power-profile', choices=power.NAMES, default='ac',
+                        help='required source and Low Power Mode; default ac')
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument('--scaling', action='store_true', help='run the full ordered 1/2/4/8-worker campaign')
     mode.add_argument('--recovery', action='store_true', help='run matched control/crash/heartbeat recovery rounds')
@@ -566,7 +563,7 @@ def main():
             directory = args.output_dir.absolute()
             directory.mkdir(parents=True, exist_ok=False)
         else:
-            parent = ROOT/'build/benchmarks'
+            parent = ROOT/'build/benchmarks'/args.power_profile
             parent.mkdir(parents=True, exist_ok=True)
             directory = Path(tempfile.mkdtemp(prefix='recovery-' if args.recovery else
                                              'scaling-' if args.scaling else 'one-worker-', dir=parent))
@@ -585,7 +582,7 @@ def main():
             stdout, stderr = sys.stdout, sys.stderr
             try:
                 sys.stdout, sys.stderr = Tee(stdout, out), Tee(stderr, err)
-                return run_series(directory, profile, scaling=args.scaling, recovery=args.recovery)
+                return run_series(directory, profile, scaling=args.scaling, recovery=args.recovery, power_profile=args.power_profile)
             finally:
                 sys.stdout, sys.stderr = stdout, stderr
     except (OSError, ValueError, RunFailure) as error:

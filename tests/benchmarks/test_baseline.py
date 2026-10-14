@@ -229,7 +229,8 @@ class ProcessTests(unittest.TestCase):
 
     @contextmanager
     def launch(self, *, binary_dir=None, slow=False, short_warmup=False, deadline_ms=30000,
-               bad_timing=False, bad_cleanup=False, workers=1, jobs=3, full_prime=False):
+               bad_timing=False, bad_cleanup=False, workers=1, jobs=3, full_prime=False,
+               power_profile='ac', power_change=None):
         profile = benchmark.load_profile()
         profile.update(contract='benchmark-regression-fixture', jobs=jobs, arguments='100',
                        expected_result='25', expected_result_bytes=2, minimum_warmup_batch_ms=0)
@@ -246,7 +247,20 @@ class ProcessTests(unittest.TestCase):
             f'import sys,time,argparse\nsys.dont_write_bytecode=True\nsys.path.insert(0,{str(ROOT/"benchmarks")!r})\n'
             'import run_baseline as b\n'
             f'p={profile!r}\na=argparse.Namespace(bin_dir=b.Path({str(binary_dir or BIN_DIR)!r}), '
-            f'workers={workers},jobs={jobs},max_retries=0,deadline_ms={deadline_ms},output_dir=b.Path({str(output)!r}))\n'
+            f'workers={workers},jobs={jobs},max_retries=0,deadline_ms={deadline_ms},output_dir=b.Path({str(output)!r}),'
+            f'power_profile={power_profile!r})\n'
+            'def snapshot(run,label):\n'
+            f' if {power_profile!r}=="ac" and {power_change!r} is None: return {{"fixture":True}}\n'
+            ' mode=int(run.power_profile["low_power_mode"])\n'
+            ' source=run.power_profile["source"];charge=95\n'
+            f' if label=="after" and {power_change!r}=="source": source="AC"\n'
+            f' if label=="after" and {power_change!r}=="mode": mode=1-mode\n'
+            f' if label=="after" and {power_change!r}=="charge": charge=19\n'
+            ' battery=f"Now drawing from \'{source} Power\'\\n -InternalBattery-0 (id=1)\\t{charge}%; discharging; present: true\\n"\n'
+            ' settings=f"{source} Power:\\n lowpowermode {mode}\\n"\n'
+            ' observation=b.power.state(battery,settings,"No thermal warning recorded",run.power_profile)\n'
+            ' b.power.validate_observation(observation,run.power_profile,initial=label=="before")\n'
+            ' return {"fixture":True,"power":observation}\n'
             'class Fixture(b.BaselineRun):\n'
             ' def verify_job_history(self):\n'
             f'  if {bad_timing!r}: self.t_done=self.t0-1\n'
@@ -256,7 +270,7 @@ class ProcessTests(unittest.TestCase):
             f'  if {bad_cleanup!r}: result["ok"]=False; result["errors"]=["injected cleanup failure"]\n'
             '  return result\n'
             f'r=Fixture(a,a.output_dir,p,{"warmup" if short_warmup else "measured"!r},time.monotonic()+60,'
-            'snapshot=lambda *args: {"fixture":True})\nsys.exit(r.run())\n')
+            'snapshot=snapshot)\nsys.exit(r.run())\n')
         script = self.directory/'fixture.py'
         script.write_text(code)
         with (self.directory/'harness.stdout.log').open('w') as out, (self.directory/'harness.stderr.log').open('w') as err:

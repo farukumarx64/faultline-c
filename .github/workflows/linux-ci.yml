@@ -99,6 +99,13 @@ jobs:
           bash tests/ci/run_with_deadline.sh 210 "$RUNNER_TEMP/faultline-ci/batch-harness.log" \
             make CC="$CC" SANITIZE="$SANITIZE" CFLAGS="$CFLAGS" test-batch-harness
 
+      - name: Run power benchmark regression tests
+        timeout-minutes: 2
+        # Mock power observations; these are correctness checks, not Linux timings.
+        run: |
+          bash tests/ci/run_with_deadline.sh 90 "$RUNNER_TEMP/faultline-ci/power-benchmark.log" \
+            make CC="$CC" SANITIZE="$SANITIZE" CFLAGS="$CFLAGS" test-power-benchmark-harness
+
       - name: Run chaos harness regression tests
         timeout-minutes: 4
         run: |
@@ -134,5 +141,19 @@ jobs:
             build/chaos/**/*.jsonl
             build/chaos/**/*.log
             build/chaos/**/*.wal
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Upload power benchmark regression evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: linux-${{ matrix.artifact }}-power-benchmark-evidence
+          path: |
+            build/benchmarks/**/*.json
+            build/benchmarks/**/*.json.tmp
+            build/benchmarks/**/*.jsonl
+            build/benchmarks/**/*.log
+            build/benchmarks/**/*.wal
           if-no-files-found: warn
           retention-days: 7

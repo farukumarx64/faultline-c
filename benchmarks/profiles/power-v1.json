@@ -1,0 +1,27 @@
+{
+  "contract": "faultline-power-v1",
+  "observation_policy": "before_and_after_each_sample",
+  "profiles": {
+    "ac": {
+      "id": "ac-normal-v1",
+      "source": "AC",
+      "low_power_mode": false,
+      "initial_charge_range_percent": null,
+      "minimum_charge_percent": null
+    },
+    "battery": {
+      "id": "battery-normal-v1",
+      "source": "Battery",
+      "low_power_mode": false,
+      "initial_charge_range_percent": [90, 100],
+      "minimum_charge_percent": 20
+    },
+    "battery-low-power": {
+      "id": "battery-low-power-v1",
+      "source": "Battery",
+      "low_power_mode": true,
+      "initial_charge_range_percent": [90, 100],
+      "minimum_charge_percent": 20
+    }
+  }
+}

@@ -4,6 +4,7 @@ INTEGRATION_ARGS ?=
 BATCH_ARGS ?=
 CHAOS_ARGS ?=
 BENCHMARK_ARGS ?=
+POWER_COMPARE_ARGS ?=
 DEMO_ARGS ?=
 SANITIZE ?= 0
 PREFIX ?= /usr/local
@@ -107,6 +108,14 @@ benchmark-recovery:
 
 test-benchmark-harness: all
 	$(PYTHON) tests/benchmarks/test_baseline.py --bin-dir $(BUILD_DIR)
+	$(PYTHON) tests/benchmarks/test_power.py --bin-dir $(BUILD_DIR)
+
+.PHONY: test-power-benchmark-harness benchmark-compare-power
+test-power-benchmark-harness: all
+	$(PYTHON) tests/benchmarks/test_power.py --bin-dir $(BUILD_DIR)
+
+benchmark-compare-power:
+	$(PYTHON) benchmarks/compare_power.py $(POWER_COMPARE_ARGS)
 
 test-recovery-benchmark-harness: all
 	$(PYTHON) tests/benchmarks/test_recovery.py --bin-dir $(BUILD_DIR)
