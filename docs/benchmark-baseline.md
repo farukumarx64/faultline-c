@@ -109,8 +109,9 @@ make benchmark-baseline BENCHMARK_ARGS='--output-dir build/benchmarks/my-baselin
 ```
 
 The output path must not exist. The default is a unique directory beneath
-`build/benchmarks/`. The driver creates fresh optimized binaries inside it,
-using Clang, `-O2 -g -Werror`, and `SANITIZE=0`, then runs `make test` against
+`build/benchmarks/ac/` for the default power profile. The driver creates fresh
+optimized binaries inside it, using Clang, `-O2 -g -Werror`, and `SANITIZE=0`,
+then runs `make test` against
 those binaries before collecting samples. Actual commands and both output streams
 are retained. Inherited Make/compiler flag overrides are removed from the build
 child's environment. Core integration tests use their automatic ports, so
@@ -120,6 +121,10 @@ No existing build, WAL, coordinator, or worker is reused. Workload, worker count
 repetitions, flags, and deadlines cannot be overridden on the command line.
 Machine/power collection currently uses macOS tools; the driver rejects Linux
 before starting children. The verifier's regression fixtures work on macOS/Linux.
+
+The later [power-profile extension](benchmark-power.md) adds explicit battery and
+Low Power Mode options. These do not alter the historical baseline above; full
+power comparisons require three complete scaling or recovery campaigns.
 
 ## Execution and accounting
 
@@ -203,7 +208,9 @@ owned process group. A cleanup failure invalidates otherwise completed work.
 make test-benchmark-harness
 ```
 
-The suite now has 25 checks, including the [scaling extensions](benchmark-scaling.md).
+The target now runs the 25 baseline/scaling checks plus 12
+[power-profile and comparison checks](benchmark-power.md#verification), for 37
+checks total.
 Checks cover isolated builds with absolute output paths, exact real results,
 timing boundaries, log identity/clock/WAL
 ordering, nearest-rank p95 and sample aggregation, unavailable/bad power conditions,

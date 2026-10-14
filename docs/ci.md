@@ -53,9 +53,10 @@ remain independent.
 6. Run the 6 installation checks in a fresh temporary source tree.
 7. Run the 7 CI deadline/failure-propagation checks.
 8. Run the 22 batch-harness regression checks.
-9. Run the 35 chaos-harness regression checks.
-10. Run the full seed-42 chaos experiment.
-11. Upload available logs and chaos evidence, including after test failures.
+9. Run the 12 power-benchmark regression checks with simulated power observations.
+10. Run the 35 chaos-harness regression checks.
+11. Run the full seed-42 chaos experiment.
+12. Upload available logs, chaos evidence, and power-regression evidence, including after test failures.
 
 Every Make invocation passes the selected compiler and sanitizer mode explicitly.
 CI sets `CFLAGS='-O0 -g -Werror'`. This retains the Makefile's C11 mode and warning
@@ -86,6 +87,16 @@ staging, reinstall, error propagation, and selective uninstall. It runs in both
 compiler modes with a 90-second command deadline and a two-minute step deadline.
 Its output is retained as `install.log`. Historical validation records below
 predate this new step and do not claim to have exercised it.
+
+The [power benchmark suite](benchmark-power.md#verification) runs in both compiler
+modes with a 90-second command deadline and two-minute step deadline. It verifies
+profile parsing and complete comparison audits with fixtures, then exercises real
+coordinator/worker processes with simulated power observations. It does not measure
+Linux battery performance or exercise macOS `pmset`. Output is retained as
+`power-benchmark.log`; an always-run upload retains available JSON, event traces,
+logs, and WALs from `build/benchmarks/` for seven days, excluding binaries. This
+new step has passed locally on macOS in normal and ASan/UBSan builds; hosted Linux
+execution is pending a push. Earlier hosted records below do not cover it.
 
 ## Bounded chaos checks
 

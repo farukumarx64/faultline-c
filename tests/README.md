@@ -29,9 +29,14 @@ core suite counts above.
 [recorded recovery demo](../docs/recovery-demo.md), including incorrect results,
 deadline cleanup, interruption, and evidence preservation. Add `SANITIZE=1` to
 exercise instrumented executables. These checks are separate from `make test`.
-`make test-benchmark-harness` runs 25 checks of the benchmark verifier, multi-worker
-execution, scaling plan/metrics, timing, failure evidence, and cleanup. They are separate from the suite counts
-above. `make benchmark-baseline` runs the full optimized development baseline on
+`make test-benchmark-harness` runs 37 checks: 25 of the benchmark verifier, multi-worker
+execution, scaling plan/metrics, timing, failure evidence, and cleanup, plus 12
+power-profile/comparison checks. `make test-power-benchmark-harness` runs just those
+12 additions: power parsing, charge/mode changes, scaling/recovery evidence audits,
+and real jobs with simulated power observations. Add `SANITIZE=1` for instrumented
+executables. These are correctness checks, not battery performance samples; see
+the [power benchmark guide](../docs/benchmark-power.md). They are separate from the
+core suite counts above. `make benchmark-baseline` runs the full optimized development baseline on
 macOS; see [the baseline guide](../docs/benchmark-baseline.md).
 `make benchmark-scaling` runs the complete ordered 1/2/4/8-worker campaign from a
 clean committed checkout; see [the scaling guide](../docs/benchmark-scaling.md).
@@ -43,7 +48,7 @@ suite counts. `make benchmark-recovery` runs the full matched campaign; see the
 The [Linux CI workflow](../.github/workflows/linux-ci.yml) runs both layers on
 Ubuntu 24.04 with GCC 13 and with Clang 18 + AddressSanitizer/UBSan. Both jobs
 enable the default-port checks and reject compiler warnings. Available build/test
-logs and chaos evidence are uploaded after success or failure. See
+logs, chaos evidence, and power-regression evidence are uploaded after success or failure. See
 [Linux CI](../docs/ci.md) for reproduction commands and validation scope.
 Use `make test-batch` for the [batch baseline harness](../docs/batch-testing.md):
 five workers, 100 three-second sleep jobs, exact per-ID results, artifacts, and

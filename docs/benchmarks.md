@@ -4,7 +4,9 @@ Status: **baseline, scaling, and controlled recovery are measured and verified.*
 See the [baseline evidence](benchmark-baseline.md),
 [ordered scaling report](benchmark-scaling.md), and
 [controlled recovery report](benchmark-recovery.md). All three have independent
-artifact audits; the current benchmark phase is complete.
+artifact audits; the original AC-only benchmark phase is complete. The later
+[battery and Low Power Mode extension](benchmark-power.md) is implemented, with
+its timing campaigns still pending.
 Contract version: `faultline-benchmarks-v1`. The versioned
 [scaling profile](../benchmarks/profiles/scaling-v1.json) and
 [recovery profile](../benchmarks/profiles/recovery-v1.json) freeze the numeric
@@ -179,8 +181,8 @@ was read on **2026-10-01**:
 
 This is an inventory, **not performance evidence or a claim of run readiness**.
 Before each campaign, refresh versions and hardware/storage fields. Before each
-run, require AC power, low-power mode off, no active thermal/performance warning,
-at least 1 GiB of available output space, and no concurrent build/test/benchmark
+run under the default AC profile, require AC power, low-power mode off, no active
+thermal/performance warning, at least 1 GiB of available output space, and no concurrent build/test/benchmark
 controlled by the harness. Record power and available thermal/load information
 before and after each run. Missing thermal telemetry means unknown; the inventory
 message that no warning was recorded does not prove absence of throttling.
@@ -189,6 +191,11 @@ replace it in a table. Use an owned idle-sleep inhibitor such as `caffeinate -i`
 on macOS, record interruptions/background activity, and leave OS power settings
 and CPU placement unchanged. The OS can distribute work across unequal M4 core
 classes, so eight workers are not eight identical dedicated performance cores.
+
+The separate [power contract](benchmark-power.md) explicitly selects battery
+conditions and defines their charge and Low Power Mode checks. It changes the
+power condition only; the workload, build, timing, retry, and cleanup rules here
+still apply. No power-mode performance claim is made until its campaigns pass.
 
 ## Timing boundaries and metrics
 
@@ -372,7 +379,7 @@ maximum coordinator capacity, random crash-rate
 sweeps, coordinator-restart timing, and performance regression gates need their
 own profiles and evidence.
 
-Optional battery-only and Low Power Mode profiles are recorded in the
-[post-MVP notes](post-mvp.md#additional-power-mode-benchmark-profiles). They are
-not implemented or required to complete this phase; the AC-only contract stays
-in effect.
+Battery-only and Low Power Mode support is documented in the
+[power benchmark guide](benchmark-power.md). Its profiles and comparison tooling
+are implemented; actual campaigns and published comparisons remain pending.
+The default AC condition and historical AC measurements remain unchanged.

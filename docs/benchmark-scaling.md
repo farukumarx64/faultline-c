@@ -128,6 +128,11 @@ make benchmark-scaling
 make benchmark-scaling BENCHMARK_ARGS='--output-dir build/benchmarks/my-scaling'
 ```
 
+These commands select the default AC power profile. The later
+[power benchmark guide](benchmark-power.md) provides battery and Low Power Mode
+commands and their separate acceptance rules; no new power-mode timings have
+been published yet.
+
 The command calls `benchmarks/run_baseline.py --scaling`. Shared implementation
 keeps submission, result verification, timing, logging, and cleanup identical to
 the one-worker runner. It creates fresh optimized Clang binaries with
@@ -213,7 +218,9 @@ and SIGTERM use the existing bounded teardown. Cleanup failure invalidates a
 sample even after all jobs finish. `make clean` removes raw evidence; reviewed
 reports belong under `benchmarks/results/`.
 
-`make test-benchmark-harness` now runs 25 checks. Added coverage exercises the
+`make test-benchmark-harness` runs 25 baseline/scaling checks plus 12 later
+[power-profile and comparison checks](benchmark-power.md#verification).
+The scaling coverage exercises the
 exact rotated plan, ratio-of-medians calculation, invalid/incomplete campaigns,
 ownership across multiple workers, dirty-source rejection, machine-identity
 comparison, and real 2/4/8-worker execution. The small process fixtures and their

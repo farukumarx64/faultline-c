@@ -343,6 +343,13 @@ its ordinary tests. Boundary checks do not establish continuous power stability;
 thermal telemetry was unavailable. See the [benchmark contract](docs/benchmarks.md)
 for timing definitions, machine requirements, and interpretation limits.
 
+**Battery and Low Power Mode comparisons:** the runner also supports
+`--power-profile battery` and `--power-profile battery-low-power`, with separate
+evidence and aggregates. These campaigns are **not measured yet**. The
+[power benchmark guide](docs/benchmark-power.md) defines charge requirements,
+provides the three campaign commands and comparison command, and explains why
+the comparison needs a fresh AC control from the same source revision.
+
 </details>
 
 ## Guarantees
@@ -387,8 +394,8 @@ Read the [recovery guarantees](docs/recovery.md) and
   is no independent job execution deadline or checkpoint/resume support.
 - **Four built-in tasks:** no arbitrary shell execution, task plugins, or web dashboard.
 
-[Post-MVP notes](docs/post-mvp.md) track completed installation and deduplication
-work, plus proposed battery-only / Low Power Mode benchmark profiles.
+[Post-MVP notes](docs/post-mvp.md) track installation, deduplication, and power-mode
+benchmark support, plus pending measurements and possible follow-ups.
 
 ## Testing
 

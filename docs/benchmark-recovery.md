@@ -132,6 +132,11 @@ checkout, AC power, low-power mode off, and an internal APFS SSD with at least
 thermal telemetry and load before and after each run. Unknown thermal telemetry
 stays unknown. It owns an idle-sleep inhibitor during each sample.
 
+These commands use the default AC profile. The later
+[power-profile extension](benchmark-power.md) supports separate battery and Low
+Power Mode campaigns with the same recovery workload. Those timings remain
+pending and are not part of the historical recovery results above.
+
 The shared campaign driver creates a fresh Clang `-O2 -g -Werror`, non-sanitized
 build, runs the core correctness suites and recovery harness regressions, and
 records source and binary hashes. Builds/tests finish before measurements begin.
