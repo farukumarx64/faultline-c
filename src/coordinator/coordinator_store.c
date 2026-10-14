@@ -88,6 +88,24 @@ enum faultline_store_result faultline_store_submit(
 {
     if (store == NULL || submit == NULL || job_id == NULL) { return FAULTLINE_STORE_REJECTED; }
     if (!usable(store)) { return FAULTLINE_STORE_FATAL; }
+    if (submit->task_type < FAULTLINE_TASK_SLEEP || submit->task_type > FAULTLINE_TASK_HASH ||
+        submit->argument_size > FAULTLINE_JOB_MAX_ARGUMENT_SIZE) { return FAULTLINE_STORE_REJECTED; }
+    /* Look up durable admissions before capacity, ID allocation, or clock updates.
+     * The event loop serializes concurrent clients; no second commit can race this. */
+    int keyed = faultline_request_key_present(submit->request_key);
+    if (keyed) {
+        for (size_t i = 0; i < store->jobs.count; ++i) {
+            const struct faultline_job *job = &store->jobs.jobs[i];
+            if (memcmp(job->request_key, submit->request_key, FAULTLINE_REQUEST_KEY_SIZE) != 0) { continue; }
+            if (job->task_type != (enum faultline_task_type)submit->task_type ||
+                job->max_retries != submit->max_retries || job->argument_size != submit->argument_size ||
+                memcmp(job->arguments, submit->arguments, submit->argument_size) != 0) {
+                return FAULTLINE_STORE_CONFLICT;
+            }
+            *job_id = job->id;
+            return FAULTLINE_STORE_DUPLICATE;
+        }
+    }
     int64_t time;
     if (job_time(store, now_ms, &time) < 0) { return FAULTLINE_STORE_FATAL; }
     store->scratch = store->jobs;
@@ -95,7 +113,8 @@ enum faultline_store_result faultline_store_submit(
     enum faultline_scheduler_result result = faultline_scheduler_submit(&store->scratch, submit, time, &id);
     if (result == FAULTLINE_SCHEDULER_QUEUE_ERROR) { return fail(store, FAULTLINE_STORE_FAILURE_INTERNAL); }
     if (result != FAULTLINE_SCHEDULER_OK) { return FAULTLINE_STORE_REJECTED; }
-    if (commit_job(store, id, FAULTLINE_WAL_JOB_CREATED) != FAULTLINE_STORE_OK) { return FAULTLINE_STORE_FATAL; }
+    if (commit_job(store, id, keyed ? FAULTLINE_WAL_JOB_CREATED_KEYED : FAULTLINE_WAL_JOB_CREATED) !=
+        FAULTLINE_STORE_OK) { return FAULTLINE_STORE_FATAL; }
     *job_id = id;
     return FAULTLINE_STORE_OK;
 }

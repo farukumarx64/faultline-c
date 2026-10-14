@@ -287,7 +287,7 @@ static int test_invalid_headers(void)
     }
     const struct {size_t offset; uint8_t value; enum faultline_wal_result error;} headers[] = {
         {0, 0, FAULTLINE_WAL_BAD_MAGIC}, {5, 2, FAULTLINE_WAL_UNSUPPORTED_VERSION},
-        {7, 0, FAULTLINE_WAL_UNKNOWN_RECORD_TYPE}, {7, 8, FAULTLINE_WAL_UNKNOWN_RECORD_TYPE},
+        {7, 0, FAULTLINE_WAL_UNKNOWN_RECORD_TYPE}, {7, 9, FAULTLINE_WAL_UNKNOWN_RECORD_TYPE},
         {15, 1, FAULTLINE_WAL_INVALID_HEADER}, {23, 0, FAULTLINE_WAL_INVALID_SEQUENCE},
         {11, 3, FAULTLINE_WAL_INVALID_PAYLOAD_LENGTH}, {11, 5, FAULTLINE_WAL_INVALID_PAYLOAD_LENGTH}
     };

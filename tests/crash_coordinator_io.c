@@ -71,7 +71,7 @@ enum faultline_store_result faultline_test_store_open(
     const char *kind = getenv("FAULTLINE_TEST_WAL_KIND");
     const char *occurrence = getenv("FAULTLINE_TEST_WAL_OCCURRENCE");
     point = getenv("FAULTLINE_TEST_WAL_POINT");
-    if (kind == NULL || strlen(kind) != 1 || kind[0] < '1' || kind[0] > '7' ||
+    if (kind == NULL || strlen(kind) != 1 || kind[0] < '1' || kind[0] > '8' ||
         occurrence == NULL || strlen(occurrence) != 1 || occurrence[0] < '1' || occurrence[0] > '9' ||
         point == NULL || (strcmp(point, "before_write") != 0 && strcmp(point, "partial_header") != 0 &&
                           strcmp(point, "partial_payload") != 0 && strcmp(point, "before_sync") != 0 &&

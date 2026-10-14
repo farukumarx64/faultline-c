@@ -7,7 +7,9 @@ enum faultline_store_result {
     FAULTLINE_STORE_OK = 0,
     FAULTLINE_STORE_REJECTED,
     FAULTLINE_STORE_EMPTY,
-    FAULTLINE_STORE_FATAL
+    FAULTLINE_STORE_FATAL,
+    FAULTLINE_STORE_DUPLICATE, /* submit only: original ID, no state change or WAL write. */
+    FAULTLINE_STORE_CONFLICT   /* submit only: same key, different definition; output unchanged. */
 };
 
 enum faultline_store_failure {
@@ -53,8 +55,10 @@ enum faultline_store_result faultline_store_close(struct faultline_coordinator_s
 /* Prepare -> append and sync -> publish. Outputs and live jobs/allocators are
  * unchanged on rejection/failure. Any fatal failure disables all later changes;
  * cleanup must only close connections, without logging further job transitions.
- * Callers may ACK, dispatch, or announce results only after OK. No result ACK is
- * introduced. Required pointers are valid and non-overlapping. */
+ * Callers may dispatch or announce results only after OK. Submit also returns
+ * DUPLICATE with the original durable ID, permitting the same ACK without a new
+ * write. CONFLICT means the key exists with different task/arguments/retry limit.
+ * No result ACK is introduced. Required pointers are valid and non-overlapping. */
 enum faultline_store_result faultline_store_register(
     struct faultline_coordinator_store *store, int fd, int64_t now_ms, uint32_t *worker_id);
 enum faultline_store_result faultline_store_submit(

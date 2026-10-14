@@ -117,7 +117,7 @@ static const struct faultline_job_submit_payload sample = {
 };
 
 /* Every externally meaningful mutation has a separate publication boundary. */
-enum operation { REGISTER, SUBMIT, ASSIGN, START, COMPLETE, TASK_RETRY, TASK_EXHAUSTED, LOST_RETRY, LOST_EXHAUSTED };
+enum operation { REGISTER, SUBMIT, KEYED_SUBMIT, ASSIGN, START, COMPLETE, TASK_RETRY, TASK_EXHAUSTED, LOST_RETRY, LOST_EXHAUSTED };
 
 static enum faultline_store_result perform(struct fixture *f, enum operation operation)
 {
@@ -125,6 +125,11 @@ static enum faultline_store_result perform(struct fixture *f, enum operation ope
     switch (operation) {
     case REGISTER: return faultline_store_register(&f->store, 10, 110, &f->out.worker);
     case SUBMIT: return faultline_store_submit(&f->store, &sample, 110, &f->out.job);
+    case KEYED_SUBMIT: {
+        struct faultline_job_submit_payload keyed = sample;
+        keyed.request_key[0] = 1;
+        return faultline_store_submit(&f->store, &keyed, 110, &f->out.job);
+    }
     case ASSIGN: return faultline_store_assign(&f->store, 1, 110, &f->out.assignment);
     case START: return faultline_store_report(&f->store, 1, &report, 110);
     case COMPLETE:
@@ -144,7 +149,7 @@ static int prepare(struct fixture *f, enum operation operation)
 {
     if (operation == REGISTER) { return EXIT_SUCCESS; }
     CHECK(faultline_store_register(&f->store, 10, 101, &f->out.worker) == FAULTLINE_STORE_OK);
-    if (operation == SUBMIT) { return EXIT_SUCCESS; }
+    if (operation == SUBMIT || operation == KEYED_SUBMIT) { return EXIT_SUCCESS; }
     struct faultline_job_submit_payload submit = sample;
     if (operation == TASK_EXHAUSTED || operation == LOST_EXHAUSTED) { submit.max_retries = 0; }
     CHECK(faultline_store_submit(&f->store, &submit, 102, &f->out.job) == FAULTLINE_STORE_OK);
@@ -183,7 +188,7 @@ static int test_publication(void)
         } else {
             const struct faultline_job *job = faultline_scheduler_find(&f->store.jobs, 1);
             CHECK(job != NULL && job->updated_at_ms == 10);
-            if (op == SUBMIT) { CHECK(f->out.job == 1 && f->store.jobs.pending.count == 1); }
+            if (op == SUBMIT || op == KEYED_SUBMIT) { CHECK(f->out.job == 1 && f->store.jobs.pending.count == 1); }
             if (op == ASSIGN) { CHECK(f->out.assignment.payload.job_assign.identity.attempt == 1 && job->state == FAULTLINE_JOB_ASSIGNED); }
             if (op == START) { CHECK(job->state == FAULTLINE_JOB_RUNNING); }
             if (op == COMPLETE) { CHECK(job->state == FAULTLINE_JOB_DONE && job->result_size == 3 && job->result[2] == 255); }
@@ -220,6 +225,13 @@ static int test_storage_failures(void)
             CHECK(faultline_store_open_with_io(&f->store, f->path, 0, 0, &f->io, f) == FAULTLINE_STORE_OK);
             CHECK(f->store.replay_report.tail_bytes == (mode == 0 ? 7u : 0u));
             CHECK(f->store.replay_report.last_sequence == f->before_sequence + (mode == 1 ? 1u : 0u));
+            if (op == KEYED_SUBMIT) {
+                struct faultline_job_submit_payload keyed = sample;
+                keyed.request_key[0] = 1;
+                CHECK(faultline_store_submit(&f->store, &keyed, 0, &f->out.job) ==
+                      (mode == 0 ? FAULTLINE_STORE_OK : FAULTLINE_STORE_DUPLICATE));
+                CHECK(f->out.job == 1 && f->store.jobs.count == 1 && f->store.jobs.pending.count == 1);
+            }
             CHECK(cleanup(f) == EXIT_SUCCESS);
         }
     }
@@ -442,9 +454,43 @@ static int test_clock_and_sequence_failures(void)
     return EXIT_SUCCESS;
 }
 
+static int test_deduplication_is_read_only(void)
+{
+    struct fixture *f = setup();
+    CHECK(f != NULL);
+    struct faultline_job_submit_payload keyed = sample;
+    keyed.request_key[0] = 1;
+    CHECK(faultline_store_submit(&f->store, &keyed, 101, &f->out.job) == FAULTLINE_STORE_OK);
+    arm(f);
+    unsigned writes = f->writes, syncs = f->syncs;
+    uint64_t id = 999;
+    CHECK(faultline_store_submit(&f->store, &keyed, 102, &id) == FAULTLINE_STORE_DUPLICATE);
+    CHECK(id == 1);
+    for (int change = 0; change < 4; ++change) {
+        struct faultline_job_submit_payload conflict = keyed;
+        if (change == 0) { conflict.task_type = FAULTLINE_TASK_SLEEP; }
+        if (change == 1) { conflict.arguments[2] ^= 1; }
+        if (change == 2) { --conflict.argument_size; }
+        if (change == 3) { ++conflict.max_retries; }
+        id = 999;
+        CHECK(faultline_store_submit(&f->store, &conflict, 102, &id) == FAULTLINE_STORE_CONFLICT);
+        CHECK(id == 999);
+    }
+    observe(f);
+    CHECK(!f->bad_observation && f->writes == writes && f->syncs == syncs);
+    f->armed = 0;
+    CHECK(faultline_store_close(&f->store) == FAULTLINE_STORE_OK);
+    faultline_store_init(&f->store);
+    CHECK(faultline_store_open_with_io(&f->store, f->path, 0, 0, &f->io, f) == FAULTLINE_STORE_OK);
+    CHECK(faultline_store_submit(&f->store, &keyed, 0, &id) == FAULTLINE_STORE_DUPLICATE && id == 1);
+    CHECK(cleanup(f) == EXIT_SUCCESS);
+    return EXIT_SUCCESS;
+}
+
 int main(void)
 {
     const struct { const char *name; int (*run)(void); } tests[] = {
+        {"duplicate/conflicting keys preserve published state and perform no storage I/O", test_deduplication_is_read_only},
         {"all coordinator mutations publish only after record sync", test_publication},
         {"partial writes and failed syncs preserve live state and stop subsequent work", test_storage_failures},
         {"invalid requests and stale reports perform no storage I/O", test_rejections},

@@ -14,6 +14,7 @@ static void usage(FILE *stream)
     fputs("Usage: faultline ping [--coordinator IPv4:PORT]\n"
           "       faultline submit TASK [--args TEXT | --args-hex HEX]\n"
           "                        [--max-retries N] [--coordinator IPv4:PORT]\n"
+          "                        [--request-key HEX32]\n"
           "       faultline status ID [--coordinator IPv4:PORT]\n"
           "       faultline jobs [--coordinator IPv4:PORT]\n"
           "       faultline workers [--coordinator IPv4:PORT]\n"
@@ -23,6 +24,8 @@ static void usage(FILE *stream)
           "fibonacci: index 0..93; hash: raw bytes, FNV-1a 64-bit checksum.\n"
           "Numeric arguments must be decimal digits. Workers validate task inputs.\n"
           "Submission prints a job ID; status displays its state and saved result.\n"
+          "Request keys: 32 hexadecimal digits, not all zero. Reuse the same key and definition to retry.\n"
+          "Submit exits 3 on request-key conflict; an unkeyed retry may create another job.\n"
           "Status ID: decimal 1..18446744073709551615. Exit: 0 found, 2 not found, 1 error.\n"
           "Default coordinator: 127.0.0.1:9000; max retries: 0.\n", stream);
 }
@@ -126,9 +129,9 @@ static int parse_retries(const char *text, uint32_t *retries)
     return 0;
 }
 
-static int receive_submit_ack(int fd, uint64_t *job_id)
+static int receive_submit_ack(int fd, const uint8_t *request_key, uint64_t *job_id)
 {
-    uint8_t wire[FAULTLINE_HEADER_SIZE + FAULTLINE_JOB_SUBMIT_ACK_PAYLOAD_SIZE];
+    uint8_t wire[FAULTLINE_HEADER_SIZE + FAULTLINE_REQUEST_KEY_SIZE];
     struct faultline_header header;
     struct faultline_message message;
     size_t consumed;
@@ -140,21 +143,31 @@ static int receive_submit_ack(int fd, uint64_t *job_id)
         return -1;
     }
     if (faultline_header_decode(wire, FAULTLINE_HEADER_SIZE, &header) != FAULTLINE_PROTOCOL_OK ||
-        header.message_type != FAULTLINE_MSG_JOB_SUBMIT_ACK ||
-        header.payload_length != FAULTLINE_JOB_SUBMIT_ACK_PAYLOAD_SIZE) {
+        !((header.message_type == FAULTLINE_MSG_JOB_SUBMIT_ACK &&
+           header.payload_length == FAULTLINE_JOB_SUBMIT_ACK_PAYLOAD_SIZE) ||
+          (header.message_type == FAULTLINE_MSG_JOB_SUBMIT_CONFLICT &&
+           header.payload_length == FAULTLINE_REQUEST_KEY_SIZE && faultline_request_key_present(request_key)))) {
         fputs("faultline: expected submission ACK with an 8-byte job ID\n", stderr);
         return -1;
     }
     int64_t now = faultline_monotonic_ms();
     if (now < 0 || now - start >= FAULTLINE_IO_TIMEOUT_MS ||
-        faultline_recv_exact(fd, wire + FAULTLINE_HEADER_SIZE, FAULTLINE_JOB_SUBMIT_ACK_PAYLOAD_SIZE,
+        faultline_recv_exact(fd, wire + FAULTLINE_HEADER_SIZE, header.payload_length,
                              FAULTLINE_IO_TIMEOUT_MS - (int)(now - start)) != FAULTLINE_RECEIVE_OK) {
         fputs("faultline: failed to receive submission ACK payload\n", stderr);
         return -1;
     }
-    if (faultline_message_decode(wire, sizeof(wire), &message, &consumed) != FAULTLINE_PROTOCOL_OK) {
+    if (faultline_message_decode(wire, FAULTLINE_HEADER_SIZE + header.payload_length, &message, &consumed) != FAULTLINE_PROTOCOL_OK) {
         fputs("faultline: invalid submission ACK payload\n", stderr);
         return -1;
+    }
+    if (message.message_type == FAULTLINE_MSG_JOB_SUBMIT_CONFLICT) {
+        if (memcmp(message.payload.job_submit_conflict, request_key, FAULTLINE_REQUEST_KEY_SIZE) != 0) {
+            fputs("faultline: conflict response has the wrong request key\n", stderr);
+            return -1;
+        }
+        fputs("faultline: request key conflict; this key already belongs to a different submission\n", stderr);
+        return 1;
     }
     *job_id = message.payload.job_submit_ack;
     return 0;
@@ -168,6 +181,7 @@ static int run_submit(int argc, char **argv)
     struct faultline_job_submit_payload *submit = &request.payload.job_submit;
     const char *tasks[] = {"sleep", "prime_count", "fibonacci", "hash"};
     int arguments_seen = 0, retries_seen = 0, endpoint_seen = 0;
+    const char *request_key_text = NULL;
     if (argc < 3) { usage(stderr); return EXIT_FAILURE; }
     for (size_t i = 0; i < sizeof(tasks) / sizeof(tasks[0]); ++i) {
         if (strcmp(argv[2], tasks[i]) == 0) { submit->task_type = (uint16_t)(i + 1); }
@@ -175,7 +189,18 @@ static int run_submit(int argc, char **argv)
     if (submit->task_type == 0) { usage(stderr); return EXIT_FAILURE; }
     for (int i = 3; i < argc; i += 2) {
         if (i + 1 >= argc) { usage(stderr); return EXIT_FAILURE; }
-        if (strcmp(argv[i], "--coordinator") == 0 && !endpoint_seen &&
+        if (strcmp(argv[i], "--request-key") == 0 && request_key_text == NULL &&
+            strlen(argv[i + 1]) == 2 * FAULTLINE_REQUEST_KEY_SIZE) {
+            for (size_t j = 0; j < FAULTLINE_REQUEST_KEY_SIZE; ++j) {
+                int high = hex_digit(argv[i + 1][2 * j]);
+                int low = hex_digit(argv[i + 1][2 * j + 1]);
+                if (high < 0 || low < 0) { usage(stderr); return EXIT_FAILURE; }
+                submit->request_key[j] = (uint8_t)(high * 16 + low);
+            }
+            if (!faultline_request_key_present(submit->request_key)) { usage(stderr); return EXIT_FAILURE; }
+            request_key_text = argv[i + 1];
+            request.message_type = FAULTLINE_MSG_JOB_SUBMIT_KEYED;
+        } else if (strcmp(argv[i], "--coordinator") == 0 && !endpoint_seen &&
             faultline_parse_endpoint(argv[i + 1], host, sizeof(host), &port) == 0) {
             endpoint_seen = 1;
         } else if (strcmp(argv[i], "--max-retries") == 0 && !retries_seen &&
@@ -212,12 +237,20 @@ static int run_submit(int argc, char **argv)
     int status = EXIT_FAILURE;
     if (faultline_send_all(fd, wire, written, FAULTLINE_IO_TIMEOUT_MS) < 0) {
         perror("faultline: send submission");
-    } else if (receive_submit_ack(fd, &job_id) == 0) {
-        printf("job_id=%" PRIu64 "\n", job_id);
-        status = EXIT_SUCCESS;
+    } else {
+        int reply = receive_submit_ack(fd, submit->request_key, &job_id);
+        if (reply == 0) {
+            printf("job_id=%" PRIu64 "\n", job_id);
+            status = EXIT_SUCCESS;
+        } else if (reply == 1) {
+            status = 3;
+        }
     }
-    if (status != EXIT_SUCCESS) {
+    if (status == EXIT_FAILURE) {
         fputs("faultline: submission unconfirmed; the coordinator may already have accepted it\n", stderr);
+        if (request_key_text != NULL) {
+            fprintf(stderr, "faultline: retry the identical submission with --request-key %s\n", request_key_text);
+        }
     }
     (void)close(fd);
     return status;

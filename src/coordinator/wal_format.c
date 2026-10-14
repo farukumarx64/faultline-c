@@ -72,6 +72,10 @@ static enum faultline_wal_result payload_bounds(enum faultline_wal_record_type t
     case FAULTLINE_WAL_WORKER_ID_ALLOCATED:
         *minimum = *maximum = 4;
         return FAULTLINE_WAL_OK;
+    case FAULTLINE_WAL_JOB_CREATED_KEYED:
+        *minimum = FAULTLINE_WAL_KEYED_JOB_PREFIX_SIZE;
+        *maximum = FAULTLINE_WAL_KEYED_JOB_PREFIX_SIZE + FAULTLINE_JOB_MAX_ARGUMENT_SIZE;
+        return FAULTLINE_WAL_OK;
     case FAULTLINE_WAL_JOB_CREATED:
     case FAULTLINE_WAL_JOB_ASSIGNED:
     case FAULTLINE_WAL_JOB_STARTED:
@@ -97,6 +101,12 @@ static int valid_failure(enum faultline_job_failure failure)
 /* Validate one snapshot. Its relation to earlier records is a replay responsibility. */
 static int valid_job(enum faultline_wal_record_type type, const struct faultline_job *job)
 {
+    if (type == FAULTLINE_WAL_JOB_CREATED_KEYED) {
+        if (!faultline_request_key_present(job->request_key)) { return 0; }
+        type = FAULTLINE_WAL_JOB_CREATED;
+    } else if (type == FAULTLINE_WAL_JOB_CREATED && faultline_request_key_present(job->request_key)) {
+        return 0; /* Never silently drop a key at its only persistence boundary. */
+    }
     if (job->id == 0 || job->task_type < FAULTLINE_TASK_SLEEP || job->task_type > FAULTLINE_TASK_HASH ||
         job->argument_size > FAULTLINE_JOB_MAX_ARGUMENT_SIZE ||
         job->result_size > FAULTLINE_JOB_MAX_RESULT_SIZE || job->retry_count > job->max_retries ||
@@ -240,6 +250,9 @@ enum faultline_wal_result faultline_wal_record_encode(
     uint8_t *payload = wire + FAULTLINE_WAL_RECORD_HEADER_SIZE;
     if (record->type == FAULTLINE_WAL_WORKER_ID_ALLOCATED) {
         put_u32(payload, record->payload.worker_id);
+    } else if (record->type == FAULTLINE_WAL_JOB_CREATED_KEYED) {
+        memcpy(payload, record->payload.job.request_key, FAULTLINE_REQUEST_KEY_SIZE);
+        encode_job(payload + FAULTLINE_REQUEST_KEY_SIZE, &record->payload.job);
     } else {
         encode_job(payload, &record->payload.job);
     }
@@ -312,6 +325,13 @@ enum faultline_wal_result faultline_wal_record_decode(
     if (header.type == FAULTLINE_WAL_WORKER_ID_ALLOCATED) {
         decoded.payload.worker_id = get_u32(payload);
         if (decoded.payload.worker_id == 0) { return FAULTLINE_WAL_INVALID_PAYLOAD; }
+    } else if (header.type == FAULTLINE_WAL_JOB_CREATED_KEYED) {
+        if (!faultline_request_key_present(payload)) { return FAULTLINE_WAL_INVALID_PAYLOAD; }
+        result = decode_job(payload + FAULTLINE_REQUEST_KEY_SIZE,
+                            header.payload_length - FAULTLINE_REQUEST_KEY_SIZE,
+                            FAULTLINE_WAL_JOB_CREATED, &decoded.payload.job);
+        if (result != FAULTLINE_WAL_OK) { return result; }
+        memcpy(decoded.payload.job.request_key, payload, FAULTLINE_REQUEST_KEY_SIZE);
     } else {
         result = decode_job(payload, header.payload_length, header.type, &decoded.payload.job);
         if (result != FAULTLINE_WAL_OK) { return result; }

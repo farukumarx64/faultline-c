@@ -32,7 +32,7 @@ def read_wal(path, allow_tail=False):
         magic, version, kind, size, flags, sequence, payload_crc, header_crc = struct.unpack('!IHHIIQII', header)
         assert (magic, version, flags, sequence) == (0x464c5752, 1, 0, len(records) + 1)
         assert zlib.crc32(header[:28]) == header_crc
-        assert 1 <= kind <= 7 and 4 <= size <= 2132
+        assert 1 <= kind <= 8 and 4 <= size <= 2132
         if len(data) - offset < 32 + size:
             break
         payload = data[offset + 32:offset + 32 + size]
@@ -41,6 +41,9 @@ def read_wal(path, allow_tail=False):
         if kind == 1:
             record['worker'], = struct.unpack('!I', payload)
         else:
+            if kind == 8:
+                record['request_key'], payload = payload[:16], payload[16:]
+                assert len(record['request_key']) == 16 and any(record['request_key'])
             values = struct.unpack_from('!QHHIQIIQQQQQHHII', payload)
             keys = ('job', 'task', 'state', 'worker', 'attempt', 'retry', 'max_retries',
                     'created', 'updated', 'assigned', 'started', 'finished', 'failure',

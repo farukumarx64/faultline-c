@@ -68,6 +68,7 @@ enum faultline_scheduler_result faultline_scheduler_submit(
                            now_ms) != FAULTLINE_JOB_OK) {
         return FAULTLINE_SCHEDULER_INVALID_JOB;
     }
+    memcpy(job.request_key, submit->request_key, sizeof(job.request_key));
     if (faultline_job_queue_push(&scheduler->pending, &job) != FAULTLINE_JOB_QUEUE_OK) {
         return FAULTLINE_SCHEDULER_QUEUE_ERROR;
     }

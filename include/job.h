@@ -3,6 +3,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include "request_key.h"
 
 /* Model byte limits are also enforced by the job message codec. */
 #define FAULTLINE_JOB_MAX_ARGUMENT_SIZE 1024u
@@ -33,10 +34,13 @@ enum faultline_job_failure {
 /*
  * Coordinator-owned host representation; never send or persist this struct raw.
  * Initialize before use and treat fields as read-only outside this module.
+ * Admission/replay sets request_key once before publishing a fresh job;
+ * all later transitions preserve it.
  * The caller provides a unique nonzero job ID; this module owns no ID registry.
  */
 struct faultline_job {
     uint64_t id;
+    uint8_t request_key[FAULTLINE_REQUEST_KEY_SIZE]; /* Immutable admission metadata. */
     enum faultline_task_type task_type;
     uint8_t arguments[FAULTLINE_JOB_MAX_ARGUMENT_SIZE];
     size_t argument_size;

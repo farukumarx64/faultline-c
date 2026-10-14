@@ -43,6 +43,7 @@ MAIN_OBJECTS := $(BUILD_DIR)/coordinator/main.o \
 	$(BUILD_DIR)/worker/main.o $(BUILD_DIR)/cli/main.o
 TEST_NAMES := test_protocol test_messages test_net test_worker_registry test_jobs test_job_queue test_job_messages test_job_status test_list_messages test_scheduler test_tasks test_wal test_wal_writer test_wal_replay test_coordinator_store
 TEST_NAMES += test_stats test_log
+TEST_NAMES += test_deduplication
 TEST_OBJECTS := $(addprefix $(BUILD_DIR)/tests/,$(addsuffix .o,$(TEST_NAMES)))
 OBJECTS := $(COMMON_OBJECTS) $(MAIN_OBJECTS) $(TEST_OBJECTS) $(REGISTRY_OBJECT) $(JOB_OBJECT) $(QUEUE_OBJECT) $(SCHEDULER_OBJECT) $(TASK_OBJECT) $(WAL_FORMAT_OBJECT) $(WAL_WRITER_OBJECT) $(WAL_REPLAY_OBJECT) $(STORE_OBJECT)
 OBJECTS += $(STATS_OBJECT)
@@ -134,6 +135,7 @@ sanitize:
 test: test-unit test-integration
 
 test-unit: $(TEST_PROGRAMS)
+	./$(BUILD_DIR)/tests/test_deduplication
 	./$(BUILD_DIR)/tests/test_protocol
 	./$(BUILD_DIR)/tests/test_messages
 	./$(BUILD_DIR)/tests/test_net
@@ -187,6 +189,7 @@ test-coordinator-crashes: all $(BUILD_DIR)/tests/crash-coordinator
 	$(PYTHON) tests/integration/test_coordinator_crashes.py --bin-dir $(BUILD_DIR)
 
 test-integration: all $(BUILD_DIR)/tests/crash-coordinator
+	$(PYTHON) tests/integration/test_deduplication.py --bin-dir $(BUILD_DIR)
 	$(PYTHON) tests/integration/test_persistence.py --bin-dir $(BUILD_DIR)
 	$(PYTHON) tests/integration/test_startup_recovery.py --bin-dir $(BUILD_DIR)
 	$(PYTHON) tests/integration/test_coordinator_crashes.py --bin-dir $(BUILD_DIR)
@@ -249,6 +252,14 @@ $(BUILD_DIR)/tests/test_stats: $(STATS_OBJECT) $(JOB_OBJECT) $(QUEUE_OBJECT) $(S
 $(BUILD_DIR)/tests/test_tasks: $(TASK_OBJECT)
 
 $(BUILD_DIR)/tests/test_wal: $(JOB_OBJECT) $(WAL_FORMAT_OBJECT)
+
+$(BUILD_DIR)/tests/test_deduplication: $(JOB_OBJECT) $(WAL_FORMAT_OBJECT)
+
+.PHONY: test-deduplication
+test-deduplication: all $(BUILD_DIR)/tests/test_deduplication $(BUILD_DIR)/tests/test_coordinator_store $(BUILD_DIR)/tests/crash-coordinator
+	./$(BUILD_DIR)/tests/test_deduplication
+	./$(BUILD_DIR)/tests/test_coordinator_store
+	$(PYTHON) tests/integration/test_deduplication.py --bin-dir $(BUILD_DIR)
 
 $(BUILD_DIR)/tests/test_wal_writer: $(JOB_OBJECT) $(WAL_FORMAT_OBJECT) $(WAL_WRITER_OBJECT)
 

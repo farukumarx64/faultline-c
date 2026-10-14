@@ -85,8 +85,9 @@ static void log_job(const char *event, const struct faultline_job *job,
                     const struct faultline_coordinator_store *store, uint32_t previous_worker_id)
 {
     int recovered = strcmp(event, "job_recovered") == 0;
+    int reused = strcmp(event, "job_submission_reused") == 0;
     int failed_attempt = strcmp(event, "job_failed") == 0 || strcmp(event, "job_worker_lost") == 0;
-    const char *outcome = recovered ? "RESTORED" : failed_attempt ?
+    const char *outcome = recovered ? "RESTORED" : reused ? "EXISTING" : failed_attempt ?
         (job->state == FAULTLINE_JOB_QUEUED ? "REQUEUED" : "FAILED") :
         job->state == FAULTLINE_JOB_QUEUED ? "ACCEPTED" :
         job->state == FAULTLINE_JOB_DONE ? "COMPLETED" : job_state_name(job->state);
@@ -285,7 +286,8 @@ static void handle_message(struct client *client,
                " fd=%d last_heartbeat_ms=%" PRId64, client->worker_id, client->fd, now);
         reset_input(client);
         break;
-    case FAULTLINE_MSG_JOB_SUBMIT: {
+    case FAULTLINE_MSG_JOB_SUBMIT:
+    case FAULTLINE_MSG_JOB_SUBMIT_KEYED: {
         struct faultline_message ack = {.message_type = FAULTLINE_MSG_JOB_SUBMIT_ACK};
         if (client->worker_id != 0) {
             close_client(client, store, "worker_cannot_submit");
@@ -294,13 +296,22 @@ static void handle_message(struct client *client,
         enum faultline_store_result accepted = faultline_store_submit(
             store, &message->payload.job_submit, faultline_monotonic_ms(), &ack.payload.job_submit_ack);
         if (accepted == FAULTLINE_STORE_FATAL) { return; }
-        if (accepted != FAULTLINE_STORE_OK) {
+        if (accepted == FAULTLINE_STORE_CONFLICT) {
+            ack.message_type = FAULTLINE_MSG_JOB_SUBMIT_CONFLICT;
+            memcpy(ack.payload.job_submit_conflict, message->payload.job_submit.request_key, FAULTLINE_REQUEST_KEY_SIZE);
+            client->job_client = 1;
+            (void)faultline_log(stderr, "WARN", "coordinator", "job_submission_conflict", "fd=%d", client->fd);
+            queue_message(client, store, &ack, now);
+            return;
+        }
+        if (accepted != FAULTLINE_STORE_OK && accepted != FAULTLINE_STORE_DUPLICATE) {
             (void)faultline_log(stderr, "WARN", "coordinator", "submission_rejected", "fd=%d code=%d", client->fd, (int)accepted);
             close_client(client, store, "submission_rejected");
             return;
         }
         client->job_client = 1;
-        log_job("job_submitted", faultline_scheduler_find(jobs, ack.payload.job_submit_ack), store, 0);
+        log_job(accepted == FAULTLINE_STORE_DUPLICATE ? "job_submission_reused" : "job_submitted",
+                faultline_scheduler_find(jobs, ack.payload.job_submit_ack), store, 0);
         queue_message(client, store, &ack, now);
         break;
     }
@@ -414,7 +425,7 @@ static void read_message(struct client *client,
         }
         int allowed = header.message_type == FAULTLINE_MSG_PING ||
             (header.message_type == FAULTLINE_MSG_WORKER_REGISTER && !client->job_client) ||
-            ((header.message_type == FAULTLINE_MSG_JOB_SUBMIT ||
+            ((header.message_type == FAULTLINE_MSG_JOB_SUBMIT || header.message_type == FAULTLINE_MSG_JOB_SUBMIT_KEYED ||
               header.message_type == FAULTLINE_MSG_JOB_STATUS_REQUEST ||
               header.message_type == FAULTLINE_MSG_JOBS_REQUEST ||
               header.message_type == FAULTLINE_MSG_WORKERS_REQUEST ||

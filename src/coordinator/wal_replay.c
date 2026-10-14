@@ -86,6 +86,7 @@ static enum faultline_wal_replay_result apply_record(
     }
     const struct faultline_job *saved = &record->payload.job;
     struct faultline_scheduler *scheduler = &state->scheduler;
+    int creation = record->type == FAULTLINE_WAL_JOB_CREATED || record->type == FAULTLINE_WAL_JOB_CREATED_KEYED;
     if (saved->updated_at_ms < state->job_time_base_ms) {
         return history_error(report, FAULTLINE_WAL_HISTORY_TIME);
     }
@@ -93,11 +94,19 @@ static enum faultline_wal_replay_result apply_record(
     while (slot < scheduler->count && scheduler->jobs[slot].id != saved->id) { ++slot; }
     struct faultline_job candidate;
     enum faultline_job_result result;
-    if (record->type == FAULTLINE_WAL_JOB_CREATED) {
+    if (creation) {
         if (saved->id <= state->highest_job_id) { return history_error(report, FAULTLINE_WAL_HISTORY_ALLOCATION); }
         if (scheduler->count == FAULTLINE_JOB_STORE_CAPACITY) { return FAULTLINE_WAL_REPLAY_CAPACITY; }
         result = faultline_job_init(&candidate, saved->id, saved->task_type, saved->arguments,
                                     saved->argument_size, saved->max_retries, saved->created_at_ms);
+        if (record->type == FAULTLINE_WAL_JOB_CREATED_KEYED) {
+            for (size_t i = 0; i < scheduler->count; ++i) {
+                if (memcmp(scheduler->jobs[i].request_key, saved->request_key, FAULTLINE_REQUEST_KEY_SIZE) == 0) {
+                    return history_error(report, FAULTLINE_WAL_HISTORY_REQUEST_KEY);
+                }
+            }
+            memcpy(candidate.request_key, saved->request_key, FAULTLINE_REQUEST_KEY_SIZE);
+        }
     } else {
         if (slot == scheduler->count) { return history_error(report, FAULTLINE_WAL_HISTORY_UNKNOWN_JOB); }
         candidate = scheduler->jobs[slot];
@@ -146,7 +155,7 @@ static enum faultline_wal_replay_result apply_record(
         return history_error(report, FAULTLINE_WAL_HISTORY_FIFO);
     }
     scheduler->jobs[slot] = candidate;
-    if (record->type == FAULTLINE_WAL_JOB_CREATED) {
+    if (creation) {
         ++scheduler->count;
         state->highest_job_id = saved->id;
         scheduler->next_job_id = saved->id == UINT64_MAX ? 0 : saved->id + 1;

@@ -83,6 +83,13 @@ static enum faultline_protocol_result message_payload_bounds(
         *minimum = FAULTLINE_JOB_SUBMIT_PREFIX_SIZE;
         extra = FAULTLINE_JOB_MAX_ARGUMENT_SIZE;
         break;
+    case FAULTLINE_MSG_JOB_SUBMIT_KEYED:
+        *minimum = FAULTLINE_JOB_SUBMIT_KEYED_PREFIX_SIZE;
+        extra = FAULTLINE_JOB_MAX_ARGUMENT_SIZE;
+        break;
+    case FAULTLINE_MSG_JOB_SUBMIT_CONFLICT:
+        *minimum = FAULTLINE_REQUEST_KEY_SIZE;
+        break;
     case FAULTLINE_MSG_JOB_SUBMIT_ACK:
         *minimum = FAULTLINE_JOB_SUBMIT_ACK_PAYLOAD_SIZE;
         break;
@@ -360,10 +367,20 @@ static enum faultline_protocol_result validate_message(
         }
         break;
     case FAULTLINE_MSG_JOB_SUBMIT:
+    case FAULTLINE_MSG_JOB_SUBMIT_KEYED:
+        if (faultline_request_key_present(message->payload.job_submit.request_key) !=
+            (message->message_type == FAULTLINE_MSG_JOB_SUBMIT_KEYED)) {
+            return FAULTLINE_PROTOCOL_INVALID_REQUEST_KEY;
+        }
         if (!valid_task(message->payload.job_submit.task_type)) {
             return FAULTLINE_PROTOCOL_INVALID_TASK_TYPE;
         }
         data_size = message->payload.job_submit.argument_size;
+        break;
+    case FAULTLINE_MSG_JOB_SUBMIT_CONFLICT:
+        if (!faultline_request_key_present(message->payload.job_submit_conflict)) {
+            return FAULTLINE_PROTOCOL_INVALID_REQUEST_KEY;
+        }
         break;
     case FAULTLINE_MSG_JOB_SUBMIT_ACK:
         if (message->payload.job_submit_ack == 0) {
@@ -481,14 +498,22 @@ enum faultline_protocol_result faultline_message_encode(
     case FAULTLINE_MSG_HEARTBEAT:
         write_u32_be(payload, message->payload.worker_id);
         break;
-    case FAULTLINE_MSG_JOB_SUBMIT: {
+    case FAULTLINE_MSG_JOB_SUBMIT:
+    case FAULTLINE_MSG_JOB_SUBMIT_KEYED: {
         const struct faultline_job_submit_payload *submit = &message->payload.job_submit;
+        if (message->message_type == FAULTLINE_MSG_JOB_SUBMIT_KEYED) {
+            memcpy(payload, submit->request_key, FAULTLINE_REQUEST_KEY_SIZE);
+            payload += FAULTLINE_REQUEST_KEY_SIZE;
+        }
         write_u16_be(payload, submit->task_type);
         write_u32_be(payload + 2, submit->max_retries);
         write_u32_be(payload + 6, (uint32_t)submit->argument_size);
         memcpy(payload + 10, submit->arguments, submit->argument_size);
         break;
     }
+    case FAULTLINE_MSG_JOB_SUBMIT_CONFLICT:
+        memcpy(payload, message->payload.job_submit_conflict, FAULTLINE_REQUEST_KEY_SIZE);
+        break;
     case FAULTLINE_MSG_JOB_SUBMIT_ACK:
         write_u64_be(payload, message->payload.job_submit_ack);
         break;
@@ -640,10 +665,20 @@ enum faultline_protocol_result faultline_message_decode(
         decoded.payload.worker_id = read_u32_be(payload);
         break;
     case FAULTLINE_MSG_JOB_SUBMIT:
-        decoded.payload.job_submit.task_type = read_u16_be(payload);
-        decoded.payload.job_submit.max_retries = read_u32_be(payload + 2);
-        decoded.payload.job_submit.argument_size = read_u32_be(payload + 6);
+    case FAULTLINE_MSG_JOB_SUBMIT_KEYED: {
+        const uint8_t *fields = payload;
+        if (header.message_type == FAULTLINE_MSG_JOB_SUBMIT_KEYED) {
+            memcpy(decoded.payload.job_submit.request_key, fields, FAULTLINE_REQUEST_KEY_SIZE);
+            fields += FAULTLINE_REQUEST_KEY_SIZE;
+        }
+        decoded.payload.job_submit.task_type = read_u16_be(fields);
+        decoded.payload.job_submit.max_retries = read_u32_be(fields + 2);
+        decoded.payload.job_submit.argument_size = read_u32_be(fields + 6);
         data = decoded.payload.job_submit.arguments;
+        break;
+    }
+    case FAULTLINE_MSG_JOB_SUBMIT_CONFLICT:
+        memcpy(decoded.payload.job_submit_conflict, payload, FAULTLINE_REQUEST_KEY_SIZE);
         break;
     case FAULTLINE_MSG_JOB_SUBMIT_ACK:
         decoded.payload.job_submit_ack = read_u64_be(payload);

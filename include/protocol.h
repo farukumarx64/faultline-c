@@ -18,6 +18,7 @@
 
 /* Prefix sizes exclude both the header and any argument/result bytes. */
 #define FAULTLINE_JOB_SUBMIT_PREFIX_SIZE 10u
+#define FAULTLINE_JOB_SUBMIT_KEYED_PREFIX_SIZE (FAULTLINE_REQUEST_KEY_SIZE + FAULTLINE_JOB_SUBMIT_PREFIX_SIZE)
 #define FAULTLINE_JOB_SUBMIT_ACK_PAYLOAD_SIZE 8u
 #define FAULTLINE_JOB_ASSIGN_PREFIX_SIZE 26u
 #define FAULTLINE_JOB_STARTED_PAYLOAD_SIZE 20u
@@ -56,7 +57,9 @@ enum faultline_message_type {
     FAULTLINE_MSG_WORKERS_REQUEST = 17,
     FAULTLINE_MSG_WORKERS_RESPONSE = 18,
     FAULTLINE_MSG_STATS_REQUEST = 19,
-    FAULTLINE_MSG_STATS_RESPONSE = 20
+    FAULTLINE_MSG_STATS_RESPONSE = 20,
+    FAULTLINE_MSG_JOB_SUBMIT_KEYED = 21,
+    FAULTLINE_MSG_JOB_SUBMIT_CONFLICT = 22
 };
 
 /* Host-order values only. Never send this struct directly over a socket. */
@@ -75,6 +78,7 @@ struct faultline_job_identity {
 };
 
 struct faultline_job_submit_payload {
+    uint8_t request_key[FAULTLINE_REQUEST_KEY_SIZE]; /* Zero for legacy SUBMIT; nonzero for KEYED. */
     uint16_t task_type;
     uint32_t max_retries;
     size_t argument_size;
@@ -196,6 +200,7 @@ struct faultline_message {
         uint32_t worker_id;
         struct faultline_job_submit_payload job_submit;
         uint64_t job_submit_ack; /* Successful acceptance: coordinator-issued job ID. */
+        uint8_t job_submit_conflict[FAULTLINE_REQUEST_KEY_SIZE]; /* Echoes the conflicting key. */
         struct faultline_job_assign_payload job_assign;
         struct faultline_job_identity job_started;
         struct faultline_job_completed_payload job_completed;
@@ -229,7 +234,8 @@ enum faultline_protocol_result {
     FAULTLINE_PROTOCOL_INVALID_LIST_ORDER,
     FAULTLINE_PROTOCOL_INVALID_WORKER_STATE,
     FAULTLINE_PROTOCOL_INVALID_HEARTBEAT_TIMEOUT,
-    FAULTLINE_PROTOCOL_INVALID_STATS
+    FAULTLINE_PROTOCOL_INVALID_STATS,
+    FAULTLINE_PROTOCOL_INVALID_REQUEST_KEY
 };
 
 /*

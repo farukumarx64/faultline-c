@@ -9,6 +9,7 @@
 #define FAULTLINE_WAL_RECORD_MAGIC UINT32_C(0x464c5752) /* FLWR */
 #define FAULTLINE_WAL_RECORD_HEADER_SIZE 32u
 #define FAULTLINE_WAL_JOB_PREFIX_SIZE 84u
+#define FAULTLINE_WAL_KEYED_JOB_PREFIX_SIZE (FAULTLINE_REQUEST_KEY_SIZE + FAULTLINE_WAL_JOB_PREFIX_SIZE)
 #define FAULTLINE_WAL_MAX_PAYLOAD_SIZE \
     (FAULTLINE_WAL_JOB_PREFIX_SIZE + FAULTLINE_JOB_MAX_ARGUMENT_SIZE + FAULTLINE_JOB_MAX_RESULT_SIZE)
 #define FAULTLINE_WAL_MAX_RECORD_SIZE \
@@ -21,10 +22,13 @@ enum faultline_wal_record_type {
     FAULTLINE_WAL_JOB_STARTED = 4,
     FAULTLINE_WAL_JOB_COMPLETED = 5,
     FAULTLINE_WAL_JOB_REQUEUED = 6,
-    FAULTLINE_WAL_JOB_FAILED = 7
+    FAULTLINE_WAL_JOB_FAILED = 7,
+    FAULTLINE_WAL_JOB_CREATED_KEYED = 8 /* Key + original creation snapshot; one synced record. */
 };
 
-/* Host representations, not disk layouts. Job records own the post-transition snapshot. */
+/* Host representations, not disk layouts. Job records own the post-transition
+ * execution snapshot. Only keyed creation serializes request_key; replay carries
+ * that immutable field forward through later records, whose decoded key is zero. */
 struct faultline_wal_record {
     enum faultline_wal_record_type type;
     uint64_t sequence;
